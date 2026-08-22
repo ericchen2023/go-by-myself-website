@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "types": ["vite/client", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "#runtime-adapter": ["src/demo/adapter.js"],
+      "#mode-presentation": ["src/demo/mode-presentation.js"]
+    }
+  },
+  "include": ["src/**/*.js", "src/**/*.d.ts", "gateway/**/*.js", "scripts/**/*.mjs", "tests/**/*.js", "vite.config.js", "playwright.config.js"],
+  "exclude": ["node_modules", "dist-*", "supabase/functions"]
+}

@@ -1,0 +1,63 @@
+{
+  "name": "go-by-myself-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "NDHU campus autonomous-delivery student project",
+  "engines": {
+    "node": ">=22 <25",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "demo": "cross-env VITE_APP_MODE=demo VITE_DEPLOY_ENV=demo vite",
+    "dev": "npm run demo",
+    "dev:production": "cross-env VITE_APP_MODE=production VITE_DEPLOY_ENV=local vite",
+    "build": "npm run build:demo",
+    "build:demo": "cross-env VITE_APP_MODE=demo VITE_DEPLOY_ENV=demo vite build --outDir dist-demo",
+    "build:production": "cross-env VITE_APP_MODE=production VITE_DEPLOY_ENV=production vite build --outDir dist-production",
+    "preview:demo": "vite preview --outDir dist-demo",
+    "preview:production": "vite preview --outDir dist-production",
+    "doctor": "node scripts/doctor.mjs",
+    "env:init": "node scripts/env-init.mjs",
+    "env:check": "node scripts/env-check.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:a11y": "playwright test tests/e2e/accessibility.spec.js",
+    "contract:check": "node scripts/contract-check.mjs",
+    "contract:fixtures": "node scripts/contract-check.mjs --fixtures",
+    "boundary:check": "node scripts/check-boundaries.mjs",
+    "bundle:check": "node scripts/check-bundles.mjs",
+    "benchmark:local": "node scripts/benchmark-local.mjs",
+    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run contract:check && npm run build:demo && npm run build:production && npm run boundary:check && npm run bundle:check",
+    "local:up": "npx supabase start",
+    "local:reset": "npx supabase db reset",
+    "local:down": "npx supabase stop",
+    "db:reset": "npx supabase db reset",
+    "db:test": "npx supabase test db",
+    "db:types:check": "node scripts/db-types-check.mjs",
+    "smoke:demo": "playwright test tests/e2e/demo-happy-path.spec.js",
+    "smoke:staging": "node scripts/smoke-remote.mjs staging",
+    "smoke:production": "node scripts/smoke-remote.mjs production",
+    "gateway": "node gateway/src/server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@eslint/js": "^9.35.0",
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.3.0",
+    "cross-env": "^10.0.0",
+    "eslint": "^9.35.0",
+    "globals": "^16.3.0",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.4",
+    "vitest": "^3.2.4"
+  }
+}

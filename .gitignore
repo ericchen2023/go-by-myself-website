@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-demo/
+dist-production/
+playwright-report/
+test-results/
+coverage/
+gateway/data/
+.env
+.env.*
+!.env.example
+.supabase/
+.gstack/
+supabase/.temp/
+*.log
+.DS_Store
+Thumbs.db

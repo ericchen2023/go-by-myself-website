@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-by-myself.invalid/contracts/delivery-projection.schema.json",
+  "title": "Privacy-safe delivery projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "deliveryId", "version", "status", "observedAt", "connectivity", "positionQuality"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "deliveryId": { "type": "string", "format": "uuid" },
+    "version": { "type": "integer", "minimum": 1 },
+    "status": { "type": "string" },
+    "segmentId": { "type": ["string", "null"] },
+    "progress": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "observedAt": { "type": ["string", "null"], "format": "date-time" },
+    "connectivity": { "type": "string", "enum": ["online", "stale", "offline"] },
+    "positionQuality": { "type": "string", "enum": ["valid", "pending", "off_route"] },
+    "etaRangeSeconds": {
+      "type": ["array", "null"],
+      "prefixItems": [{ "type": "integer", "minimum": 0 }, { "type": "integer", "minimum": 0 }],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
+

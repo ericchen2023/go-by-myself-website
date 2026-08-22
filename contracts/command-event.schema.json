@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-by-myself.invalid/contracts/command-event.schema.json",
+  "title": "Robot command event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "commandId", "eventId", "event", "observedAt", "sourceSequence", "evidence"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "commandId": { "type": "string", "format": "uuid" },
+    "eventId": { "type": "string", "format": "uuid" },
+    "event": { "type": "string", "enum": ["accepted", "rejected", "completed", "failed"] },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "sourceSequence": { "type": "integer", "minimum": 0 },
+    "errorCode": { "type": "string", "maxLength": 64 },
+    "evidence": { "type": "object", "additionalProperties": true, "maxProperties": 12 }
+  }
+}
+

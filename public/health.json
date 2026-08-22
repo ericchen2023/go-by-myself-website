@@ -1,0 +1,5 @@
+{
+  "status": "ok",
+  "service": "go-by-myself-web",
+  "capability": "static-shell"
+}

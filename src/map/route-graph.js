@@ -1,0 +1,149 @@
+export const ROUTE_GRAPH_VERSION = 'ndhu-supplied-schematic-v2';
+
+export const ROUTE_NODES = Object.freeze([
+  // The coordinates below reproduce the topology in the supplied hand sketch.
+  // Every bend is a real graph node, so route projection and the SVG can never
+  // disagree about where a vehicle is allowed to appear.
+  { id: 'P_ORIGIN', x: 440, y: 480 },
+  { id: 'P_JOIN', x: 440, y: 455 },
+  { id: 'TRUNK_SOUTH', x: 480, y: 455 },
+  { id: 'TRUNK_HSS', x: 480, y: 285 },
+  { id: 'TRUNK_NORTH', x: 480, y: 100 },
+  { id: 'LIBRARY', x: 590, y: 100 },
+  { id: 'HSS_JUNCTION', x: 390, y: 285 },
+  { id: 'HSS_TOP_TURN', x: 390, y: 230 },
+  { id: 'HSS_BOTTOM_TURN', x: 390, y: 340 },
+  { id: 'HSS2', x: 325, y: 230 },
+  { id: 'HSS1', x: 325, y: 340 },
+  { id: 'ADMIN_TURN', x: 540, y: 455 },
+  { id: 'ADMIN_DROP', x: 540, y: 515 },
+  { id: 'ADMIN', x: 720, y: 515 }
+]);
+
+const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
+
+function edge(id, fromNodeId, toNodeId) {
+  const from = nodeById.get(fromNodeId);
+  const to = nodeById.get(toNodeId);
+  if (!from || !to) throw new Error(`Unknown route node in ${id}`);
+  return Object.freeze({
+    id,
+    fromNodeId,
+    toNodeId,
+    svgPathD: `M ${from.x} ${from.y} L ${to.x} ${to.y}`,
+    length: Math.hypot(to.x - from.x, to.y - from.y),
+    directionPolicy: 'bidirectional'
+  });
+}
+
+export const ROUTE_EDGES = Object.freeze([
+  edge('edge-origin-join', 'P_ORIGIN', 'P_JOIN'),
+  edge('edge-origin-trunk', 'P_JOIN', 'TRUNK_SOUTH'),
+  edge('edge-trunk-south-hss', 'TRUNK_SOUTH', 'TRUNK_HSS'),
+  edge('edge-trunk-hss-north', 'TRUNK_HSS', 'TRUNK_NORTH'),
+  edge('edge-north-library', 'TRUNK_NORTH', 'LIBRARY'),
+  edge('edge-hss-junction', 'TRUNK_HSS', 'HSS_JUNCTION'),
+  edge('edge-hss-top', 'HSS_JUNCTION', 'HSS_TOP_TURN'),
+  edge('edge-hss2', 'HSS_TOP_TURN', 'HSS2'),
+  edge('edge-hss-bottom', 'HSS_JUNCTION', 'HSS_BOTTOM_TURN'),
+  edge('edge-hss1', 'HSS_BOTTOM_TURN', 'HSS1'),
+  edge('edge-admin-turn', 'TRUNK_SOUTH', 'ADMIN_TURN'),
+  edge('edge-admin-drop', 'ADMIN_TURN', 'ADMIN_DROP'),
+  edge('edge-admin', 'ADMIN_DROP', 'ADMIN')
+]);
+
+export const DELIVERY_LOCATIONS = Object.freeze([
+  { code: 'LIBRARY', name: '圖資中心', detail: '圖資大樓正門・公車站前', routeNodeId: 'LIBRARY', active: true },
+  { code: 'ADMIN', name: '行政大樓', detail: '郵局旁', routeNodeId: 'ADMIN', active: true },
+  { code: 'HSS1', name: '人社一館', detail: '人社院南側取放點', routeNodeId: 'HSS1', active: true },
+  { code: 'HSS2', name: '人社二館', detail: '人社院北側取放點', routeNodeId: 'HSS2', active: true }
+]);
+
+/** @param {string} code */
+export function locationByCode(code) {
+  return DELIVERY_LOCATIONS.find((location) => location.code === code) ?? null;
+}
+
+/**
+ * Returns an oriented shortest path while preserving each edge's canonical direction.
+ * @param {string} fromNodeId
+ * @param {string} toNodeId
+ */
+export function shortestRoute(fromNodeId, toNodeId) {
+  if (!nodeById.has(fromNodeId) || !nodeById.has(toNodeId)) return [];
+  /** @type {Map<string, Array<{edge: typeof ROUTE_EDGES[number], next: string, forward: boolean}>>} */
+  const adjacency = new Map();
+  for (const node of ROUTE_NODES) adjacency.set(node.id, []);
+  for (const item of ROUTE_EDGES) {
+    adjacency.get(item.fromNodeId)?.push({ edge: item, next: item.toNodeId, forward: true });
+    adjacency.get(item.toNodeId)?.push({ edge: item, next: item.fromNodeId, forward: false });
+  }
+
+  const distances = new Map(ROUTE_NODES.map((node) => [node.id, Number.POSITIVE_INFINITY]));
+  const previous = new Map();
+  const open = new Set(ROUTE_NODES.map((node) => node.id));
+  distances.set(fromNodeId, 0);
+
+  while (open.size) {
+    const current = [...open].sort((a, b) => (distances.get(a) ?? Infinity) - (distances.get(b) ?? Infinity))[0];
+    open.delete(current);
+    if (current === toNodeId) break;
+    for (const option of adjacency.get(current) ?? []) {
+      if (!open.has(option.next)) continue;
+      const candidate = (distances.get(current) ?? Infinity) + option.edge.length;
+      if (candidate < (distances.get(option.next) ?? Infinity)) {
+        distances.set(option.next, candidate);
+        previous.set(option.next, { previousNode: current, ...option });
+      }
+    }
+  }
+
+  const route = [];
+  let cursor = toNodeId;
+  while (cursor !== fromNodeId) {
+    const step = previous.get(cursor);
+    if (!step) return [];
+    route.unshift({
+      edgeId: step.edge.id,
+      fromNodeId: step.previousNode,
+      toNodeId: cursor,
+      forward: step.forward,
+      length: step.edge.length
+    });
+    cursor = step.previousNode;
+  }
+  return route;
+}
+
+/**
+ * @param {ReturnType<typeof shortestRoute>} route
+ * @param {number} overallProgress
+ */
+export function positionAlongRoute(route, overallProgress) {
+  if (!route.length) return null;
+  const clamped = Math.max(0, Math.min(1, overallProgress));
+  const total = route.reduce((sum, part) => sum + part.length, 0);
+  let distance = clamped * total;
+  for (const [index, part] of route.entries()) {
+    if (distance <= part.length || index === route.length - 1) {
+      const local = Math.max(0, Math.min(1, distance / part.length));
+      return {
+        segmentId: part.edgeId,
+        progress: part.forward ? local : 1 - local
+      };
+    }
+    distance -= part.length;
+  }
+  return null;
+}
+
+export function assertRouteGraphIntegrity() {
+  const edgeEndpoints = new Set(ROUTE_EDGES.flatMap((item) => [item.fromNodeId, item.toNodeId]));
+  for (const location of DELIVERY_LOCATIONS) {
+    if (!edgeEndpoints.has(location.routeNodeId)) throw new Error(`${location.code} is not on a route endpoint`);
+  }
+  if (new Set(DELIVERY_LOCATIONS.map((location) => location.code)).size !== 4) {
+    throw new Error('Expected exactly four unique delivery locations');
+  }
+  return true;
+}

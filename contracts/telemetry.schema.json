@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-by-myself.invalid/contracts/telemetry.schema.json",
+  "title": "Robot telemetry envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "vehicleId", "bootId", "sequence", "messageId", "observedAt", "receivedAt", "pose", "battery", "quality"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "vehicleId": { "type": "string", "format": "uuid" },
+    "bootId": { "type": "string", "format": "uuid" },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "messageId": { "type": "string", "format": "uuid" },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "receivedAt": { "type": "string", "format": "date-time" },
+    "pose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frameId", "x", "y", "heading"],
+      "properties": {
+        "frameId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "heading": { "type": "number", "minimum": -360, "maximum": 360 }
+      }
+    },
+    "speed": { "type": "number", "minimum": 0 },
+    "battery": { "type": "number", "minimum": 0, "maximum": 100 },
+    "quality": { "type": "string", "enum": ["valid", "degraded", "invalid"] }
+  }
+}
+

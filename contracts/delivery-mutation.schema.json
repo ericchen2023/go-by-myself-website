@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-by-myself.invalid/contracts/delivery-mutation.schema.json",
+  "title": "Delivery mutation envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "expectedVersion", "idempotencyKey", "intent"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "expectedVersion": { "type": "integer", "minimum": 0 },
+    "idempotencyKey": { "type": "string", "format": "uuid" },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "CREATE_AND_CONFIRM",
+        "GET_ACTIVE_DELIVERY",
+        "REQUEST_DISPATCH",
+        "REQUEST_SENDER_OPEN",
+        "LOAD_CONFIRMED",
+        "REQUEST_CANCEL",
+        "REDEEM_PICKUP_CREDENTIAL"
+      ]
+    }
+  }
+}
+

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-by-myself.invalid/contracts/delivery-command.schema.json",
+  "title": "Robot command envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "commandId",
+    "correlationId",
+    "idempotencyKey",
+    "vehicleId",
+    "deliveryId",
+    "type",
+    "issuedAt",
+    "expiresAt",
+    "expectedVehicleState",
+    "payload"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "commandId": { "type": "string", "format": "uuid" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "idempotencyKey": { "type": "string", "minLength": 8, "maxLength": 128 },
+    "vehicleId": { "type": "string", "format": "uuid" },
+    "deliveryId": { "type": "string", "format": "uuid" },
+    "type": { "type": "string", "enum": ["DISPATCH", "OPEN_COMPARTMENT", "CANCEL", "RETURN_TO_BASE"] },
+    "issuedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "expectedVehicleState": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "payload": { "type": "object", "additionalProperties": true, "maxProperties": 12 }
+  }
+}
+
