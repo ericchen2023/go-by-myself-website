@@ -94,7 +94,7 @@ h2 { font-size: clamp(1.4rem, 2.5vw, 2.1rem); }
 .brand-code { margin-bottom: 4px; color: var(--route); }
 .site-nav { display: flex; align-items: center; gap: 22px; }
 .site-nav a {
-  display: inline-flex; align-items: center; min-height: 44px;
+  display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0 8px;
   color: var(--ink); font-size: .92rem; text-decoration: none;
 }
 .site-nav a:hover { color: var(--route); }
@@ -110,6 +110,7 @@ h2 { font-size: clamp(1.4rem, 2.5vw, 2.1rem); }
 }
 .site-footer p { margin: 0; }
 .site-footer nav { display: flex; gap: 24px; }
+.site-footer a, .aside-section--help a { display: inline-flex; align-items: center; min-height: 44px; }
 
 .button {
   display: inline-flex; align-items: center; justify-content: center; min-height: 48px;
@@ -556,8 +557,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--route); outline:
   .official-lockup { margin-bottom: 25px; }
   .hero-title-en { max-width: 7ch; font-size: clamp(2.9rem, 15vw, 4.8rem); line-height: .9; word-spacing: .08em; }
   .hero-title-zh { font-size: 1.35rem; }
-  .hero-route-copy { align-items: flex-start; flex-direction: column; gap: 3px; }
-  .hero-route-copy span:nth-child(even) { display: none; }
+  .hero-route-copy { flex-wrap: wrap; gap: 5px 7px; font-size: .92rem; }
   .hero-map-shell { border-radius: 4px 4px 22px 4px; transform: none; }
   .hero-map-kicker, .hero-map-caption { padding-right: 15px; padding-left: 15px; }
   .hero-map-caption .project-mark { display: none; }
