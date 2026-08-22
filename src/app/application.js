@@ -11,7 +11,7 @@ import {
   summaryItem
 } from './components.js';
 import { createRouteSelector } from '../map/map-view.js';
-import { locationByCode } from '../map/route-graph.js';
+import { locationByCode, shortestRoute } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
 import { notificationCopy, stepForStatus } from '../domain/presentation.js';
 import {
@@ -212,9 +212,8 @@ export class Application {
     });
     return this.#flowMain(2, el('div', { className: 'flow-card' },
       el('div', { className: 'flow-heading' },
-        el('p', { className: 'eyebrow' }, 'STEP 2'),
         el('h1', {}, '你要在哪裡放入物品？'),
-        el('p', {}, '以下是專題候選停靠點；實體運作前仍需校方與 robot team 核准。')
+        el('p', {}, '以下站點目前僅供專題展示；實際停靠位置仍需校方與車輛團隊確認。')
       ),
       routeSelector,
       el('div', { className: 'action-row action-row--end' },
@@ -245,8 +244,8 @@ export class Application {
     const fields = el('div', { className: 'form-grid' });
     fields.append(
       this.#textField('recipientName', '收件人姓名', draft.recipientName, { autocomplete: 'name', maxlength: '50', required: true }),
-      this.#textField('recipientPhone', '台灣手機號碼', draft.recipientPhone, { autocomplete: 'tel', inputmode: 'tel', placeholder: '0912345678', required: true }),
-      this.#textField('recipientEmail', 'Email（選填）', draft.recipientEmail, { autocomplete: 'email', type: 'email', maxlength: '254', help: '只有填寫並同意通知用途時，才可作為通知 fallback。' }),
+      this.#textField('recipientPhone', '台灣手機號碼', draft.recipientPhone, { autocomplete: 'tel', inputmode: 'tel', placeholder: '0912345678', required: true, help: '手機號碼用來傳送取件資訊，也會在現場需要協助時聯絡收件人。' }),
+      this.#textField('recipientEmail', 'Email（選填）', draft.recipientEmail, { autocomplete: 'email', type: 'email', maxlength: '254', help: '若主要通知未送達，系統才會改用你同意提供的 Email。' }),
       this.#selectField('itemType', '物品類型', draft.itemType, ITEM_TYPES),
       this.#textArea('note', '備註（選填）', draft.note, { maxlength: '300', help: '請勿填入不必要的個人資料。最多 300 字。' })
     );
@@ -278,9 +277,8 @@ export class Application {
     });
     return this.#flowMain(3, el('div', { className: 'flow-card' },
       el('div', { className: 'flow-heading' },
-        el('p', { className: 'eyebrow' }, 'STEP 3'),
         el('h1', {}, '填寫投遞資料'),
-        el('p', {}, '收件手機為取件通知與現場 recovery 的必要聯絡方式。')
+        el('p', {}, '請填寫收件資訊。送出前仍可返回修改。')
       ),
       form
     ));
@@ -342,9 +340,8 @@ export class Application {
     const item = ITEM_TYPES.find(([value]) => value === draft.itemType)?.[1] ?? draft.itemType;
     return this.#flowMain(4, el('div', { className: 'flow-card flow-card--narrow' },
       el('div', { className: 'flow-heading' },
-        el('p', { className: 'eyebrow' }, 'STEP 4'),
         el('h1', {}, '確認投遞內容'),
-        el('p', {}, '確認後會建立一筆版本化投遞；重複點擊不會重複派車。')
+        el('p', {}, '確認後會建立這次投遞。重複點擊不會產生第二筆投遞。')
       ),
       el('dl', { className: 'summary-grid' },
         summaryItem('放件地點', pickup ? `${pickup.name}｜${pickup.detail}` : '未選擇'),
@@ -357,7 +354,7 @@ export class Application {
       ),
       el('div', { className: 'privacy-callout' },
         el('strong', {}, '資料用途'),
-        el('p', {}, '收件聯絡資料只用於本次投遞、取件與必要 recovery；展示模式只使用合成資料。')
+        el('p', {}, '收件資料只用於這次投遞、取件與必要聯絡。展示模式不會使用真實資料。')
       ),
       el('p', { className: 'cancellation-copy' }, '尚未派車前可直接取消；車輛開始執行後，取消會先進入安全處理，不會立即宣稱完成。'),
       el('div', { className: 'action-row' },
@@ -382,13 +379,17 @@ export class Application {
     const pickup = locationByCode(delivery.pickupCode);
     const dropoff = locationByCode(delivery.dropoffCode);
     const telemetry = this.state.telemetry;
+    const activeRouteParts = currentStep <= 6
+      ? shortestRoute('P_ORIGIN', pickup?.routeNodeId ?? '')
+      : shortestRoute(pickup?.routeNodeId ?? '', dropoff?.routeNodeId ?? '');
     const route = createRouteSelector({
-      id: 'delivery-route',
+      id: `delivery-route-${delivery.id}`,
       label: currentStep <= 6 ? '車輛前往放件地點' : '投遞路線與站點',
       pickupCode: delivery.pickupCode,
       dropoffCode: delivery.dropoffCode,
       interactive: false,
       activeEdgeIds: telemetry.activeEdgeIds,
+      activeRouteParts,
       vehiclePosition: telemetry.positionQuality === 'off_route' ? null : telemetry.position
     });
     const body = el('div', { className: 'status-layout' },
@@ -399,7 +400,6 @@ export class Application {
       ),
       el('aside', { className: 'status-aside', 'aria-label': '投遞摘要' },
         el('section', { className: 'aside-section' },
-          el('p', { className: 'eyebrow' }, 'DELIVERY'),
           el('h2', {}, '本次投遞'),
           el('dl', { className: 'compact-summary' },
             summaryItem('放件', pickup?.name ?? ''),
@@ -411,7 +411,7 @@ export class Application {
         el('section', { className: 'aside-section' },
           el('h2', {}, '位置可信度'),
           el('p', { className: `status-chip status-chip--${telemetry.connectivity}` }, this.#connectivityLabel(telemetry.connectivity)),
-          el('p', { className: 'muted' }, telemetry.observedAt ? `最後可信更新：${this.#formatTime(telemetry.observedAt)}` : '等待第一筆車輛位置，不顯示假 marker。')
+          el('p', { className: 'muted' }, telemetry.observedAt ? `最後可信更新：${this.#formatTime(telemetry.observedAt)}` : '收到第一筆可靠位置後，地圖才會顯示車輛。')
         ),
         this.state.notificationState ? el('section', { className: 'aside-section' },
           el('h2', {}, '收件通知'),
@@ -457,17 +457,17 @@ export class Application {
     } else if (status === 'loaded') {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '已取得放件證據，正在確認艙門與移動條件。'));
     } else if (['in_transit', 'arrived_dropoff'].includes(status)) {
-      action.append(el('p', {}, status === 'arrived_dropoff' ? '車輛已到站，但收件人尚未完成驗證與取物。' : '運送中。只有可信 telemetry 才會更新示意 marker 與時間。'));
+      action.append(el('p', {}, status === 'arrived_dropoff' ? '車輛已到站，但收件人尚未完成驗證與取物。' : '車輛正在前往收件站。收到可靠位置後，地圖會自動更新。'));
     } else if (status === 'awaiting_recipient') {
       action.append(
-        el('p', {}, '收件人不需登入 sender 帳號。請開啟 privacy-safe 取件頁完成一次性驗證。'),
+        el('p', {}, '收件人不必登入。請將取件連結和展示取件碼交給收件人。'),
         credentialCallout('sender'),
         el('a', { className: 'button button--primary', href: `/pickup/${delivery.publicRef}` }, '前往收件人取件頁')
       );
     } else if (status === 'compartment_open_for_recipient') {
-      action.append(el('p', {}, '收件艙已開啟；等待取物與關門 evidence。請勿將此狀態當作投遞完成。'));
+      action.append(el('p', {}, '收件艙已開啟，正在等待收件人取出物品並關好艙門。這時投遞尚未完成。'));
     } else if (status === 'picked_up') {
-      action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '取物與關門 evidence 已收到，正在完成 custody confirmation。'));
+      action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '已收到取物與關門資訊，正在完成最後確認。'));
     } else if (status === 'completed') {
       action.append(this.#completionPanel(delivery));
     } else if (['cancel_requested', 'returning_to_base'].includes(status)) {
@@ -475,7 +475,7 @@ export class Application {
     } else if (status === 'cancelled') {
       action.append(el('p', {}, cancelledCopy), this.#newDeliveryButton());
     } else if (status === 'delivery_failed') {
-      action.append(el('div', { className: 'alert alert--danger' }, '投遞進入 terminal failure。實機環境必須由 operator 依 custody runbook 接手。'));
+      action.append(el('div', { className: 'alert alert--danger' }, '投遞無法繼續。請保持物品與艙門原狀，等待現場人員協助。'));
     }
 
     const cancelStatuses = ['confirmed', 'dispatching', 'arrived_pickup', 'compartment_open_for_sender', 'loaded', 'in_transit'];
@@ -565,8 +565,7 @@ export class Application {
       header,
       el('main', { id: 'main-content', className: 'recipient-main' },
         el('section', { className: 'pickup-context', 'aria-labelledby': 'pickup-title' },
-          el('p', { className: 'eyebrow' }, 'ACCOUNTLESS PICKUP'),
-          el('h1', { id: 'pickup-title' }, '在正確站點安全取件'),
+          el('h1', { id: 'pickup-title' }, '確認站點與車輛後取件'),
           el('div', { className: 'pickup-identity' },
             el('div', {}, el('span', {}, '收件站點'), el('strong', {}, dropoff?.name ?? '核准站點'), el('small', {}, dropoff?.detail ?? '')), 
             el('div', {}, el('span', {}, '車輛識別'), el('strong', {}, 'GBM-01'), el('small', {}, '綠白專題識別'))
@@ -576,15 +575,15 @@ export class Application {
         status === 'awaiting_recipient' ? credentialCallout('recipient') : null,
         errorBanner(this.uiError, () => { this.uiError = null; this.render(); }),
         phase === 'idle' || phase === 'locked' ? form : null,
-        phase === 'opening' ? el('section', { className: 'pickup-phase', 'aria-busy': 'true' }, el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }), el('h2', {}, '正在確認艙門開啟'), el('p', {}, 'Command accepted 不代表艙門已開。請等待 completed confirmation。')) : null,
+        phase === 'opening' ? el('section', { className: 'pickup-phase', 'aria-busy': 'true' }, el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }), el('h2', {}, '正在確認艙門開啟'), el('p', {}, '已收到開艙要求。艙門確認打開後，畫面才會進到下一步。')) : null,
         phase === 'open' && status === 'compartment_open_for_recipient'
           ? pickupOpenAction(() => void this.#run(() => this.adapter.confirmPickup()))
           : null,
-        phase === 'confirming' || status === 'picked_up' ? el('section', { className: 'pickup-phase', 'aria-busy': 'true' }, el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }), el('h2', {}, '正在確認取件完成'), el('p', {}, '系統已收到取物與關門 evidence，正在完成 custody confirmation。')) : null,
+        phase === 'confirming' || status === 'picked_up' ? el('section', { className: 'pickup-phase', 'aria-busy': 'true' }, el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }), el('h2', {}, '正在確認取件完成'), el('p', {}, '已收到取物與關門資訊，正在完成最後確認。')) : null,
         phase === 'confirmed' || status === 'completed' ? el('section', { className: 'pickup-phase pickup-phase--complete' },
           el('div', { className: 'completion-check', 'aria-hidden': 'true' }, '✓'),
           el('h2', {}, '取件完成'),
-          el('p', {}, '一次性憑證已失效，物品保管責任已完成確認。'),
+          el('p', {}, '取件碼已失效，本次取件已完成。'),
           el('a', { className: 'button button--secondary', href: '/delivery/current' }, '返回寄件進度')
         ) : null,
         el('section', { className: 'recipient-safety' },
@@ -600,34 +599,32 @@ export class Application {
 
   #privacyPage() {
     return el('main', { id: 'main-content', className: 'document-page' },
-      el('p', { className: 'eyebrow' }, 'PRIVACY'),
-      el('h1', {}, '隱私與資料使用說明'),
+      el('h1', {}, '隱私說明'),
       el('p', { className: 'lead' }, modePrivacyLead),
       el('h2', {}, '蒐集目的與欄位'),
-      el('p', {}, '寄件身份、收件聯絡方式、投遞歷史與 privacy-safe 路線進度只用於建立投遞、通知、取件、故障處理與稽核。'),
+      el('p', {}, '寄件人身份、收件聯絡方式、投遞紀錄和概略路線進度，只會用於投遞、通知、取件、異常處理與必要查核。'),
       el('h2', {}, '預設保留期間'),
       el('ul', {},
-        el('li', {}, '取件 credential digest：terminal 或 expiry 後 24 小時。'),
-        el('li', {}, '收件姓名、手機、email 與通知 metadata：90 天。'),
-        el('li', {}, '一般 precise telemetry：7 天；有理由的 incident window 最多 180 天。'),
-        el('li', {}, 'Command、fault 與 audit evidence：365 天。'),
-        el('li', {}, 'Backup deletion lag 目標不超過 30 天。')
+        el('li', {}, '取件碼驗證資料：投遞結束或到期後 24 小時。'),
+        el('li', {}, '收件姓名、手機、Email 與通知紀錄：90 天。'),
+        el('li', {}, '一般精確車輛資料：7 天；事故相關片段最多 180 天。'),
+        el('li', {}, '車輛指令、故障與稽核紀錄：365 天。'),
+        el('li', {}, '備份中的刪除延遲：目標不超過 30 天。')
       ),
       el('h2', {}, '權利與聯絡'),
-      el('p', {}, '正式 pilot 前必須指定資料 controller/contact，提供查詢、更正、刪除／停止使用與 incident path。尚未指定前，本服務只能是 demo/staging。')
+      el('p', {}, '正式試行前，專案必須公布資料管理與聯絡窗口，並提供查詢、更正、刪除及停止使用資料的申請方式。在窗口尚未確認前，本網站只提供展示與測試。')
     );
   }
 
   #supportPage() {
     return el('main', { id: 'main-content', className: 'document-page' },
-      el('p', { className: 'eyebrow' }, 'SUPPORT & SAFETY'),
-      el('h1', {}, '協助與專案狀態'),
-      el('div', { className: 'alert alert--warning' }, '目前尚未指定 production 即時客服或 incident 值班 owner；因此 robot capability 維持關閉。'),
+      el('h1', {}, '協助與安全'),
+      el('div', { className: 'alert alert--warning' }, '正式服務目前沒有即時客服或事故值班人員，因此真實車輛功能仍保持關閉。'),
       modeSupportSection(),
       el('h2', {}, '實機安全'),
-      el('p', {}, '一般網頁取消不能取代 emergency stop。車輛離線、偏離路線、艙門異常或物品保管未解決時，應由受訓現場人員依 runbook 接手。'),
-      el('h2', {}, '正式試行 gate'),
-      el('p', {}, '校方路線核准、robot questionnaire、emergency owner、privacy notice、provider receipt、operator console 與 supervised drills 全部通過後，才可進行 limited pilot。')
+      el('p', {}, '網頁上的取消不能取代車輛緊急停止。遇到車輛離線、偏離路線、艙門異常或物品未妥善交接時，請保持距離並通知受訓的現場人員。'),
+      el('h2', {}, '正式試行條件'),
+      el('p', {}, '只有在校方核准路線、車輛規格確認、緊急應變人員到位、隱私告知完成、通知服務驗證通過，並完成現場演練後，才會進行小規模試行。')
     );
   }
 

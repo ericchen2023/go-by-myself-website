@@ -4,7 +4,7 @@ test('complete deterministic sender and recipient demo', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '校園自走車投遞網站' })).toBeVisible();
   await expect(page.getByText('學生專題，非 NDHU 官方服務').first()).toBeVisible();
-  await page.getByRole('button', { name: '以展示身份開始八步流程' }).click();
+  await page.getByRole('button', { name: '進入展示流程' }).click();
 
   await expect(page.locator('.stepper')).toContainText('放件地點');
   await page.locator('input[name="pickup-location"][value="LIBRARY"]').check();
@@ -26,10 +26,10 @@ test('complete deterministic sender and recipient demo', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '請放入物品' })).toBeVisible({ timeout: 3_000 });
   await page.getByRole('button', { name: '確認已放入並關門' }).click();
   await expect(page.getByRole('heading', { name: '取件憑證已啟用' })).toBeVisible({ timeout: 6_000 });
-  await expect(page.getByText('NDHU 4826')).toBeVisible();
+  await expect(page.getByText('NDHU 4826', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: '前往收件人取件頁' }).click();
-  await expect(page.getByRole('heading', { name: '在正確站點安全取件' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '確認站點與車輛後取件' })).toBeVisible();
   await page.getByLabel('一次性人類取件碼').fill('NDHU 4826');
   await page.getByRole('button', { name: '驗證並開啟收件艙' }).click();
   await expect(page.getByRole('heading', { name: '艙門已確認開啟' })).toBeVisible({ timeout: 3_000 });
@@ -42,7 +42,7 @@ test('complete deterministic sender and recipient demo', async ({ page }) => {
 
 test('arrival at dropoff never renders completed', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '以展示身份開始八步流程' }).click();
+  await page.getByRole('button', { name: '進入展示流程' }).click();
   await page.locator('input[name="pickup-location"][value="LIBRARY"]').check();
   await page.getByRole('button', { name: '繼續填寫投遞資料' }).click();
   await page.locator('input[name="dropoff-location"][value="ADMIN"]').check();

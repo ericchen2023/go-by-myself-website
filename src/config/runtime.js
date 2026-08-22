@@ -11,7 +11,7 @@ export const runtimeConfig = Object.freeze({
   supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
   supabasePublishableKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
   releaseSha: import.meta.env.VITE_RELEASE_SHA || 'local',
-  routeGraphVersion: import.meta.env.VITE_ROUTE_GRAPH_VERSION || 'ndhu-supplied-schematic-v2',
+  routeGraphVersion: import.meta.env.VITE_ROUTE_GRAPH_VERSION || 'ndhu-supplied-schematic-v3',
   supportUrl: import.meta.env.VITE_SUPPORT_URL || '/support'
 });
 

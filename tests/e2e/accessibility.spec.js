@@ -12,7 +12,7 @@ for (const route of ['/', '/privacy', '/support']) {
 
 test('keyboard can select a map stop and continue', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '以展示身份開始八步流程' }).click();
+  await page.getByRole('button', { name: '進入展示流程' }).click();
   const firstMapStop = page.locator('.map-stop[tabindex="0"]');
   await firstMapStop.focus();
   await page.keyboard.press('ArrowRight');
@@ -28,4 +28,3 @@ test('page has no horizontal overflow at required narrow widths', async ({ page 
     expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client + 1);
   }
 });
-

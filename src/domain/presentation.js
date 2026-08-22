@@ -65,7 +65,7 @@ export function deliveryStatusCopy(status, overlay = {}) {
     arrived_dropoff: ['已抵達收件地點', '尚未完成投遞', '抵達不等於完成；系統正等待收件人驗證與取物。'],
     awaiting_recipient: ['等待收件人', '取件憑證已啟用', '收件人完成開艙、取物與關門確認後才會結案。'],
     compartment_open_for_recipient: ['收件艙已開啟', '等待收件人取物', '物品移除且艙門關閉前，狀態不會顯示完成。'],
-    picked_up: ['已取得取件證據', '正在確認保管責任', '系統正在完成最後一項 custody confirmation。'],
+    picked_up: ['已收到取件資訊', '正在完成最後確認', '系統正在確認物品已取出且艙門已關閉。'],
     completed: ['投遞完成', '物品已由收件人取走', '取件驗證、開艙、取物與關門證據皆已完成。'],
     cancel_requested: ['取消要求處理中', '尚未取消完成', '車輛與物品保管狀態確認前，不會顯示取消成功。'],
     returning_to_base: ['安全處理中', '車輛正在返回安全位置', '物品保管責任完成交接後，取消才會成立。'],
@@ -89,4 +89,3 @@ export function notificationCopy(state) {
   };
   return copies[state] ?? '尚未建立通知';
 }
-

@@ -2,12 +2,12 @@ import { el } from '../app/dom.js';
 import { DEMO_SCENARIOS } from '../domain/scenarios.js';
 
 export const googleDisabled = true;
-export const googleHelp = '展示 build 不載入 Google OAuth。請使用下方合成身份。';
+export const googleHelp = '展示模式不連接 Google，請使用下方展示帳號。';
 export const recoveryText = '展示模式不使用密碼；重設展示資料後可重新開始。';
 export const supportCopy = '展示環境未配置即時客服。可重設情境重新開始。';
-export const dispatchIntro = '尚未派車。展示模式會以固定路線與 deterministic 時序模擬車輛。';
+export const dispatchIntro = '按下「呼叫車輛」後，展示車輛會沿固定路線前往放件站。';
 export const cancelledCopy = '本次展示投遞已安全取消，物品保管已在模擬流程中解決。';
-export const modePrivacyLead = '目前成果展示使用合成資料。以下是 production pilot 前必須落實並經校方／隱私 owner 審查的預設政策。';
+export const modePrivacyLead = '目前展示使用測試資料。正式試行前，下列資料政策仍需由校方與隱私管理人員確認。';
 
 export function modeBanner() {
   return { className: 'mode-banner', copy: '展示模式：合成身份、模擬車輛、非真實通知' };
@@ -33,13 +33,13 @@ export function authAlternative(options) {
       options.adapter.authenticateGuest();
       options.navigate('/delivery/new');
     })
-  }, '以展示身份開始八步流程');
+  }, '進入展示流程');
 }
 
 /** @param {any} state @param {any} adapter @param {(path:string)=>void} navigate */
 export function modeToolbar(state, adapter, navigate) {
   return el('aside', { className: 'demo-toolbar', 'aria-label': '展示情境控制' },
-    el('div', {}, el('strong', {}, '情境模擬器'), el('small', {}, '變更情境會清除本次 session 展示資料。')),
+    el('div', {}, el('strong', {}, '展示情境'), el('small', {}, '切換情境會清除這次的展示資料。')),
     el('label', { className: 'sr-only', htmlFor: 'scenario-select' }, '選擇展示情境'),
     el('select', {
       id: 'scenario-select',
@@ -59,12 +59,12 @@ export function credentialCallout(audience) {
   return el('div', { className: 'demo-code-callout' },
     el('span', {}, audience === 'recipient' ? '成果展示專用取件碼' : '展示取件碼'),
     el('strong', {}, 'NDHU 4826'),
-    el('small', {}, audience === 'recipient' ? '清楚標示的合成碼；不代表 production 安全設計。' : '僅用於展示；production 不使用四位碼。')
+    el('small', {}, 'NDHU 4826 僅供成果展示。正式版本會使用較長的一次性取件碼。')
   );
 }
 
 export function notificationDisclaimer() {
-  return el('small', {}, '這是 truthful mock event，不會發送 SMS 或 email。');
+  return el('small', {}, '這是展示用通知紀錄，不會真的寄出簡訊或 Email。');
 }
 
 /** @param {()=>void} onConfirm */
@@ -79,7 +79,7 @@ export function pickupOpenAction(onConfirm) {
 /** @param {string|null} scenario */
 export function manualLoadNotice(scenario) {
   return scenario === 'compartment-sensor-missing'
-    ? el('div', { className: 'alert alert--warning' }, '展示情境：item sensor 不可用，以下操作會留下「人工確認」audit evidence。')
+    ? el('div', { className: 'alert alert--warning' }, '此展示情境無法讀取物品感測器。使用人工確認時，系統會留下操作紀錄。')
     : null;
 }
 

@@ -8,7 +8,7 @@ export function siteHeader(options) {
       el('a', { className: 'brand-link', href: '/', onclick: (event) => { event.preventDefault(); options.navigate('/'); } },
         ndhuEmblem('header'),
         el('span', { className: 'brand-copy' },
-          el('span', { className: 'brand-code' }, 'NDHU · ROUTE 01'),
+          el('span', { className: 'brand-code' }, '校園固定路線 · 展示版'),
           el('strong', {}, 'go by myself'),
           el('small', {}, '校園智慧投遞學生專題')
         )

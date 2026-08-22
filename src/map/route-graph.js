@@ -1,23 +1,23 @@
-export const ROUTE_GRAPH_VERSION = 'ndhu-supplied-schematic-v2';
+export const ROUTE_GRAPH_VERSION = 'ndhu-supplied-schematic-v3';
 
 export const ROUTE_NODES = Object.freeze([
   // The coordinates below reproduce the topology in the supplied hand sketch.
   // Every bend is a real graph node, so route projection and the SVG can never
   // disagree about where a vehicle is allowed to appear.
-  { id: 'P_ORIGIN', x: 440, y: 480 },
-  { id: 'P_JOIN', x: 440, y: 455 },
-  { id: 'TRUNK_SOUTH', x: 480, y: 455 },
-  { id: 'TRUNK_HSS', x: 480, y: 285 },
-  { id: 'TRUNK_NORTH', x: 480, y: 100 },
-  { id: 'LIBRARY', x: 590, y: 100 },
-  { id: 'HSS_JUNCTION', x: 390, y: 285 },
-  { id: 'HSS_TOP_TURN', x: 390, y: 230 },
-  { id: 'HSS_BOTTOM_TURN', x: 390, y: 340 },
-  { id: 'HSS2', x: 325, y: 230 },
-  { id: 'HSS1', x: 325, y: 340 },
-  { id: 'ADMIN_TURN', x: 540, y: 455 },
-  { id: 'ADMIN_DROP', x: 540, y: 515 },
-  { id: 'ADMIN', x: 720, y: 515 }
+  { id: 'P_ORIGIN', x: 455, y: 585 },
+  { id: 'P_JOIN', x: 455, y: 535 },
+  { id: 'TRUNK_SOUTH', x: 515, y: 535 },
+  { id: 'TRUNK_HSS', x: 515, y: 325 },
+  { id: 'TRUNK_NORTH', x: 515, y: 110 },
+  { id: 'LIBRARY', x: 720, y: 110 },
+  { id: 'HSS_JUNCTION', x: 405, y: 325 },
+  { id: 'HSS_TOP_TURN', x: 405, y: 230 },
+  { id: 'HSS_BOTTOM_TURN', x: 405, y: 420 },
+  { id: 'HSS2', x: 225, y: 230 },
+  { id: 'HSS1', x: 225, y: 420 },
+  { id: 'ADMIN_TURN', x: 610, y: 535 },
+  { id: 'ADMIN_DROP', x: 610, y: 565 },
+  { id: 'ADMIN', x: 835, y: 565 }
 ]);
 
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));

@@ -1,133 +1,97 @@
-# go by myself Design System
+# go by myself 設計系統
 
-## Concept
+## 設計主張
 
-**East Coast Dispatch / 東岸派送站**
+本網站是一套「校園固定路線導引系統」，不是一般 SaaS 首頁、手機 App
+外框或控制台卡片牆。路線是主要視覺語言：使用者從站點、方向、目前位置
+與下一個安全動作理解投遞，不靠裝飾性漸層、玻璃效果或大量英文標籤營造
+科技感。
 
-The product should feel like a campus field guide crossed with a trustworthy
-transport control desk. The route is the visual identity: thick inked paths,
-clear stop plates, a signal-orange delivery pod, and operational copy that
-never overclaims real-world state.
+每個畫面只回答三件事：
 
-The interface is not an app mockup and not a dashboard mosaic. Every screen has
-one dominant job, one dominant action, and one canonical route view.
+1. 現在到哪一步。
+2. 目前可以安全做什麼。
+3. 車輛與物品接下來會去哪裡。
 
-## Brand hierarchy
+## 去除模板感的規則
 
-1. The official NDHU emblem is used in its complete supplied form. Never crop,
-   recolor, distort, rotate, or rebuild it.
-2. `go by myself` is the student-project product name.
-3. Every public surface retains `學生專題，非 NDHU 官方服務` so use of the
-   university identity does not imply an official university service.
-4. The route, `P` origin capsule, and orange vehicle pod are project-owned
-   visual devices.
+- 不把每個段落包成相同圓角、陰影卡片；只有具備明確互動或關係的內容才有邊界。
+- 不使用裝飾性英文眉標、虛構數據、紫色漸層、玻璃擬態和三欄功能卡。
+- 排版以留白、細分隔線、單一焦點與不對稱比例建立層級。
+- 文案使用自然繁體中文；技術術語只留在程式、測試與開發文件。
+- 所有狀態都呈現等待、失敗、未知與復原方式，不以「漂亮成功畫面」掩蓋未完成狀態。
 
-## Visual language
+## 品牌與校徽
 
-- **Shape:** mostly square and clipped surfaces; rounded geometry is reserved
-  for the circular university emblem, route stops, status dots, and pill-like
-  vehicle/origin forms.
-- **Line:** 2px dark ink for structural borders; 5–8px route strokes; dashed
-  micro-lines only for pending or simulated states.
-- **Texture:** a very subtle engineering grid and registration marks. No soft
-  decorative blobs and no gradient-heavy backgrounds.
-- **Composition:** asymmetric editorial layouts, large type, deliberate open
-  space, and a single clear focal action.
+1. 官方東華校徽使用完整原檔，不裁切、不改色、不重繪、不變形。
+2. go by myself 是學生專題名稱，與校方正式服務明確區隔。
+3. 公開畫面持續標示「學生專題，非 NDHU 官方服務」。
+4. 校徽只出現在識別層級，不作裝飾紋理或重複背景。
 
-## Color tokens
+## 視覺語言
 
-| Token | Value | Use |
-|---|---|---|
-| `ink` | `#10231d` | Primary text, borders, route base |
-| `forest` | `#006b4f` | NDHU-adjacent brand field, trusted states |
-| `forest-dark` | `#083d31` | Header/footer and deep surfaces |
-| `signal` | `#c7ef58` | Active route, focus, primary call to action |
-| `vehicle` | `#f36b3f` | Vehicle marker and physical-action emphasis |
-| `paper` | `#f2efe5` | Page background |
-| `surface` | `#fffdf6` | Main work surfaces |
-| `muted` | `#5d6d66` | Secondary text |
-| `danger` | `#b63838` | Unsafe or terminal states |
+- 背景是溫暖米白 #f5f1e8，主要工作面是 #fffdf8。
+- 松綠 #0d4a38 表示主要操作與已確認路線。
+- 淺鼠尾草綠 #b8d3c3 表示尚待行駛的固定路線。
+- 珊瑚橘 #e65f43 只用在車輛、目前步驟和需要注意的實體動作。
+- 萊姆黃綠 #dce86a 只用在展示模式提示與已選站點，不承載唯一語意。
+- 表面以 1px 分隔線和少量柔和陰影構成；不使用粗黑外框或偏移漫畫陰影。
 
-Do not place white body text on `signal`; use `ink`. Status meaning must never
-depend on color alone.
+## 字體
 
-## Typography
+- 拉丁品牌與數字：self-hosted Manrope Variable。
+- 繁體中文：Noto Sans TC、PingFang TC、Microsoft JhengHei fallback。
+- 內文至少 16px、行高約 1.65；大標題依容器縮放，不犧牲 320px reflow。
 
-- Chinese UI: `Noto Sans TC`, then native Traditional Chinese sans fallbacks.
-- Latin display and operational labels: `Arial Narrow`, `Roboto Condensed`,
-  then sans-serif. Use condensed uppercase sparingly for routing metadata.
-- Technical data: `ui-monospace`, `SFMono-Regular`, `Consolas`, monospace.
-- Display headlines may be very large, but body copy stays at least 16px with a
-  line-height around 1.65.
+## 版面
 
-## Spacing and layout
+- 最大內容寬 1240px。
+- 首頁是「品牌與任務說明／主路線圖」的不對稱雙欄，登入區以分隔線整合在頁面中。
+- 投遞頁以主工作區為中心；摘要是輔助欄，不與主要動作搶焦點。
+- 900px 以下堆疊；700px 以下站點語意列表排在地圖前。
+- 所有按鈕與站點 hit area 至少 44×44 CSS px；主要操作至少 48px 高。
 
-- 4px base grid; common gaps: 8, 12, 16, 24, 32, 48, 72px.
-- Main content max width: 1240px.
-- Home desktop: editorial hero (roughly 7/5) followed by a focused access dock.
-- Delivery desktop: primary workspace (roughly 8/4) plus operational rail.
-- Below 900px everything stacks; below 720px the semantic stop list appears
-  before the overview map.
-- Interactive targets are at least 44×44 CSS px; primary actions are at least
-  48px high.
+## 路線圖
 
-## Core components
+路線圖只顯示圖資中心、人社二館、人社一館、行政大樓四個中文站名。
+P、HSS、LIBRARY、ADMIN 是內部圖資料，不出現在視覺地圖。
 
-### Official brand lockup
+- 灰綠：整體固定路網。
+- 淺綠：這次投遞尚待行駛的路線。
+- 深綠：已完成的路段。
+- 珊瑚橘車輛：目前可靠位置。
+- 箭頭：本次路線方向。
+- 放件與收件同時用「放／收」文字、不同描邊與清單標記，不只靠顏色。
 
-Complete NDHU emblem at 44–64px, followed by a two-line product lockup. It must
-always have clear space and an undistorted 1:1 aspect ratio.
+車輛位置只能由 canonical edge 的 segmentId + progress 計算。畫面更新時，
+以 requestAnimationFrame 在兩筆可靠資料間持續插值；新資料到達時從目前
+視覺位置重新追蹤，不跳回舊點。資料逾時即停在最後可信位置；偏離路線時
+隱藏未驗證位置。
 
-### Primary button
+## 動態
 
-Signal-lime fill, 2px ink border, offset ink shadow. Hover lifts by 2px; active
-returns to the baseline. The label describes the immediate intent.
+- 車輛單次追蹤 260–520ms，依畫面距離調整，以 cubic ease-in-out 連續追蹤。
+- 首頁示意車輛 9 秒完成一次固定路線循環。
+- 路線進度只改變 stroke dash，按鈕只做 1px 位移與顏色回饋。
+- prefers-reduced-motion: reduce 會關閉插值、旋轉載入與非必要轉場。
 
-### Work surface
+## 元件原則
 
-Paper-white background, ink border, small or zero radius, and a top registration
-bar. Avoid nesting multiple generic cards inside it.
+- Primary button：松綠底、白字、6px 小圓角；文案描述立即動作。
+- 表單：持續可見 label、4px 小圓角、清楚 help/error 關聯。
+- Stepper：八個連續站點；完成用勾選、目前步驟用珊瑚橘，窄螢幕改文字與原生 progress。
+- Status action：以左側粗線和淺綠底集中「目前事實＋下一步」，不使用多層卡片。
+- Recipient flow：獨立、窄版、單手輸入；驗證前只顯示站點、車輛與準備狀態。
 
-### Stepper
+## 文案
 
-Eight connected numbered stops. Completed steps use a check plus text; current
-step uses signal fill and a strong focus ring. Compact view shows `步驟 n / 8`
-and a real progress element.
+語氣清楚、冷靜、直接。優先使用「正在要求開艙」「尚未確認艙門已開啟」
+等具體句子。展示資料、模擬通知與取件碼必須明確標示；抵達、命令接受和
+通知排程都不能寫成完成。
 
-### Route map
+## 無障礙
 
-The route graph exactly follows the supplied schematic: main north–south trunk,
-library at the northeast end, two west-facing HSS branches, `P` at the lower
-origin, and Administration at the southeast end. Stop plates are visually
-distinct from route nodes. The vehicle is a small orange pod with wheels and is
-always projected from canonical route geometry.
-
-### Status action block
-
-The current operational truth and the immediate safe action are paired in one
-high-contrast block. Pending, accepted, completed, and unknown are distinct.
-
-## Motion
-
-- Vehicle projection interpolates only between two verified samples, around
-  160–220ms per demo frame.
-- Active route uses a slow directional dash, not a glow.
-- Buttons use 120–180ms translation/shadow feedback.
-- `prefers-reduced-motion: reduce` disables route dash, interpolation, and
-  decorative motion.
-- Never animate stale or off-route raw positions.
-
-## Accessibility
-
-- WCAG 2.2 AA contrast; 44×44 target policy.
-- Strong signal-colored `:focus-visible` outline with a dark offset.
-- The map has a semantic radio-list alternative and roving SVG focus.
-- Pickup/dropoff use text and symbols (`放` / `收`) in addition to color.
-- Live regions announce state transitions, not every telemetry frame.
-- At 200% zoom the primary action remains in normal document flow.
-
-## Copy voice
-
-Concise, concrete, calm, and operational. Prefer `正在要求開艙` over generic
-`處理中`; prefer `尚未確認艙門已開啟` over optimistic claims. Demo-only facts
-are always labelled as simulated.
+- WCAG 2.2 AA；互動目標採 44×44 專案標準。
+- 清楚的 focus-visible，邏輯 tab order，地圖有 roving tabindex 和 radio list 替代。
+- 狀態不只靠顏色；重要變更由 live region 宣告，但不逐筆朗讀位置資料。
+- 200% zoom 不裁切，400% reflow 列入人工檢查。

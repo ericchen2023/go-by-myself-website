@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('canonical SVG geometry supports path length and point projection', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '以展示身份開始八步流程' }).click();
+  await page.getByRole('button', { name: '進入展示流程' }).click();
   const geometry = await page.locator('.route-edge').evaluateAll((paths) => paths.map((path) => {
     const geometryPath = /** @type {SVGPathElement} */ (path);
     const length = geometryPath.getTotalLength();
@@ -13,11 +13,17 @@ test('canonical SVG geometry supports path length and point projection', async (
   }));
   expect(geometry.flat().every((point) => point.finite)).toBe(true);
   await expect(page.locator('.map-stop')).toHaveCount(4);
+  await expect(page.locator('.origin-capsule')).toHaveCount(0);
+  const visibleMapText = await page.locator('.route-map text').allTextContents();
+  expect(visibleMapText).not.toContain('P');
+  expect(visibleMapText).not.toContain('HSS');
+  expect(visibleMapText).not.toContain('LIBRARY');
+  expect(visibleMapText).not.toContain('ADMIN');
 });
 
 test('vehicle marker advances along the active canonical route', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '以展示身份開始八步流程' }).click();
+  await page.getByRole('button', { name: '進入展示流程' }).click();
   await page.locator('input[name="pickup-location"][value="LIBRARY"]').check();
   await page.getByRole('button', { name: '繼續填寫投遞資料' }).click();
   await page.locator('input[name="dropoff-location"][value="ADMIN"]').check();
@@ -36,4 +42,7 @@ test('vehicle marker advances along the active canonical route', async ({ page }
   const activeEdges = page.locator('.route-edge.is-active');
   expect(await activeEdges.count()).toBeGreaterThan(0);
   expect(await activeEdges.first().evaluate((path) => getComputedStyle(path).stroke)).not.toBe('none');
+  await expect(page.locator('.journey-segment--remaining')).not.toHaveCount(0);
+  await expect(page.locator('.journey-segment--traveled')).not.toHaveCount(0);
+  await expect(page.locator('.status-actions')).not.toContainText('null');
 });
