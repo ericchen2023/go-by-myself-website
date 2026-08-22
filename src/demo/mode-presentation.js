@@ -27,7 +27,7 @@ export function modeSupportSection() {
 /** @param {{adapter:any,navigate:(path:string)=>void,run:(action:()=>unknown|Promise<unknown>)=>void}} options */
 export function authAlternative(options) {
   return el('button', {
-    className: 'button button--secondary button--full',
+    className: 'button button--signal button--full',
     type: 'button',
     onclick: () => options.run(() => {
       options.adapter.authenticateGuest();

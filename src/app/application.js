@@ -380,7 +380,7 @@ export class Application {
     const dropoff = locationByCode(delivery.dropoffCode);
     const telemetry = this.state.telemetry;
     const activeRouteParts = currentStep <= 6
-      ? shortestRoute('P_ORIGIN', pickup?.routeNodeId ?? '')
+      ? shortestRoute('TRUNK_HSS', pickup?.routeNodeId ?? '')
       : shortestRoute(pickup?.routeNodeId ?? '', dropoff?.routeNodeId ?? '');
     const route = createRouteSelector({
       id: `delivery-route-${delivery.id}`,

@@ -7,10 +7,10 @@ const edgeById = new Map(ROUTE_EDGES.map((edge) => [edge.id, edge]));
 const vehicleMotionStates = new Map();
 
 const STOP_LABELS = Object.freeze({
-  HSS2: { x: 225, y: 184, anchor: 'middle' },
-  HSS1: { x: 225, y: 474, anchor: 'middle' },
-  LIBRARY: { x: 720, y: 64, anchor: 'middle' },
-  ADMIN: { x: 835, y: 517, anchor: 'middle' }
+  HSS2: { x: 225, y: 151, anchor: 'middle' },
+  HSS1: { x: 225, y: 482, anchor: 'middle' },
+  LIBRARY: { x: 735, y: 51, anchor: 'middle' },
+  ADMIN: { x: 835, y: 572, anchor: 'middle' }
 });
 
 /** @param {string} name @param {Record<string, string|number>} attributes */
@@ -24,23 +24,10 @@ function svgElement(name, attributes = {}) {
 function appendMapFoundation(svg, id) {
   const defs = svgElement('defs');
   const arrowId = `${id}-route-arrow`;
-  const patternId = `${id}-paper-dots`;
-  const pattern = svgElement('pattern', { id: patternId, width: 28, height: 28, patternUnits: 'userSpaceOnUse' });
-  pattern.append(svgElement('circle', { cx: 2, cy: 2, r: 1.25, class: 'map-dot' }));
   const marker = svgElement('marker', { id: arrowId, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' });
   marker.append(svgElement('path', { d: 'M 1 1 L 9 5 L 1 9 z', class: 'route-arrow' }));
-  defs.append(pattern, marker);
-  svg.append(defs, svgElement('rect', { width: 1000, height: 650, class: 'map-paper', fill: `url(#${patternId})`, 'aria-hidden': 'true' }));
-
-  const context = svgElement('g', { class: 'map-context', 'aria-hidden': 'true' });
-  context.append(
-    svgElement('path', { d: 'M 70 84 H 320 V 178 H 128 V 310 H 64' }),
-    svgElement('path', { d: 'M 72 486 H 314 V 566 H 110' }),
-    svgElement('path', { d: 'M 662 42 H 908 V 188 H 842' }),
-    svgElement('path', { d: 'M 690 460 H 936 V 614 H 732' }),
-    svgElement('path', { d: 'M 928 34 C 868 148 958 252 902 358 C 874 412 892 488 954 604', class: 'map-context-river' })
-  );
-  svg.append(context);
+  defs.append(marker);
+  svg.append(defs, svgElement('rect', { width: 1000, height: 650, class: 'map-paper', 'aria-hidden': 'true' }));
 }
 
 /** @param {{segmentId: string, progress: number}} position */
@@ -75,11 +62,10 @@ function markerPointFromSvg(svg, position) {
 }
 
 /** @param {SVGSVGElement} svg @param {Set<string>} activeEdges @param {string} id */
-function appendRouteNetwork(svg, activeEdges, id) {
-  const shadowLayer = svgElement('g', { class: 'route-shadow-layer', 'aria-hidden': 'true' });
+function appendRouteNetwork(svg, activeEdges, id, showWholeNetwork = true) {
   const routeLayer = svgElement('g', { class: 'route-layer', 'aria-hidden': 'true' });
-  for (const edge of ROUTE_EDGES) {
-    shadowLayer.append(svgElement('path', { d: edge.svgPathD, class: 'route-edge-shadow' }));
+  const visibleEdges = showWholeNetwork ? ROUTE_EDGES : ROUTE_EDGES.filter((edge) => activeEdges.has(edge.id));
+  for (const edge of visibleEdges) {
     routeLayer.append(svgElement('path', {
       id: `${id}-${edge.id}`,
       d: edge.svgPathD,
@@ -87,7 +73,7 @@ function appendRouteNetwork(svg, activeEdges, id) {
       'data-edge-id': edge.id
     }));
   }
-  svg.append(shadowLayer, routeLayer);
+  svg.append(routeLayer);
 }
 
 /** @param {{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}} part */
@@ -101,6 +87,8 @@ function orientedPartPath(part) {
 function appendJourneyRoute(svg, id, parts, position) {
   if (!parts?.length) return;
   const layer = svgElement('g', { class: 'journey-route', 'aria-hidden': 'true' });
+  const motionPath = continuousRoutePath(parts);
+  if (motionPath) layer.append(svgElement('path', { d: motionPath, class: 'journey-motion-path', 'data-route-signature': routeSignature(parts) }));
   const currentIndex = position ? parts.findIndex((part) => part.edgeId === position.segmentId) : -1;
   parts.forEach((part, index) => {
     const d = orientedPartPath(part);
@@ -146,68 +134,105 @@ function easeInOut(value) {
   return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
-/** @param {SVGSVGElement} svg @param {string} id @param {{segmentId:string,progress:number}|null|undefined} position */
-function appendVehicle(svg, id, position) {
+/** @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts */
+function routeSignature(parts) {
+  return parts.map((part) => `${part.edgeId}:${part.forward ? 'f' : 'r'}`).join('|');
+}
+
+/** @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {{segmentId:string,progress:number}} position */
+function progressAlongJourney(parts, position) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  if (!total) return null;
+  let traveled = 0;
+  for (const part of parts) {
+    if (part.edgeId === position.segmentId) {
+      const local = part.forward ? position.progress : 1 - position.progress;
+      return Math.max(0, Math.min(1, (traveled + Math.max(0, Math.min(1, local)) * part.length) / total));
+    }
+    traveled += part.length;
+  }
+  return null;
+}
+
+/** @param {SVGPathElement} path @param {number} progress */
+function pointAndHeadingOnPath(path, progress) {
+  const length = path.getTotalLength();
+  const distance = length * Math.max(0, Math.min(1, progress));
+  const point = path.getPointAtLength(distance);
+  const before = path.getPointAtLength(Math.max(0, distance - 1.5));
+  const after = path.getPointAtLength(Math.min(length, distance + 1.5));
+  return { x: point.x, y: point.y, heading: Math.atan2(after.y - before.y, after.x - before.x) * (180 / Math.PI) };
+}
+
+/** @param {SVGSVGElement} svg @param {string} id @param {{segmentId:string,progress:number}|null|undefined} position @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts */
+function appendVehicle(svg, id, position, parts) {
   if (!position) {
     const staleState = vehicleMotionStates.get(id);
     if (staleState?.frameId) globalThis.cancelAnimationFrame?.(staleState.frameId);
     vehicleMotionStates.delete(id);
     return;
   }
-  const target = markerPointFromSvg(svg, position);
-  if (!target) return;
+  const path = /** @type {SVGPathElement|null} */ (svg.querySelector('.journey-motion-path'));
+  const targetProgress = progressAlongJourney(parts, position);
+  const signature = routeSignature(parts);
+  const canSampleJourney = path && targetProgress !== null && typeof path.getTotalLength === 'function';
+  const fallback = markerPointFromSvg(svg, position);
+  if (!canSampleJourney && !fallback) return;
   const prior = vehicleMotionStates.get(id);
   const now = performance.now();
-  let start = prior?.target ?? target;
-  if (prior) {
+  let startProgress = targetProgress ?? 0;
+  if (prior && prior.signature === signature && targetProgress !== null) {
     const elapsed = Math.max(0, now - prior.startedAt);
     const ratio = Math.min(1, elapsed / prior.duration);
-    const eased = easeInOut(ratio);
-    start = { x: prior.start.x + (prior.target.x - prior.start.x) * eased, y: prior.start.y + (prior.target.y - prior.start.y) * eased };
+    startProgress = prior.startProgress + (prior.targetProgress - prior.startProgress) * easeInOut(ratio);
     if (prior.frameId) globalThis.cancelAnimationFrame?.(prior.frameId);
   }
 
-  const distance = Math.hypot(target.x - start.x, target.y - start.y);
-  const heading = distance > 0.25
-    ? Math.atan2(target.y - start.y, target.x - start.x) * (180 / Math.PI)
-    : markerHeading(position);
+  const initial = canSampleJourney ? pointAndHeadingOnPath(path, startProgress) : { ...fallback, heading: markerHeading(position) };
 
   const marker = svgElement('g', {
     class: 'vehicle-marker',
-    transform: `translate(${start.x} ${start.y})`,
+    transform: `translate(${initial.x} ${initial.y})`,
     role: 'img',
     'aria-label': '車輛在固定路線上的動態示意位置'
   });
-  const vehicle = svgElement('g', { class: 'vehicle-marker__body', transform: `rotate(${heading})`, 'aria-hidden': 'true' });
+  const vehicle = svgElement('g', { class: 'vehicle-marker__body', transform: `rotate(${initial.heading})`, 'aria-hidden': 'true' });
   vehicle.append(
     svgElement('circle', { class: 'vehicle-halo', r: 32 }),
-    svgElement('path', { class: 'vehicle-body', d: 'M -22 -15 H 13 L 24 0 L 13 15 H -22 Q -28 15 -28 9 V -9 Q -28 -15 -22 -15 Z' }),
-    svgElement('rect', { class: 'vehicle-window', x: -10, y: -9, width: 17, height: 18, rx: 4 }),
-    svgElement('circle', { class: 'vehicle-wheel', cx: -16, cy: 17, r: 5 }),
-    svgElement('circle', { class: 'vehicle-wheel', cx: 13, cy: 17, r: 5 }),
-    svgElement('circle', { class: 'vehicle-light', cx: 18, cy: 0, r: 3 })
+    svgElement('rect', { class: 'vehicle-wheel', x: -21, y: -23, width: 12, height: 7, rx: 3 }),
+    svgElement('rect', { class: 'vehicle-wheel', x: 8, y: -23, width: 12, height: 7, rx: 3 }),
+    svgElement('rect', { class: 'vehicle-wheel', x: -21, y: 16, width: 12, height: 7, rx: 3 }),
+    svgElement('rect', { class: 'vehicle-wheel', x: 8, y: 16, width: 12, height: 7, rx: 3 }),
+    svgElement('path', { class: 'vehicle-body', d: 'M -18 -18 H 11 Q 22 -18 25 -7 L 28 0 L 25 7 Q 22 18 11 18 H -18 Q -26 18 -26 10 V -10 Q -26 -18 -18 -18 Z' }),
+    svgElement('rect', { class: 'vehicle-window', x: -14, y: -11, width: 25, height: 22, rx: 7 }),
+    svgElement('circle', { class: 'vehicle-light', cx: 19, cy: 0, r: 3.5 })
   );
   marker.append(vehicle);
   svg.append(marker);
 
-  const duration = Math.max(260, Math.min(520, 230 + distance * 3.2));
+  const routeLength = canSampleJourney ? path.getTotalLength() : 0;
+  const distance = targetProgress === null ? 0 : Math.abs(targetProgress - startProgress) * routeLength;
+  const duration = Math.max(240, Math.min(620, 220 + distance * 2.4));
   const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-  const state = { start, target, startedAt: now, duration, frameId: 0, marker };
+  const state = { startProgress, targetProgress: targetProgress ?? startProgress, signature, startedAt: now, duration, frameId: 0, marker, vehicle };
   vehicleMotionStates.set(id, state);
-  if (reduced || distance < 0.25 || typeof globalThis.requestAnimationFrame !== 'function') {
+  if (!canSampleJourney || reduced || distance < 0.25 || typeof globalThis.requestAnimationFrame !== 'function') {
+    const target = canSampleJourney ? pointAndHeadingOnPath(path, state.targetProgress) : initial;
     marker.setAttribute('transform', `translate(${target.x} ${target.y})`);
-    state.start = target;
+    vehicle.setAttribute('transform', `rotate(${target.heading})`);
+    state.startProgress = state.targetProgress;
     return;
   }
   const animate = (timestamp) => {
     if (vehicleMotionStates.get(id) !== state || !state.marker.isConnected) return;
     const ratio = Math.min(1, Math.max(0, (timestamp - state.startedAt) / state.duration));
     const eased = easeInOut(ratio);
-    const x = state.start.x + (state.target.x - state.start.x) * eased;
-    const y = state.start.y + (state.target.y - state.start.y) * eased;
-    state.marker.setAttribute('transform', `translate(${x} ${y})`);
+    const visualProgress = state.startProgress + (state.targetProgress - state.startProgress) * eased;
+    const sample = pointAndHeadingOnPath(path, visualProgress);
+    state.marker.setAttribute('transform', `translate(${sample.x} ${sample.y})`);
+    state.vehicle.setAttribute('transform', `rotate(${sample.heading})`);
     if (ratio < 1) state.frameId = requestAnimationFrame(animate);
-    else state.start = state.target;
+    else state.startProgress = state.targetProgress;
   };
   state.frameId = requestAnimationFrame(animate);
 }
@@ -234,7 +259,7 @@ export function createRoutePreview() {
   }));
   appendMapFoundation(svg, 'home-preview');
   appendRouteNetwork(svg, new Set(), 'home-preview');
-  const route = shortestRoute('P_ORIGIN', 'LIBRARY');
+  const route = shortestRoute('HSS1', 'LIBRARY');
   appendJourneyRoute(svg, 'home-preview', route, null);
   appendStationLabels(svg);
   for (const location of DELIVERY_LOCATIONS) {
@@ -245,14 +270,17 @@ export function createRoutePreview() {
   const motionPath = continuousRoutePath(route);
   const vehicle = svgElement('g', { class: 'preview-vehicle', 'aria-hidden': 'true' });
   vehicle.append(
-    svgElement('path', { d: 'M -18 -11 H 9 L 19 0 L 9 11 H -18 Q -23 11 -23 6 V -6 Q -23 -11 -18 -11 Z' }),
-    svgElement('circle', { cx: -12, cy: 13, r: 4 }),
-    svgElement('circle', { cx: 9, cy: 13, r: 4 })
+    svgElement('rect', { class: 'preview-vehicle__wheel', x: -16, y: -17, width: 10, height: 6, rx: 3 }),
+    svgElement('rect', { class: 'preview-vehicle__wheel', x: 7, y: -17, width: 10, height: 6, rx: 3 }),
+    svgElement('rect', { class: 'preview-vehicle__wheel', x: -16, y: 11, width: 10, height: 6, rx: 3 }),
+    svgElement('rect', { class: 'preview-vehicle__wheel', x: 7, y: 11, width: 10, height: 6, rx: 3 }),
+    svgElement('path', { class: 'preview-vehicle__body', d: 'M -15 -14 H 8 Q 17 -14 20 -5 L 22 0 L 20 5 Q 17 14 8 14 H -15 Q -21 14 -21 8 V -8 Q -21 -14 -15 -14 Z' }),
+    svgElement('rect', { class: 'preview-vehicle__window', x: -11, y: -8, width: 19, height: 16, rx: 5 })
   );
   const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   if (!reduced && motionPath) vehicle.append(svgElement('animateMotion', { dur: '9s', repeatCount: 'indefinite', path: motionPath, rotate: 'auto' }));
   else {
-    const start = nodeById.get('P_ORIGIN');
+    const start = nodeById.get('HSS1');
     vehicle.setAttribute('transform', `translate(${start?.x ?? 0} ${start?.y ?? 0})`);
   }
   svg.append(vehicle);
@@ -275,8 +303,10 @@ export function createRouteSelector(options) {
     id: `${options.id}-svg`, viewBox: '0 0 1000 650', class: 'route-map', role: interactive ? 'group' : 'img', 'aria-labelledby': headingId, 'aria-describedby': `${options.id}-hint`
   }));
   appendMapFoundation(svg, options.id);
-  appendRouteNetwork(svg, activeEdges, options.id);
-  appendJourneyRoute(svg, options.id, options.activeRouteParts ?? [], options.vehiclePosition);
+  const journeyParts = options.activeRouteParts ?? [];
+  const journeyEdges = new Set([...activeEdges, ...journeyParts.map((part) => part.edgeId)]);
+  appendRouteNetwork(svg, journeyEdges, options.id, interactive);
+  appendJourneyRoute(svg, options.id, journeyParts, options.vehiclePosition);
   appendStationLabels(svg);
 
   const stopLayer = svgElement('g', { class: 'stop-layer' });
@@ -324,7 +354,7 @@ export function createRouteSelector(options) {
     stopLayer.append(group);
   });
   svg.append(stopLayer);
-  appendVehicle(svg, options.id, options.vehiclePosition);
+  appendVehicle(svg, options.id, options.vehiclePosition, journeyParts);
 
   const list = el('fieldset', { className: `location-list${interactive ? '' : ' location-list--legend'}` },
     el('legend', { className: 'sr-only' }, options.label),

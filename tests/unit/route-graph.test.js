@@ -23,12 +23,13 @@ describe('canonical route graph', () => {
     expect(nodes.get('HSS2').x).toBeLessThan(nodes.get('TRUNK_HSS').x);
     expect(nodes.get('HSS1').x).toBeLessThan(nodes.get('TRUNK_HSS').x);
     expect(nodes.get('HSS2').y).toBeLessThan(nodes.get('HSS1').y);
-    expect(nodes.get('ADMIN').x).toBeGreaterThan(nodes.get('P_ORIGIN').x);
-    expect(nodes.get('ADMIN').y).toBeGreaterThan(nodes.get('TRUNK_SOUTH').y);
+    expect(nodes.get('ADMIN').x).toBeGreaterThan(nodes.get('TRUNK_SOUTH').x);
+    expect(nodes.get('ADMIN').y).toBeGreaterThan(nodes.get('HSS1').y);
+    expect(ROUTE_NODES.some((node) => node.id.startsWith('P_'))).toBe(false);
   });
 
   it.each([0, 0.25, 0.5, 0.75, 1])('keeps marker on canonical edge at progress %s', (progress) => {
-    const route = shortestRoute('P_ORIGIN', 'LIBRARY');
+    const route = shortestRoute('TRUNK_HSS', 'LIBRARY');
     const position = positionAlongRoute(route, progress);
     expect(position).not.toBeNull();
     const point = markerPointForPosition(position);

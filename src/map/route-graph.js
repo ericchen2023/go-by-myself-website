@@ -1,23 +1,19 @@
-export const ROUTE_GRAPH_VERSION = 'ndhu-supplied-schematic-v3';
+export const ROUTE_GRAPH_VERSION = 'ndhu-four-stop-route-v4';
 
 export const ROUTE_NODES = Object.freeze([
-  // The coordinates below reproduce the topology in the supplied hand sketch.
-  // Every bend is a real graph node, so route projection and the SVG can never
-  // disagree about where a vehicle is allowed to appear.
-  { id: 'P_ORIGIN', x: 455, y: 585 },
-  { id: 'P_JOIN', x: 455, y: 535 },
-  { id: 'TRUNK_SOUTH', x: 515, y: 535 },
-  { id: 'TRUNK_HSS', x: 515, y: 325 },
-  { id: 'TRUNK_NORTH', x: 515, y: 110 },
-  { id: 'LIBRARY', x: 720, y: 110 },
-  { id: 'HSS_JUNCTION', x: 405, y: 325 },
-  { id: 'HSS_TOP_TURN', x: 405, y: 230 },
-  { id: 'HSS_BOTTOM_TURN', x: 405, y: 420 },
-  { id: 'HSS2', x: 225, y: 230 },
-  { id: 'HSS1', x: 225, y: 420 },
-  { id: 'ADMIN_TURN', x: 610, y: 535 },
-  { id: 'ADMIN_DROP', x: 610, y: 565 },
-  { id: 'ADMIN', x: 835, y: 565 }
+  // Only four public stop nodes are visible. The remaining nodes are bends in
+  // the one approved route, never extra stops or decorative roads.
+  { id: 'LIBRARY', x: 735, y: 105 },
+  { id: 'TRUNK_NORTH', x: 520, y: 105 },
+  { id: 'TRUNK_HSS', x: 520, y: 315 },
+  { id: 'HSS_JUNCTION', x: 385, y: 315 },
+  { id: 'HSS2_TURN', x: 385, y: 205 },
+  { id: 'HSS2', x: 225, y: 205 },
+  { id: 'HSS1_TURN', x: 385, y: 425 },
+  { id: 'HSS1', x: 225, y: 425 },
+  { id: 'TRUNK_SOUTH', x: 520, y: 515 },
+  { id: 'ADMIN_TURN', x: 650, y: 515 },
+  { id: 'ADMIN', x: 835, y: 515 }
 ]);
 
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
@@ -37,19 +33,16 @@ function edge(id, fromNodeId, toNodeId) {
 }
 
 export const ROUTE_EDGES = Object.freeze([
-  edge('edge-origin-join', 'P_ORIGIN', 'P_JOIN'),
-  edge('edge-origin-trunk', 'P_JOIN', 'TRUNK_SOUTH'),
-  edge('edge-trunk-south-hss', 'TRUNK_SOUTH', 'TRUNK_HSS'),
-  edge('edge-trunk-hss-north', 'TRUNK_HSS', 'TRUNK_NORTH'),
   edge('edge-north-library', 'TRUNK_NORTH', 'LIBRARY'),
+  edge('edge-trunk-north', 'TRUNK_HSS', 'TRUNK_NORTH'),
   edge('edge-hss-junction', 'TRUNK_HSS', 'HSS_JUNCTION'),
-  edge('edge-hss-top', 'HSS_JUNCTION', 'HSS_TOP_TURN'),
-  edge('edge-hss2', 'HSS_TOP_TURN', 'HSS2'),
-  edge('edge-hss-bottom', 'HSS_JUNCTION', 'HSS_BOTTOM_TURN'),
-  edge('edge-hss1', 'HSS_BOTTOM_TURN', 'HSS1'),
+  edge('edge-hss2-turn', 'HSS_JUNCTION', 'HSS2_TURN'),
+  edge('edge-hss2', 'HSS2_TURN', 'HSS2'),
+  edge('edge-hss1-turn', 'HSS_JUNCTION', 'HSS1_TURN'),
+  edge('edge-hss1', 'HSS1_TURN', 'HSS1'),
+  edge('edge-trunk-south', 'TRUNK_HSS', 'TRUNK_SOUTH'),
   edge('edge-admin-turn', 'TRUNK_SOUTH', 'ADMIN_TURN'),
-  edge('edge-admin-drop', 'ADMIN_TURN', 'ADMIN_DROP'),
-  edge('edge-admin', 'ADMIN_DROP', 'ADMIN')
+  edge('edge-admin', 'ADMIN_TURN', 'ADMIN')
 ]);
 
 export const DELIVERY_LOCATIONS = Object.freeze([

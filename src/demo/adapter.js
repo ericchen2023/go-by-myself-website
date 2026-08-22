@@ -218,7 +218,7 @@ export class DemoAdapter {
     this.#patch({ commandState: 'accepted' });
     const pickup = locationByCode(this.state.delivery?.pickupCode ?? '');
     if (!pickup) return;
-    const route = shortestRoute('P_ORIGIN', pickup.routeNodeId);
+    const route = shortestRoute('TRUNK_HSS', pickup.routeNodeId);
     this.#animateRoute(route, 'pickup');
   }
 

@@ -39,8 +39,24 @@ test('vehicle marker advances along the active canonical route', async ({ page }
   await page.waitForTimeout(450);
   const nextTransform = await page.locator('.vehicle-marker').getAttribute('transform');
   expect(nextTransform).not.toBe(firstTransform);
+  const distanceFromJourney = await page.locator('.journey-motion-path').evaluate((path, transform) => {
+    const geometryPath = /** @type {SVGPathElement} */ (path);
+    const match = String(transform).match(/translate\(([-.\d]+) ([-.\d]+)\)/);
+    if (!match) return Number.POSITIVE_INFINITY;
+    const markerPoint = { x: Number(match[1]), y: Number(match[2]) };
+    const length = geometryPath.getTotalLength();
+    let closest = Number.POSITIVE_INFINITY;
+    for (let index = 0; index <= 1000; index += 1) {
+      const point = geometryPath.getPointAtLength(length * index / 1000);
+      closest = Math.min(closest, Math.hypot(markerPoint.x - point.x, markerPoint.y - point.y));
+    }
+    return closest;
+  }, nextTransform);
+  expect(distanceFromJourney).toBeLessThanOrEqual(1.5);
   const activeEdges = page.locator('.route-edge.is-active');
-  expect(await activeEdges.count()).toBeGreaterThan(0);
+  expect(await activeEdges.count()).toBe(2);
+  await expect(page.locator('.route-edge')).toHaveCount(2);
+  await expect(page.locator('.map-stop')).toHaveCount(4);
   expect(await activeEdges.first().evaluate((path) => getComputedStyle(path).stroke)).not.toBe('none');
   await expect(page.locator('.journey-segment--remaining')).not.toHaveCount(0);
   await expect(page.locator('.journey-segment--traveled')).not.toHaveCount(0);
