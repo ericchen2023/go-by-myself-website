@@ -27,8 +27,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test tests/e2e/accessibility.spec.js",
-    "contract:check": "node scripts/contract-check.mjs",
+    "contract:check": "node scripts/contract-check.mjs --fixtures",
     "contract:fixtures": "node scripts/contract-check.mjs --fixtures",
+    "route:generate": "node scripts/generate-route-seed.mjs",
     "boundary:check": "node scripts/check-boundaries.mjs",
     "bundle:check": "node scripts/check-bundles.mjs",
     "benchmark:local": "node scripts/benchmark-local.mjs",
@@ -42,11 +43,14 @@
     "smoke:demo": "playwright test tests/e2e/demo-happy-path.spec.js",
     "smoke:staging": "node scripts/smoke-remote.mjs staging",
     "smoke:production": "node scripts/smoke-remote.mjs production",
+    "test:python-agent": "python -m unittest discover -s gateway/python_agent -p test_*.py",
     "gateway": "node gateway/src/server.js"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.2.8",
-    "@supabase/supabase-js": "^2.57.4"
+    "@supabase/supabase-js": "^2.57.4",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",

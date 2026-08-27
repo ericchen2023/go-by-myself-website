@@ -11,6 +11,9 @@ export class GatewayWorker {
     this.lastPollAt = null;
     this.lastError = null;
     this.running = false;
+    this.activeExecutions = new Map();
+    this.telemetrySequence = 0;
+    this.bootId = crypto.randomUUID();
   }
 
   async pollOnce() {
@@ -41,6 +44,10 @@ export class GatewayWorker {
         await this.controlPlane.postCommandEvent(command.commandId, prior.finalEvent);
         return;
       }
+      if (this.activeExecutions.has(command.commandId) && prior.acceptedEvent) {
+        await this.controlPlane.postCommandEvent(command.commandId, prior.acceptedEvent);
+        return;
+      }
       const uncertainEvent = commandEvent(
         command,
         'failed',
@@ -63,14 +70,39 @@ export class GatewayWorker {
       acceptedAt: new Date().toISOString()
     });
     await this.controlPlane.postCommandEvent(command.commandId, acceptedEvent);
-    const result = await this.hardware.execute(command);
-    const finalEvent = commandEvent(command, result.state, ++this.sequence, result.evidence, result.errorCode);
-    await this.ledger.record(command.commandId, {
-      acceptedEvent,
-      finalEvent,
-      completedAt: new Date().toISOString()
+    const execution = this.#execute(command, acceptedEvent).finally(() => this.activeExecutions.delete(command.commandId));
+    this.activeExecutions.set(command.commandId, execution);
+  }
+
+  async #execute(command, acceptedEvent) {
+    try {
+      const result = await this.hardware.execute(command);
+      const finalEvent = commandEvent(command, result.state, ++this.sequence, result.evidence, result.errorCode);
+      await this.ledger.record(command.commandId, {
+        acceptedEvent,
+        finalEvent,
+        completedAt: new Date().toISOString()
+      });
+      await this.controlPlane.postCommandEvent(command.commandId, finalEvent);
+    } catch (error) {
+      const finalEvent = commandEvent(command, 'failed', ++this.sequence, {}, error && typeof error === 'object' && 'code' in error ? String(error.code) : 'HARDWARE_EXECUTION_FAILED');
+      await this.ledger.record(command.commandId, { acceptedEvent, finalEvent, completedAt: new Date().toISOString() });
+      await this.controlPlane.postCommandEvent(command.commandId, finalEvent);
+    }
+  }
+
+  async publishTelemetry() {
+    if (typeof this.hardware.telemetry !== 'function' || typeof this.controlPlane.postTelemetry !== 'function') return;
+    const envelope = this.hardware.telemetry({
+      vehicleId: this.config.vehicleId,
+      bootId: this.bootId,
+      sequence: ++this.telemetrySequence
     });
-    await this.controlPlane.postCommandEvent(command.commandId, finalEvent);
+    await this.controlPlane.postTelemetry(envelope);
+  }
+
+  async waitForIdle() {
+    await Promise.allSettled([...this.activeExecutions.values()]);
   }
 
   start() {
@@ -94,6 +126,6 @@ export class GatewayWorker {
   }
 
   health() {
-    return { running: this.running, lastPollAt: this.lastPollAt, lastError: this.lastError };
+    return { running: this.running, lastPollAt: this.lastPollAt, lastError: this.lastError, inFlightCommands: this.activeExecutions.size };
   }
 }

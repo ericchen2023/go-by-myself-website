@@ -20,5 +20,9 @@ describe('truthful UI projection', () => {
     expect(copy.title).toMatch(/離線/);
     expect(copy.detail).toMatch(/投遞狀態並未/);
   });
-});
 
+  it('distinguishes degraded positioning from invalid or off-route positioning', () => {
+    expect(deliveryStatusCopy('in_transit', { positionQuality: 'degraded' }).title).toMatch(/可能不準/);
+    expect(deliveryStatusCopy('in_transit', { positionQuality: 'invalid' }).detail).toMatch(/停止顯示/);
+  });
+});

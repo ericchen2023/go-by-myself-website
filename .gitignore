@@ -6,6 +6,8 @@ playwright-report/
 test-results/
 coverage/
 gateway/data/
+__pycache__/
+*.py[cod]
 .env
 .env.*
 !.env.example

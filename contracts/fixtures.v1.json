@@ -1,0 +1,19 @@
+{
+  "deprecated": true,
+  "scope": "legacy-local-test-only",
+  "commands": [
+    {
+      "schemaVersion": 1,
+      "commandId": "a0000000-0000-4000-8000-000000000001",
+      "correlationId": "a0000000-0000-4000-8000-000000000002",
+      "idempotencyKey": "dispatch-demo-0001",
+      "vehicleId": "a0000000-0000-4000-8000-000000000003",
+      "deliveryId": "a0000000-0000-4000-8000-000000000004",
+      "type": "DISPATCH",
+      "issuedAt": "2026-08-22T02:00:00.000Z",
+      "expiresAt": "2026-08-22T02:05:00.000Z",
+      "expectedVehicleState": "idle",
+      "payload": { "pickupCode": "LIBRARY", "routeGraphVersion": "ndhu-supplied-schematic-v2" }
+    }
+  ]
+}

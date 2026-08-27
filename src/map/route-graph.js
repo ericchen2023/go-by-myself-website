@@ -1,20 +1,9 @@
-export const ROUTE_GRAPH_VERSION = 'ndhu-four-stop-route-v4';
+import routeGraph from '../../contracts/route-graph.v4.json';
 
-export const ROUTE_NODES = Object.freeze([
-  // Only four public stop nodes are visible. The remaining nodes are bends in
-  // the one approved route, never extra stops or decorative roads.
-  { id: 'LIBRARY', x: 735, y: 105 },
-  { id: 'TRUNK_NORTH', x: 520, y: 105 },
-  { id: 'TRUNK_HSS', x: 520, y: 315 },
-  { id: 'HSS_JUNCTION', x: 385, y: 315 },
-  { id: 'HSS2_TURN', x: 385, y: 205 },
-  { id: 'HSS2', x: 225, y: 205 },
-  { id: 'HSS1_TURN', x: 385, y: 425 },
-  { id: 'HSS1', x: 225, y: 425 },
-  { id: 'TRUNK_SOUTH', x: 520, y: 515 },
-  { id: 'ADMIN_TURN', x: 650, y: 515 },
-  { id: 'ADMIN', x: 835, y: 515 }
-]);
+export const ROUTE_GRAPH_VERSION = routeGraph.version;
+export const ROUTE_GRAPH_CHECKSUM = routeGraph.checksum;
+
+export const ROUTE_NODES = Object.freeze(routeGraph.nodes.map((node) => Object.freeze({ ...node })));
 
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
 
@@ -32,25 +21,9 @@ function edge(id, fromNodeId, toNodeId) {
   });
 }
 
-export const ROUTE_EDGES = Object.freeze([
-  edge('edge-north-library', 'TRUNK_NORTH', 'LIBRARY'),
-  edge('edge-trunk-north', 'TRUNK_HSS', 'TRUNK_NORTH'),
-  edge('edge-hss-junction', 'TRUNK_HSS', 'HSS_JUNCTION'),
-  edge('edge-hss2-turn', 'HSS_JUNCTION', 'HSS2_TURN'),
-  edge('edge-hss2', 'HSS2_TURN', 'HSS2'),
-  edge('edge-hss1-turn', 'HSS_JUNCTION', 'HSS1_TURN'),
-  edge('edge-hss1', 'HSS1_TURN', 'HSS1'),
-  edge('edge-trunk-south', 'TRUNK_HSS', 'TRUNK_SOUTH'),
-  edge('edge-admin-turn', 'TRUNK_SOUTH', 'ADMIN_TURN'),
-  edge('edge-admin', 'ADMIN_TURN', 'ADMIN')
-]);
+export const ROUTE_EDGES = Object.freeze(routeGraph.edges.map((item) => edge(item.id, item.fromNodeId, item.toNodeId)));
 
-export const DELIVERY_LOCATIONS = Object.freeze([
-  { code: 'LIBRARY', name: '圖資中心', detail: '圖資大樓正門・公車站前', routeNodeId: 'LIBRARY', active: true },
-  { code: 'ADMIN', name: '行政大樓', detail: '郵局旁', routeNodeId: 'ADMIN', active: true },
-  { code: 'HSS1', name: '人社一館', detail: '人社院南側取放點', routeNodeId: 'HSS1', active: true },
-  { code: 'HSS2', name: '人社二館', detail: '人社院北側取放點', routeNodeId: 'HSS2', active: true }
-]);
+export const DELIVERY_LOCATIONS = Object.freeze(routeGraph.locations.map((location) => Object.freeze({ ...location })));
 
 /** @param {string} code */
 export function locationByCode(code) {

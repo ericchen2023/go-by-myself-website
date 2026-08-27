@@ -164,8 +164,8 @@ function pointAndHeadingOnPath(path, progress) {
   return { x: point.x, y: point.y, heading: Math.atan2(after.y - before.y, after.x - before.x) * (180 / Math.PI) };
 }
 
-/** @param {SVGSVGElement} svg @param {string} id @param {{segmentId:string,progress:number}|null|undefined} position @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts */
-function appendVehicle(svg, id, position, parts) {
+/** @param {SVGSVGElement} svg @param {string} id @param {{segmentId:string,progress:number}|null|undefined} position @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {boolean} animateVehicle */
+function appendVehicle(svg, id, position, parts, animateVehicle = true) {
   if (!position) {
     const staleState = vehicleMotionStates.get(id);
     if (staleState?.frameId) globalThis.cancelAnimationFrame?.(staleState.frameId);
@@ -181,7 +181,7 @@ function appendVehicle(svg, id, position, parts) {
   const prior = vehicleMotionStates.get(id);
   const now = performance.now();
   let startProgress = targetProgress ?? 0;
-  if (prior && prior.signature === signature && targetProgress !== null) {
+  if (animateVehicle && prior && prior.signature === signature && targetProgress !== null && targetProgress >= prior.targetProgress) {
     const elapsed = Math.max(0, now - prior.startedAt);
     const ratio = Math.min(1, elapsed / prior.duration);
     startProgress = prior.startProgress + (prior.targetProgress - prior.startProgress) * easeInOut(ratio);
@@ -216,7 +216,7 @@ function appendVehicle(svg, id, position, parts) {
   const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   const state = { startProgress, targetProgress: targetProgress ?? startProgress, signature, startedAt: now, duration, frameId: 0, marker, vehicle };
   vehicleMotionStates.set(id, state);
-  if (!canSampleJourney || reduced || distance < 0.25 || typeof globalThis.requestAnimationFrame !== 'function') {
+  if (!animateVehicle || !canSampleJourney || reduced || distance < 0.25 || typeof globalThis.requestAnimationFrame !== 'function') {
     const target = canSampleJourney ? pointAndHeadingOnPath(path, state.targetProgress) : initial;
     marker.setAttribute('transform', `translate(${target.x} ${target.y})`);
     vehicle.setAttribute('transform', `rotate(${target.heading})`);
@@ -288,7 +288,7 @@ export function createRoutePreview() {
   return wrapper;
 }
 
-/** @param {{id:string,label:string,selectedCode?:string,pickupCode?:string,dropoffCode?:string,disabledCodes?:string[],interactive?:boolean,activeEdgeIds?:string[],activeRouteParts?:Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>,vehiclePosition?:{segmentId:string,progress:number}|null,onSelect?:(code:string)=>void}} options */
+/** @param {{id:string,label:string,selectedCode?:string,pickupCode?:string,dropoffCode?:string,disabledCodes?:string[],interactive?:boolean,activeEdgeIds?:string[],activeRouteParts?:Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>,vehiclePosition?:{segmentId:string,progress:number}|null,animateVehicle?:boolean,onSelect?:(code:string)=>void}} options */
 export function createRouteSelector(options) {
   const disabled = new Set(options.disabledCodes ?? []);
   const activeEdges = new Set(options.activeEdgeIds ?? []);
@@ -354,7 +354,7 @@ export function createRouteSelector(options) {
     stopLayer.append(group);
   });
   svg.append(stopLayer);
-  appendVehicle(svg, options.id, options.vehiclePosition, journeyParts);
+  appendVehicle(svg, options.id, options.vehiclePosition, journeyParts, options.animateVehicle ?? true);
 
   const list = el('fieldset', { className: `location-list${interactive ? '' : ' location-list--legend'}` },
     el('legend', { className: 'sr-only' }, options.label),

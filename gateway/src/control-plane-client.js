@@ -41,4 +41,16 @@ export class ControlPlaneClient {
     });
     if (!response.ok) throw new Error(`Command event failed: HTTP ${response.status}`);
   }
+
+  /** @param {Record<string, unknown>} telemetry */
+  async postTelemetry(telemetry) {
+    const url = this.#url('/api/v1/robot/telemetry');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.#headers(),
+      body: JSON.stringify(telemetry),
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok) throw new Error(`Telemetry ingest failed: HTTP ${response.status}`);
+  }
 }

@@ -10,6 +10,15 @@
 4. Robot owner 查 gateway readiness、network、boot ID/sequence 與 local controller state。
 5. Custody 已存在時由 operator 選 safe stop/return/approved destination。
 
+## Supervised route validation
+
+1. 只在 A–D 對四站 mapping、route graph version/checksum、八個 physical leg 都已簽核時啟用 capability。
+2. 執行前確認現場 operator、robot owner、實體 e-stop、空載與受控路線均就位。
+3. Operator workspace 一次只建立一個 validation route job；公開 sender 頁不顯示 raw x/y、A–D 或 SLAM diagnostics。
+4. 長時間 DISPATCH 期間 Gateway 必須繼續 polling；「要求安全停止」送出無 vehicle-state precondition 的 idempotent CANCEL。
+5. `accepted` 只表示 agent 接受工作；只有最後一個 leg 的 `completed` 才結束 validation，且不得建立 recipient credential、notification 或 completed delivery。
+6. checksum、segment、boot epoch、identity 任一不符，立即 NO-GO；保留 raw audit，禁止覆寫 current projection。
+
 ## Off-route
 
 1. 立即停止公開 raw pose，只顯示安全訊息。
@@ -38,4 +47,3 @@
 2. 記錄物品最後可信位置、door state、vehicle、actor、時間與 evidence。
 3. Delivery 保持 non-terminal 或進 `delivery_failed`，不可無理由 `completed/cancelled`。
 4. 指定人員完成交還/保管，才寫入 `custody_resolution` 與 terminal history。
-

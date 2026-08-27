@@ -25,11 +25,26 @@ function initialState() {
       observedAt: null,
       connectivity: 'offline',
       positionQuality: 'pending',
-      activeEdgeIds: []
+      activeEdgeIds: [],
+      projectionVersion: 0,
+      vehicleState: 'idle',
+      routePhase: null,
+      routeFromStopCode: null,
+      routeToStopCode: null,
+      legIndex: null,
+      legCount: null
     },
     commandState: null,
     notificationState: null,
     recipientAttempt: { attempts: 0, verified: false, phase: 'idle', error: '' },
+    routeValidation: {
+      capabilityEnabled: false,
+      mappingStatus: 'unapproved',
+      vehicles: [],
+      legs: [],
+      activeRun: null,
+      loading: false
+    },
     actionError: null,
     manualLoadEvidence: false
   };
@@ -46,6 +61,8 @@ export class ProductionAdapter {
       })
       : null;
     this.channel = null;
+    this.routeValidationChannel = null;
+    this.connectivityTimer = null;
   }
 
   snapshot() {
@@ -100,13 +117,19 @@ export class ProductionAdapter {
       const assuranceResult = await this.supabase.rpc('finalize_auth_assurance');
       if (!assuranceResult.error && typeof assuranceResult.data === 'string') assurance = assuranceResult.data;
     }
+    const workspaceResult = assurance !== 'pending' && this.supabase
+      ? await this.supabase.rpc('get_operator_route_validation_workspace')
+      : { data: null, error: null };
+    const isOperator = !workspaceResult.error && workspaceResult.data && !workspaceResult.data.error;
     this.#patch({
       session: {
         id: session.user.id,
         displayName: String(session.user.user_metadata?.full_name ?? '東華使用者'),
         email: session.user.email ?? '',
-        assurance
+        assurance,
+        roles: isOperator ? ['operator'] : []
       },
+      ...(isOperator ? { routeValidation: { ...this.state.routeValidation, ...workspaceResult.data } } : {}),
       wizardStep: 2,
       actionError: assurance === 'pending'
         ? { code: 'AUTH_DOMAIN_NOT_ALLOWED', message: '帳號仍待 trusted hosted-domain gate 驗證。', retryable: false }
@@ -144,6 +167,7 @@ export class ProductionAdapter {
   async signOut() {
     const client = this.#requireClient();
     await client.auth.signOut();
+    this.#stopConnectivityClock();
     this.#patch({ ...initialState() });
   }
 
@@ -216,8 +240,46 @@ export class ProductionAdapter {
       await this.supabase.removeChannel(this.channel);
       this.channel = null;
     }
+    if (this.routeValidationChannel && this.supabase) {
+      await this.supabase.removeChannel(this.routeValidationChannel);
+      this.routeValidationChannel = null;
+    }
+    this.#stopConnectivityClock();
     const session = this.state.session;
     this.#patch({ ...initialState(), session, wizardStep: session ? 2 : 1 });
+  }
+
+  async loadRouteValidationWorkspace() {
+    const client = this.#requireClient();
+    this.#patch({ routeValidation: { ...this.state.routeValidation, loading: true } });
+    const { data, error } = await client.rpc('get_operator_route_validation_workspace');
+    if (error || data?.error) throw new DomainError('RLS_DENIED', '此頁面只開放給已授權的操作人員。');
+    this.#patch({ routeValidation: { ...this.state.routeValidation, ...data, loading: false } });
+    if (data.activeRun?.routeJob?.id) await this.#subscribeToRouteValidation(data.activeRun.routeJob.id);
+  }
+
+  async startRouteValidation(vehicleId, legId, idempotencyKey = crypto.randomUUID()) {
+    const client = this.#requireClient();
+    const { data, error } = await client.rpc('create_route_validation_job', {
+      p_vehicle_id: vehicleId,
+      p_leg_id: legId,
+      p_idempotency_key: idempotencyKey
+    });
+    if (error) throw new DomainError('PHYSICAL_CAPABILITY_DISABLED', '實體站點對照或車輛能力尚未完成簽核，不能開始路線驗證。');
+    this.#patch({ routeValidation: { ...this.state.routeValidation, activeRun: data } });
+    await this.#subscribeToRouteValidation(data.routeJob.id);
+  }
+
+  async requestRouteValidationStop(idempotencyKey = crypto.randomUUID()) {
+    const runId = this.state.routeValidation.activeRun?.routeJob?.id;
+    if (!runId) throw new DomainError('DELIVERY_INVALID_TRANSITION', '目前沒有可停止的路線驗證。');
+    const client = this.#requireClient();
+    const { data, error } = await client.rpc('request_route_validation_stop', {
+      p_route_job_id: runId,
+      p_idempotency_key: idempotencyKey
+    });
+    if (error) throw new DomainError('ROBOT_COMMAND_TIMEOUT', '安全停止要求尚未被控制平面接受。', { retryable: true });
+    this.#patch({ routeValidation: { ...this.state.routeValidation, activeRun: data } });
   }
 
   async #sendIntent(intent, idempotencyKey) {
@@ -255,12 +317,81 @@ export class ProductionAdapter {
   async #subscribeToDelivery(deliveryId) {
     const client = this.#requireClient();
     if (this.channel) await client.removeChannel(this.channel);
+    let subscribedOnce = false;
     this.channel = client.channel(`delivery:${deliveryId}`, { config: { private: true } });
     this.channel.on('broadcast', { event: 'projection' }, ({ payload }) => {
       const currentVersion = this.state.delivery?.version ?? -1;
-      if (payload?.delivery?.version > currentVersion) this.#patch(payload);
+      const currentProjection = this.state.telemetry?.projectionVersion ?? -1;
+      const nextVersion = payload?.delivery?.version ?? -1;
+      const nextProjection = payload?.telemetry?.projectionVersion ?? -1;
+      if (nextVersion > currentVersion || nextProjection > currentProjection) this.#patch(payload);
     });
-    await this.channel.subscribe();
+    await this.channel.subscribe((status) => {
+      if (status !== 'SUBSCRIBED') return;
+      if (subscribedOnce) void this.#refreshActiveDeliverySnapshot();
+      subscribedOnce = true;
+    });
+    this.#startConnectivityClock();
+  }
+
+  async #subscribeToRouteValidation(routeJobId) {
+    const client = this.#requireClient();
+    if (this.routeValidationChannel) await client.removeChannel(this.routeValidationChannel);
+    let subscribedOnce = false;
+    this.routeValidationChannel = client.channel(`route-validation:${routeJobId}`, { config: { private: true } });
+    this.routeValidationChannel.on('broadcast', { event: 'projection' }, ({ payload }) => {
+      const currentUpdatedAt = this.state.routeValidation.activeRun?.routeJob?.updatedAt ?? '';
+      if ((payload?.routeJob?.updatedAt ?? '') >= currentUpdatedAt) {
+        this.#patch({ routeValidation: { ...this.state.routeValidation, activeRun: payload } });
+      }
+    });
+    await this.routeValidationChannel.subscribe((status) => {
+      if (status !== 'SUBSCRIBED') return;
+      if (subscribedOnce) void this.#refreshRouteValidationSnapshot();
+      subscribedOnce = true;
+    });
+  }
+
+  async #refreshActiveDeliverySnapshot() {
+    try {
+      const projection = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
+      const currentVersion = this.state.delivery?.version ?? -1;
+      const currentProjection = this.state.telemetry?.projectionVersion ?? -1;
+      if ((projection?.delivery?.version ?? -1) > currentVersion || (projection?.telemetry?.projectionVersion ?? -1) > currentProjection) {
+        this.#patch(projection);
+      }
+    } catch {
+      this.#patch({ actionError: { code: 'REALTIME_RESYNC_FAILED', message: '重新連線後無法取得最新投遞狀態。', retryable: true } });
+    }
+  }
+
+  async #refreshRouteValidationSnapshot() {
+    try {
+      const client = this.#requireClient();
+      const { data, error } = await client.rpc('get_operator_route_validation_workspace');
+      if (error || data?.error) throw error ?? new Error('RLS_DENIED');
+      this.#patch({ routeValidation: { ...this.state.routeValidation, ...data } });
+    } catch {
+      this.#patch({ actionError: { code: 'REALTIME_RESYNC_FAILED', message: '重新連線後無法取得最新路線驗證狀態。', retryable: true } });
+    }
+  }
+
+  #startConnectivityClock() {
+    this.#stopConnectivityClock();
+    this.connectivityTimer = window.setInterval(() => {
+      const observedAt = this.state.telemetry?.observedAt;
+      if (!observedAt) return;
+      const age = Date.now() - Date.parse(observedAt);
+      const connectivity = age >= 60_000 ? 'offline' : age >= 10_000 ? 'stale' : 'online';
+      if (connectivity !== this.state.telemetry.connectivity) {
+        this.#patch({ telemetry: { ...this.state.telemetry, connectivity } });
+      }
+    }, 1_000);
+  }
+
+  #stopConnectivityClock() {
+    if (this.connectivityTimer) window.clearInterval(this.connectivityTimer);
+    this.connectivityTimer = null;
   }
 }
 

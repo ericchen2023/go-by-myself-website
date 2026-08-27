@@ -1,8 +1,8 @@
 import { resolve } from 'node:path';
 
 export function loadGatewayConfig(environment = process.env) {
-  const supportedVersion = Number(environment.SUPPORTED_CONTRACT_VERSION ?? '1');
-  if (supportedVersion !== 1) throw new Error('Unknown major contract version; gateway fails closed.');
+  const supportedVersion = Number(environment.SUPPORTED_CONTRACT_VERSION ?? '2');
+  if (supportedVersion !== 2) throw new Error('Unknown major contract version; gateway fails closed.');
   const deployEnvironment = environment.GATEWAY_DEPLOY_ENV ?? 'local';
   const hardwareAdapter = environment.GATEWAY_HARDWARE_ADAPTER ?? 'simulator';
   if (!['local', 'test', 'staging', 'production'].includes(deployEnvironment)) {
@@ -26,6 +26,7 @@ export function loadGatewayConfig(environment = process.env) {
     privateKeyPath: environment.ROBOT_PRIVATE_KEY_PATH ?? '',
     supportedVersion,
     pollIntervalMs: Number(environment.ROBOT_POLL_INTERVAL_MS ?? '2000'),
+    telemetryIntervalMs: Number(environment.ROBOT_TELEMETRY_INTERVAL_MS ?? '1000'),
     stateDirectory: resolve(environment.GATEWAY_STATE_DIR ?? 'gateway/data')
   });
 }

@@ -1,34 +1,71 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://go-by-myself.invalid/contracts/delivery-command.schema.json",
-  "title": "Robot command envelope",
+  "title": "Robot command envelope v2",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "commandId",
-    "correlationId",
-    "idempotencyKey",
-    "vehicleId",
-    "deliveryId",
-    "type",
-    "issuedAt",
-    "expiresAt",
-    "expectedVehicleState",
-    "payload"
-  ],
+  "required": ["schemaVersion", "commandId", "correlationId", "idempotencyKey", "vehicleId", "target", "type", "issuedAt", "expiresAt", "payload"],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "commandId": { "type": "string", "format": "uuid" },
     "correlationId": { "type": "string", "format": "uuid" },
     "idempotencyKey": { "type": "string", "minLength": 8, "maxLength": 128 },
     "vehicleId": { "type": "string", "format": "uuid" },
-    "deliveryId": { "type": "string", "format": "uuid" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["delivery", "route_job"] },
+        "id": { "type": "string", "format": "uuid" }
+      }
+    },
     "type": { "type": "string", "enum": ["DISPATCH", "OPEN_COMPARTMENT", "CANCEL", "RETURN_TO_BASE"] },
     "issuedAt": { "type": "string", "format": "date-time" },
     "expiresAt": { "type": "string", "format": "date-time" },
-    "expectedVehicleState": { "type": "string", "minLength": 1, "maxLength": 64 },
-    "payload": { "type": "object", "additionalProperties": true, "maxProperties": 12 }
-  }
+    "preconditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowedVehicleStates"],
+      "properties": {
+        "allowedVehicleStates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/vehicleState" } }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "phase": { "type": "string", "enum": ["to_pickup", "to_dropoff", "validation", "return"] },
+        "legId": { "type": "string", "pattern": "^[A-Z0-9_-]{3,64}$" },
+        "legIndex": { "type": "integer", "minimum": 0 },
+        "legCount": { "type": "integer", "minimum": 1 },
+        "fromStopCode": { "$ref": "#/$defs/stopCode" },
+        "toStopCode": { "$ref": "#/$defs/stopCode" },
+        "routeGraphVersion": { "type": "string", "const": "ndhu-four-stop-route-v4" },
+        "routeGraphChecksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "actor": { "type": "string", "enum": ["sender", "recipient", "operator", "system"] }
+      },
+      "maxProperties": 9
+    }
+  },
+  "$defs": {
+    "stopCode": { "type": "string", "enum": ["LIBRARY", "ADMIN", "HSS1", "HSS2"] },
+    "vehicleState": { "type": "string", "enum": ["idle", "preparing", "localizing", "moving", "at_stop", "safe_stopped", "returning_to_base", "fault"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "DISPATCH" } }, "required": ["type"] },
+      "then": {
+        "required": ["preconditions"],
+        "properties": {
+          "target": { "type": "object", "properties": { "kind": { "const": "route_job" } } },
+          "payload": { "type": "object", "required": ["phase", "legId", "legIndex", "legCount", "fromStopCode", "toStopCode", "routeGraphVersion", "routeGraphChecksum"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "CANCEL" } }, "required": ["type"] },
+      "then": { "not": { "required": ["preconditions"] } }
+    }
+  ]
 }
-
