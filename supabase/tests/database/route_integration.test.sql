@@ -1,5 +1,5 @@
 begin;
-select plan(27);
+select plan(33);
 
 insert into auth.users(
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -61,12 +61,37 @@ update route_test_context
 set delivery_one = (created.payload #>> '{delivery,id}')::uuid
 from created;
 
+select throws_ok(
+  $$ select public.create_and_confirm_delivery(
+    'LIBRARY', 'ADMIN', '不同收件人', '+886912345678', '', false,
+    'document', 'integration test', 'route-test-create-one'
+  ) $$,
+  'P0001',
+  'IDEMPOTENCY_KEY_REUSED',
+  'a create idempotency key cannot be reused with different input'
+);
+
 do $$
 declare target_delivery uuid;
 begin
   select delivery_one into target_delivery from route_test_context;
   perform public.execute_delivery_intent(target_delivery, 'REQUEST_DISPATCH', 2, 'route-test-dispatch-one');
 end $$;
+
+select lives_ok(
+  $$ select public.execute_delivery_intent(
+    (select delivery_one from route_test_context), 'REQUEST_DISPATCH', 2, 'route-test-dispatch-one'
+  ) $$,
+  'an identical delivery intent retry returns its prior response'
+);
+select throws_ok(
+  $$ select public.execute_delivery_intent(
+    (select delivery_one from route_test_context), 'REQUEST_DISPATCH', 999, 'route-test-dispatch-one'
+  ) $$,
+  'P0001',
+  'IDEMPOTENCY_KEY_REUSED',
+  'a delivery intent key cannot be reused for a different request hash'
+);
 
 update route_test_context context
 set job_one = job.id,
@@ -187,6 +212,18 @@ select is(
   'off-route telemetry cannot overwrite the last-known-good marker'
 );
 
+update public.delivery_progress_current
+set observed_at = now() + interval '1 hour', updated_at = now() - interval '61 seconds', connectivity = 'online'
+where delivery_id = (select delivery_one from route_test_context);
+select is(
+  public.reconcile_robot_runtime()::text || ':' || (
+    select connectivity::text from public.delivery_progress_current
+    where delivery_id = (select delivery_one from route_test_context)
+  ),
+  '1:offline',
+  'connectivity uses trusted server receipt time instead of the robot clock'
+);
+
 do $$
 declare context route_test_context;
 declare graph_checksum text;
@@ -297,6 +334,23 @@ select is(
   (select state::text from public.route_jobs where id = (select job_one from route_test_context)),
   'completed',
   'final leg completion closes the route job'
+);
+
+select throws_ok(
+  $$ select public.process_robot_command_event(
+    (select vehicle_id from route_test_context),
+    (select command_one from route_test_context),
+    '10000000-0000-4000-8000-000000000003',
+    'accepted', 3, '{}'::jsonb, null
+  ) $$,
+  'P0001',
+  'COMMAND_EVENT_INVALID_TRANSITION',
+  'a late accepted event cannot regress a completed command'
+);
+select is(
+  (select state::text from public.route_jobs where id = (select job_one from route_test_context)),
+  'completed',
+  'late command events leave the terminal route state unchanged'
 );
 
 select ok(

@@ -23,6 +23,7 @@ function initialState() {
     telemetry: {
       position: null,
       observedAt: null,
+      receivedAt: null,
       connectivity: 'offline',
       positionQuality: 'pending',
       activeEdgeIds: [],
@@ -79,6 +80,14 @@ export class ProductionAdapter {
     this.state = { ...this.state, ...patch };
     const snapshot = this.snapshot();
     for (const listener of this.listeners) listener(snapshot);
+  }
+
+  #withLocalTelemetryReceipt(projection) {
+    if (!projection?.telemetry) return projection;
+    const receivedAt = projection.telemetry.connectivity === 'online'
+      ? new Date().toISOString()
+      : this.state.telemetry?.receivedAt ?? null;
+    return { ...projection, telemetry: { ...projection.telemetry, receivedAt } };
   }
 
   #requireClient() {
@@ -184,7 +193,7 @@ export class ProductionAdapter {
   async confirmDraft() {
     const input = assertValidDeliveryInput(this.state.draft);
     const projection = await this.#invoke('CREATE_AND_CONFIRM', { input }, 0);
-    this.#patch({ delivery: projection.delivery, wizardStep: 5, actionError: null });
+    this.#patch({ ...this.#withLocalTelemetryReceipt(projection), wizardStep: 5, actionError: null });
     await this.#subscribeToDelivery(projection.delivery.id);
   }
 
@@ -228,7 +237,7 @@ export class ProductionAdapter {
   /** @param {string} publicRef */
   async loadPickupContext(publicRef) {
     const projection = await this.#publicInvoke('GET_PICKUP_CONTEXT', { publicRef });
-    this.#patch({ ...projection, actionError: null });
+    this.#patch({ ...this.#withLocalTelemetryReceipt(projection), actionError: null });
   }
 
   clearError() {
@@ -285,7 +294,7 @@ export class ProductionAdapter {
   async #sendIntent(intent, idempotencyKey) {
     if (!this.state.delivery) throw new DomainError('DELIVERY_NOT_FOUND', '找不到目前投遞。');
     const projection = await this.#invoke(intent, { deliveryId: this.state.delivery.id }, this.state.delivery.version, idempotencyKey);
-    this.#patch({ ...projection, actionError: null });
+    this.#patch({ ...this.#withLocalTelemetryReceipt(projection), actionError: null });
   }
 
   async #invoke(intent, payload, expectedVersion, idempotencyKey = crypto.randomUUID()) {
@@ -309,7 +318,7 @@ export class ProductionAdapter {
   async #loadActiveDelivery() {
     const projection = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
     if (projection?.delivery) {
-      this.#patch({ ...projection, wizardStep: 5 });
+      this.#patch({ ...this.#withLocalTelemetryReceipt(projection), wizardStep: 5 });
       await this.#subscribeToDelivery(projection.delivery.id);
     }
   }
@@ -324,7 +333,7 @@ export class ProductionAdapter {
       const currentProjection = this.state.telemetry?.projectionVersion ?? -1;
       const nextVersion = payload?.delivery?.version ?? -1;
       const nextProjection = payload?.telemetry?.projectionVersion ?? -1;
-      if (nextVersion > currentVersion || nextProjection > currentProjection) this.#patch(payload);
+      if (nextVersion > currentVersion || nextProjection > currentProjection) this.#patch(this.#withLocalTelemetryReceipt(payload));
     });
     await this.channel.subscribe((status) => {
       if (status !== 'SUBSCRIBED') return;
@@ -358,7 +367,7 @@ export class ProductionAdapter {
       const currentVersion = this.state.delivery?.version ?? -1;
       const currentProjection = this.state.telemetry?.projectionVersion ?? -1;
       if ((projection?.delivery?.version ?? -1) > currentVersion || (projection?.telemetry?.projectionVersion ?? -1) > currentProjection) {
-        this.#patch(projection);
+        this.#patch(this.#withLocalTelemetryReceipt(projection));
       }
     } catch {
       this.#patch({ actionError: { code: 'REALTIME_RESYNC_FAILED', message: '重新連線後無法取得最新投遞狀態。', retryable: true } });
@@ -379,9 +388,9 @@ export class ProductionAdapter {
   #startConnectivityClock() {
     this.#stopConnectivityClock();
     this.connectivityTimer = window.setInterval(() => {
-      const observedAt = this.state.telemetry?.observedAt;
-      if (!observedAt) return;
-      const age = Date.now() - Date.parse(observedAt);
+      const receivedAt = this.state.telemetry?.receivedAt;
+      if (!receivedAt) return;
+      const age = Date.now() - Date.parse(receivedAt);
       const connectivity = age >= 60_000 ? 'offline' : age >= 10_000 ? 'stale' : 'online';
       if (connectivity !== this.state.telemetry.connectivity) {
         this.#patch({ telemetry: { ...this.state.telemetry, connectivity } });
