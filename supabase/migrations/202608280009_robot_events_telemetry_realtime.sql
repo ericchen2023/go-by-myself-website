@@ -433,7 +433,6 @@ end;
 $$;
 revoke all on function private.can_access_realtime_topic(text) from public;
 
-alter table realtime.messages enable row level security;
 create policy gbm_private_topic_read on realtime.messages
 for select to authenticated using (private.can_access_realtime_topic(realtime.topic()));
 
