@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-by-myself.invalid/contracts/robot-fault.schema.json",
+  "title": "Robot fault envelope v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "vehicleId", "type", "severity", "observedAt", "evidence"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "vehicleId": { "type": "string", "format": "uuid" },
+    "deliveryId": { "type": "string", "format": "uuid" },
+    "routeJobId": { "type": "string", "format": "uuid" },
+    "type": { "type": "string", "pattern": "^[A-Z0-9_]{3,64}$" },
+    "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 8,
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z0-9_]{2,64}$" },
+        "component": { "type": "string", "pattern": "^[a-z0-9_-]{2,48}$" },
+        "recoverable": { "type": "boolean" },
+        "safeStop": { "type": "boolean" },
+        "doorState": { "type": "string", "enum": ["open", "closed", "unknown"] },
+        "vehicleState": { "$ref": "#/$defs/vehicleState" },
+        "legId": { "type": "string", "pattern": "^[A-Z0-9_-]{3,64}$" },
+        "commandId": { "type": "string", "format": "uuid" }
+      }
+    }
+  },
+  "$defs": {
+    "vehicleState": {
+      "type": "string",
+      "enum": ["idle", "preparing", "localizing", "moving", "at_stop", "safe_stopped", "returning_to_base", "fault"]
+    }
+  }
+}

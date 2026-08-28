@@ -2,6 +2,8 @@
 
 未完整回答、文件化並由 robot/safety owner 簽核前，只能使用 `SimulatorHardware`。
 
+請在車端 private evidence 文件逐題填寫 `CONFIRMED | UNKNOWN | NOT AVAILABLE`、證據來源、確認人與日期；不要把 token、private key、校園精準座標或內網資訊提交到這個 public repository。接手順序與輸出格式見[車端電腦 AI 技術交接](VEHICLE_PC_AI_HANDOFF.md)。
+
 1. Controller platform 與 onboard compute？
 2. OS 與 CPU architecture？
 3. ROS、ROS2 或 none；distribution/version？
@@ -34,4 +36,3 @@
 30. Physical test 與 incident contact owner？
 
 另需提供：route calibration samples、normal/edge-case telemetry fixtures、door/sensor evidence semantics、credential provisioning/rotation runbook、supervised drill signoff。
-

@@ -1,32 +1,78 @@
 {
   "commands": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "commandId": "a0000000-0000-4000-8000-000000000001",
       "correlationId": "a0000000-0000-4000-8000-000000000002",
-      "idempotencyKey": "dispatch-demo-0001",
+      "idempotencyKey": "dispatch-staging-0001",
       "vehicleId": "a0000000-0000-4000-8000-000000000003",
-      "deliveryId": "a0000000-0000-4000-8000-000000000004",
+      "target": { "kind": "route_job", "id": "a0000000-0000-4000-8000-000000000004" },
       "type": "DISPATCH",
       "issuedAt": "2026-08-22T02:00:00.000Z",
-      "expiresAt": "2026-08-22T02:05:00.000Z",
-      "expectedVehicleState": "idle",
-      "payload": { "pickupCode": "LIBRARY", "routeGraphVersion": "ndhu-supplied-schematic-v2" }
+      "expiresAt": "2026-08-22T02:30:00.000Z",
+      "preconditions": { "allowedVehicleStates": ["idle", "at_stop", "safe_stopped"] },
+      "payload": {
+        "phase": "validation",
+        "legId": "A_B",
+        "legIndex": 0,
+        "legCount": 1,
+        "fromStopCode": "LIBRARY",
+        "toStopCode": "HSS2",
+        "routeGraphVersion": "ndhu-four-stop-route-v4",
+        "routeGraphChecksum": "sha256:712c4b12e3932647eb0856699fe4ace4bd9a2434c325b97451e07abbd7120ef9"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "commandId": "a0000000-0000-4000-8000-000000000011",
+      "correlationId": "a0000000-0000-4000-8000-000000000012",
+      "idempotencyKey": "cancel-staging-0001",
+      "vehicleId": "a0000000-0000-4000-8000-000000000003",
+      "target": { "kind": "route_job", "id": "a0000000-0000-4000-8000-000000000004" },
+      "type": "CANCEL",
+      "issuedAt": "2026-08-22T02:02:00.000Z",
+      "expiresAt": "2026-08-22T02:32:00.000Z",
+      "payload": {}
     }
   ],
   "telemetry": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "vehicleId": "a0000000-0000-4000-8000-000000000003",
       "bootId": "a0000000-0000-4000-8000-000000000005",
       "sequence": 1,
       "messageId": "a0000000-0000-4000-8000-000000000006",
       "observedAt": "2026-08-22T02:00:01.000Z",
-      "receivedAt": "2026-08-22T02:00:01.100Z",
-      "pose": { "frameId": "map", "x": 0, "y": 0, "heading": 0 },
-      "speed": 0,
-      "battery": 90,
-      "quality": "valid"
+      "vehicleState": "moving",
+      "pose": { "frameId": "site-v1", "x": 118.42, "y": 3.07, "heading": -114.8 },
+      "speedMps": 0.58,
+      "battery": { "voltageV": 23.7, "percent": null },
+      "quality": "valid",
+      "route": {
+        "legId": "A_B",
+        "segmentId": "edge-trunk-north",
+        "progress": 0.42,
+        "lateralM": 0.11,
+        "routeGraphVersion": "ndhu-four-stop-route-v4",
+        "routeGraphChecksum": "sha256:712c4b12e3932647eb0856699fe4ace4bd9a2434c325b97451e07abbd7120ef9"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "schemaVersion": 2,
+      "vehicleId": "a0000000-0000-4000-8000-000000000003",
+      "routeJobId": "a0000000-0000-4000-8000-000000000004",
+      "type": "LOCALIZATION_DEGRADED",
+      "severity": "warning",
+      "observedAt": "2026-08-22T02:00:03.000Z",
+      "evidence": {
+        "code": "SLAM_QUALITY_LOW",
+        "component": "localization",
+        "recoverable": true,
+        "vehicleState": "localizing",
+        "legId": "A_B"
+      }
     }
   ]
 }

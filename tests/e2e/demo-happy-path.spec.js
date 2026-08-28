@@ -21,6 +21,7 @@ test('complete deterministic sender and recipient demo', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '準備呼叫車輛' })).toBeVisible();
   await page.getByRole('button', { name: '呼叫車輛' }).click();
   await expect(page.getByRole('heading', { name: '確認車輛後再開艙' })).toBeVisible({ timeout: 6_000 });
+  await expect(page.locator('body')).not.toContainText('狀態版本');
 
   await page.getByRole('button', { name: '開啟置物艙' }).click();
   await expect(page.getByRole('heading', { name: '請放入物品' })).toBeVisible({ timeout: 3_000 });

@@ -96,4 +96,4 @@
 - WCAG 2.2 AA；互動目標採 44×44 專案標準。
 - 清楚的 focus-visible，邏輯 tab order，地圖有 roving tabindex 和 radio list 替代。
 - 狀態不只靠顏色；重要變更由 live region 宣告，但不逐筆朗讀位置資料。
-- 200% zoom 不裁切，400% reflow 列入人工檢查。
+- 200%／400% 等效 reflow 由 Playwright 在 640px／320px 持續檢查；實際瀏覽器縮放、螢幕閱讀器與觸控仍列入人工驗收。

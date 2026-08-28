@@ -1,7 +1,7 @@
 import { el, ndhuEmblem, projectMark } from './dom.js';
 import { STEP_NAMES, deliveryStatusCopy } from '../domain/presentation.js';
 
-/** @param {{banner: {className:string,copy:string}, session: {displayName: string}|null, hasDelivery: boolean, navigate: (path: string) => void, onSignOut: () => void}} options */
+/** @param {{banner: {className:string,copy:string}, session: {displayName: string,roles?:string[]}|null, hasDelivery: boolean, navigate: (path: string) => void, onSignOut: () => void}} options */
 export function siteHeader(options) {
   return el('header', { className: 'site-header' },
     el('div', { className: 'site-header__inner' },
@@ -15,6 +15,7 @@ export function siteHeader(options) {
       ),
       el('nav', { className: 'site-nav', 'aria-label': '主要導覽' },
         options.hasDelivery ? el('a', { href: '/delivery/current', onclick: (event) => { event.preventDefault(); options.navigate('/delivery/current'); } }, '目前投遞') : null,
+        options.session?.roles?.includes('operator') ? el('a', { href: '/operator/route-validation', onclick: (event) => { event.preventDefault(); options.navigate('/operator/route-validation'); } }, '路線驗證') : null,
         el('a', { href: '/support', onclick: (event) => { event.preventDefault(); options.navigate('/support'); } }, '協助'),
         options.session ? el('button', { className: 'button button--ghost button--small', type: 'button', onclick: options.onSignOut }, '登出') : null
       )

@@ -14,6 +14,7 @@ import { createRouteSelector } from '../map/map-view.js';
 import { locationByCode, shortestRoute } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
 import { notificationCopy, stepForStatus } from '../domain/presentation.js';
+import { routeValidationView } from '../operator/route-validation-view.js';
 import {
   authAlternative,
   cancelledCopy,
@@ -47,6 +48,7 @@ export class Application {
     /** @type {Record<string, string>} */
     this.fieldErrors = {};
     this.busy = false;
+    this.operatorSelection = { vehicleId: '', legId: '' };
     this.route = window.location.pathname;
     this.unsubscribe = adapter.subscribe((state) => {
       this.state = state;
@@ -70,6 +72,9 @@ export class Application {
       const publicRef = decodeURIComponent(this.route.split('/').pop() ?? '');
       await this.#run(() => this.adapter.loadPickupContext(publicRef), false);
     }
+    if (this.route === '/operator/route-validation' && typeof this.adapter.loadRouteValidationWorkspace === 'function') {
+      await this.#run(() => this.adapter.loadRouteValidationWorkspace(), false);
+    }
   }
 
   /** @param {string} path */
@@ -78,6 +83,19 @@ export class Application {
     this.route = path;
     window.scrollTo({ top: 0, behavior: 'instant' });
     this.render();
+  }
+
+  /** @param {number} step */
+  #setWizardStep(step) {
+    this.adapter.setWizardStep(step);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    requestAnimationFrame(() => {
+      const heading = /** @type {HTMLElement|null} */ (document.querySelector('#main-content h1'));
+      if (!heading) return;
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+      heading.addEventListener('blur', () => heading.removeAttribute('tabindex'), { once: true });
+    });
   }
 
   /** @param {() => unknown|Promise<unknown>} action @param {boolean} [markBusy] */
@@ -131,6 +149,7 @@ export class Application {
     let content;
     if (this.route === '/privacy') content = this.#privacyPage();
     else if (this.route === '/support') content = this.#supportPage();
+    else if (this.route === '/operator/route-validation') content = this.#routeValidationPage();
     else if (!this.state.session || this.route === '/') content = this.#homePage();
     else if (this.route.startsWith('/delivery')) content = this.#deliveryPage();
     else content = this.#notFound();
@@ -221,7 +240,7 @@ export class Application {
           className: 'button button--primary',
           type: 'button',
           disabled: !selected,
-          onclick: () => this.adapter.setWizardStep(3)
+          onclick: () => this.#setWizardStep(3)
         }, '繼續填寫投遞資料')
       )
     ));
@@ -251,7 +270,7 @@ export class Application {
     );
     form.append(fields);
     form.append(el('div', { className: 'action-row' },
-      el('button', { className: 'button button--ghost', type: 'button', onclick: () => this.adapter.setWizardStep(2) }, '返回放件地點'),
+      el('button', { className: 'button button--ghost', type: 'button', onclick: () => this.#setWizardStep(2) }, '返回放件地點'),
       el('button', { className: 'button button--primary', type: 'submit' }, '檢查並前往確認')
     ));
     form.addEventListener('submit', (event) => {
@@ -268,7 +287,7 @@ export class Application {
       const validation = validateDeliveryInput(candidate);
       this.adapter.saveDraft(candidate);
       this.fieldErrors = validation.errors;
-      if (!Object.keys(validation.errors).length) this.adapter.setWizardStep(4);
+      if (!Object.keys(validation.errors).length) this.#setWizardStep(4);
       else {
         this.uiError = { code: 'DELIVERY_VALIDATION_FAILED', message: '請修正標示的欄位。', retryable: false };
         this.render();
@@ -358,7 +377,7 @@ export class Application {
       ),
       el('p', { className: 'cancellation-copy' }, '尚未派車前可直接取消；車輛開始執行後，取消會先進入安全處理，不會立即宣稱完成。'),
       el('div', { className: 'action-row' },
-        el('button', { className: 'button button--ghost', type: 'button', onclick: () => this.adapter.setWizardStep(3) }, '返回編輯'),
+        el('button', { className: 'button button--ghost', type: 'button', onclick: () => this.#setWizardStep(3) }, '返回編輯'),
         el('button', {
           className: 'button button--primary',
           type: 'button',
@@ -379,9 +398,14 @@ export class Application {
     const pickup = locationByCode(delivery.pickupCode);
     const dropoff = locationByCode(delivery.dropoffCode);
     const telemetry = this.state.telemetry;
-    const activeRouteParts = currentStep <= 6
-      ? shortestRoute('TRUNK_HSS', pickup?.routeNodeId ?? '')
-      : shortestRoute(pickup?.routeNodeId ?? '', dropoff?.routeNodeId ?? '');
+    const projectedFrom = locationByCode(telemetry.routeFromStopCode);
+    const projectedTo = locationByCode(telemetry.routeToStopCode);
+    const activeRouteParts = projectedFrom && projectedTo
+      ? shortestRoute(projectedFrom.routeNodeId, projectedTo.routeNodeId)
+      : currentStep <= 6
+        ? shortestRoute('TRUNK_HSS', pickup?.routeNodeId ?? '')
+        : shortestRoute(pickup?.routeNodeId ?? '', dropoff?.routeNodeId ?? '');
+    const changingLeg = ['preparing', 'localizing'].includes(telemetry.vehicleState);
     const route = createRouteSelector({
       id: `delivery-route-${delivery.id}`,
       label: currentStep <= 6 ? '車輛前往放件地點' : '投遞路線與站點',
@@ -390,12 +414,16 @@ export class Application {
       interactive: false,
       activeEdgeIds: telemetry.activeEdgeIds,
       activeRouteParts,
-      vehiclePosition: telemetry.positionQuality === 'off_route' ? null : telemetry.position
+      vehiclePosition: ['off_route', 'invalid'].includes(telemetry.positionQuality) ? null : telemetry.position,
+      animateVehicle: telemetry.positionQuality === 'valid' && telemetry.connectivity === 'online' && telemetry.vehicleState === 'moving'
     });
     const body = el('div', { className: 'status-layout' },
       el('div', { className: 'status-primary' },
         statusHero({ status: delivery.status, telemetry }),
         this.#statusActions(delivery),
+        changingLeg ? el('div', { className: 'route-transition-notice', role: 'status' },
+          el('strong', {}, '車輛正在準備下一段路線'),
+          el('span', {}, '重新定位完成前，地圖保留最後一筆可信位置。')) : null,
         route
       ),
       el('aside', { className: 'status-aside', 'aria-label': '投遞摘要' },
@@ -404,8 +432,7 @@ export class Application {
           el('dl', { className: 'compact-summary' },
             summaryItem('放件', pickup?.name ?? ''),
             summaryItem('收件', dropoff?.name ?? ''),
-            summaryItem('車輛', 'GBM-01 · 綠白識別'),
-            summaryItem('狀態版本', `v${delivery.version}`)
+            summaryItem('車輛', 'GBM-01 · 綠白識別')
           )
         ),
         el('section', { className: 'aside-section' },
@@ -626,6 +653,27 @@ export class Application {
       el('h2', {}, '正式試行條件'),
       el('p', {}, '只有在校方核准路線、車輛規格確認、緊急應變人員到位、隱私告知完成、通知服務驗證通過，並完成現場演練後，才會進行小規模試行。')
     );
+  }
+
+  #routeValidationPage() {
+    if (!this.state.session?.roles?.includes('operator') || typeof this.adapter.startRouteValidation !== 'function') {
+      return el('main', { id: 'main-content', className: 'document-page' }, emptyState('無法開啟路線驗證', '此頁面只開放給已授權的操作人員。'));
+    }
+    const workspace = this.state.routeValidation;
+    const vehicleId = this.operatorSelection.vehicleId || workspace.vehicles[0]?.id || '';
+    const approvedLegs = workspace.legs.filter((leg) => leg.mappingApproved);
+    const legId = this.operatorSelection.legId || approvedLegs[0]?.legId || '';
+    return routeValidationView({
+      workspace,
+      selection: { vehicleId, legId },
+      busy: this.busy,
+      onSelection: (patch) => {
+        this.operatorSelection = { ...this.operatorSelection, ...patch };
+        this.render();
+      },
+      onStart: () => void this.#run(() => this.adapter.startRouteValidation(vehicleId, legId)),
+      onStop: () => void this.#run(() => this.adapter.requestRouteValidationStop())
+    });
   }
 
   #notFound() {

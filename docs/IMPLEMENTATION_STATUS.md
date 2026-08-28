@@ -1,39 +1,43 @@
 # Implementation status
 
-更新日期：2026-08-22。這份文件刻意區分已實作證據與尚未通過的人類／外部 gate，避免把「有 schema 或 adapter」誤稱為「可在校園 production 運作」。
+更新日期：2026-08-29。這份文件區分「程式已落地」、「contract-ready」與「已在真實環境驗證」，避免把migration或adapter存在誤稱為可上校園實機。
 
 ## 已實作
 
 | Scope | Maturity | Evidence |
 |---|---|---|
-| Foundation | IMPLEMENTED | Git/Vite/npm lockfile、Node 24 CI、checked JavaScript、doctor/env/boundary/bundle scripts |
-| Design system | IMPLEMENTED | Responsive website shell、44 px targets、focus/reduced-motion、desktop/mobile compositions |
-| Canonical route graph | IMPLEMENTED | 單一 normalized graph、四站、shortest path、SVG projection、list/map keyboard interaction |
-| Exhibition demo | IMPLEMENTED | Zero-secret adapter、fake clock、session reset、八步 sender/recipient journey、truthful mock states |
-| Shared domain | IMPLEMENTED | Actor/event state machine、validation、presentation mapping、cancellation/custody semantics |
-| Production browser adapter | CONTRACT-READY | Supabase OAuth/magic-link、trusted intent calls、private Broadcast skeleton；需 staging project 驗證 |
-| Database | CONTRACT-READY | 22-table migration、private PII/credential/rate-limit schema、constraints/indexes、RLS/RPC/append-only triggers、pgTAP baseline |
-| Robot gateway | CONTRACT-READY | Outbound client、version/expiry/vehicle checks、pre-execution persistent command ledger、restart fail-closed、separate ACK states、health endpoints |
-| Recipient credentials | CONTRACT-READY | 8-char design contract、HMAC Edge flow、atomic open-command creation；provider/robot evidence 未整合 |
-| Notifications | SCHEMA/UI CONTRACT | Durable states與 truthful copy 已落地；未選 provider、未發真實訊息 |
-| Tests | IMPLEMENTED BASELINE | 28 Vitest、16 Playwright desktop/mobile、axe、SVG geometry、bundle/capability/secret-marker checks、Linux CI＋DB CI job |
+| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、兩種build、NDHU emblem asset、responsive/a11y baseline；1440×1000與390×844實際走完sender/recipient流程，動態畫面axe為0，640px／320px等效reflow無溢位，步驟切換會回頁首並聚焦新標題 |
+| Canonical route | IMPLEMENTED | `contracts/route-graph.v4.json`是單一資料來源；四站、version/checksum、edge與SVG geometry由CI核對 |
+| Exhibition demo | IMPLEMENTED | Zero-secret、fake clock、八步sender/recipient、robot離線仍可展示 |
+| Robot contract v2 | IMPLEMENTED + UNIT VERIFIED | Command/telemetry/event JSON Schema、正反fixtures、checksum/leg/expiry/state驗證；v1只保留legacy fixture |
+| Route jobs | IMPLEMENTED + DB VERIFIED | Immutable migrations新增route job/legs、多段狀態、30分鐘起跑期限、未accepted過期回復、terminal reservation release；Linux CI從空資料庫套用並跑行為測試 |
+| Telemetry ingest | IMPLEMENTED + DB VERIFIED | 單一transactional RPC、server received time、boot/sequence ordering、last-known-good、valid/degraded/invalid/off-route projection；sequence與retired boot replay已做pgTAP fault injection |
+| Private Realtime | DB AUTH VERIFIED / WIRE PENDING | `delivery:{id}`與`route-validation:{id}` safe projection、topic authorization、10s/60s reconciliation；own/other/operator topic判斷已測，實際WebSocket wire仍待hosted staging |
+| Node simulator gateway | IMPLEMENTED + UNIT VERIFIED | DISPATCH背景執行、CANCEL可並行、durable dedup、telemetry v2、production simulator fail closed |
+| Jetson Python agent | CONTRACT HARNESS | Outbound poller、背景command executor、durable ledger、CANCEL並行、v2 fixtures；Aurora/ROS hardware adapter尚未實作 |
+| Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；無PII、無delivery completion |
+| Edge robot API | CONTRACT-READY + DENO VERIFIED | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；Deno LTS type-check與5組runtime contract tests已在CI通過 |
+| Repository governance | ENABLED | `main`已要求PR、strict `quality/browser/database/edge-contract` checks、linear history與conversation resolution；enforce admins，禁止force-push與deletion |
+| Tests | IMPLEMENTED BASELINE | 39 Vitest、25 Playwright/axe（另1個跨project skip）、5 Python unittest、5 Deno runtime tests、58 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks；本輪live QA無console/page/network error |
 
-## 明確未啟用
+## 尚未取得的驗證證據
 
-- 沒有建立或修改遠端 Supabase、Vercel、Netlify、Google OAuth、SMS/email provider 或 GitHub repository。
-- 沒有 robot credentials、ROS bridge、mTLS certificate、實測 route calibration、heartbeat/stale/off-route threshold。
-- 沒有使用官方 NDHU logo；目前只有 project-owned `GBM` 圓形 mark。
-- 沒有處理真實 PII；production build 在缺少設定時 fail closed 並顯示 capability unavailable。
-- QR action 預設不存在；需先確認 physical scanner/display ownership。
-- Operator console、alert channel、incident owner 與 support owner 是 physical/pilot gate，尚不能宣稱可營運。
-- Migration/RLS 必須在 local Supabase/PostgreSQL 與獨立 staging project 實際套用；SQL 檔存在不等於已驗證部署。
-- Gateway 目前只有 simulator hardware adapter，production environment 會拒絕啟動；必須在 robot questionnaire 與實機契約確認後另接核准 adapter。
+- 本機目前沒有Docker/Podman；但GitHub Linux CI已完成從空資料庫`db reset`與58個pgTAP。Hosted staging的真實Realtime WebSocket、Edge request與多context E2E仍未執行。
+- 尚未建立獨立Supabase staging project、per-client Edge secrets或active staging vehicle provisioning。
+- A／B／C／D到四個公開站點的正式mapping全部是`unapproved`，`route_validation_enabled=false`；server會拒絕建立真車route job。
+- Python agent只有dry-run adapter；沒有Aurora S map switch、ROS1 taught-route replay、真實telemetry或TLS certificate rotation。
+- 沒有置物艙、門鎖、item sensor、QR scanner或remote emergency stop，因此真實投遞維持NO-GO。
+- Operator workspace不是完整營運console；custody、door、incident assignment與alert owner仍待後續phase。
+- OAuth、SMS/email provider、privacy/legal與校方路線核准仍未完成。
+- GitHub repository目前為public；`main` branch protection已啟用，但正式staging前仍需確認repository visibility、collaborator權限、environment approvals與secret ownership符合團隊政策。
+- GitHub Actions、Deno LTS與`npx supabase`尚未全部鎖定immutable版本；production部署前需完成供應鏈版本固定。
 
 ## Phase gate
 
 | Phase | Current result |
 |---|---|
-| Exhibition Demo | SOFTWARE GO CANDIDATE；本機自動化與視覺檢查通過，仍需成果展設備／投影／網路斷線現場 smoke |
-| Integration-ready Staging | NO-GO；需建立獨立 Supabase、套 migration/pgTAP、配置測試 OAuth 與 simulator gateway |
-| Supervised Robot Integration | NO-GO；robot questionnaire、路線、門鎖/sensor、emergency/operator 未完成 |
-| Limited Production Pilot | NO-GO；校方、privacy、provider、incident、physical evidence 未完成 |
+| Exhibition Demo | SOFTWARE GO CANDIDATE；仍需成果展設備現場smoke |
+| Production-shaped staging | SOFTWARE + DATABASE CI GO CANDIDATE / HOSTED ENVIRONMENT NO-GO；需獨立Supabase、Edge secrets、Realtime wire與simulator多context E2E |
+| Supervised route validation | NO-GO；mapping、robot adapter、現場owner、實體e-stop、TLS與八方向drill未完成 |
+| Full physical delivery | NO-GO；compartment/door/sensor/custody缺失 |
+| Limited Production Pilot | NO-GO；校方、privacy、provider、incident與physical evidence未完成 |

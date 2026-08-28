@@ -13,6 +13,12 @@ const hardware = new SimulatorHardware();
 const controlPlane = configured ? new ControlPlaneClient(config) : null;
 const worker = controlPlane ? new GatewayWorker({ config, ledger, hardware, controlPlane }) : null;
 worker?.start();
+const telemetryTimer = worker ? setInterval(() => {
+  void worker.publishTelemetry().catch((error) => {
+    worker.lastError = error instanceof Error ? error.message : String(error);
+  });
+}, config.telemetryIntervalMs) : null;
+telemetryTimer?.unref();
 
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? '/', 'http://gateway.local');
@@ -50,6 +56,7 @@ server.listen(config.port, '127.0.0.1', () => {
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     worker?.stop();
+    if (telemetryTimer) clearInterval(telemetryTimer);
     server.close(() => process.exit(0));
   });
 }

@@ -1,0 +1,36 @@
+{
+  "version": "ndhu-four-stop-route-v4",
+  "checksum": "sha256:712c4b12e3932647eb0856699fe4ace4bd9a2434c325b97451e07abbd7120ef9",
+  "viewBox": [0, 0, 1000, 650],
+  "nodes": [
+    { "id": "LIBRARY", "x": 735, "y": 105 },
+    { "id": "TRUNK_NORTH", "x": 520, "y": 105 },
+    { "id": "TRUNK_HSS", "x": 520, "y": 315 },
+    { "id": "HSS_JUNCTION", "x": 385, "y": 315 },
+    { "id": "HSS2_TURN", "x": 385, "y": 205 },
+    { "id": "HSS2", "x": 225, "y": 205 },
+    { "id": "HSS1_TURN", "x": 385, "y": 425 },
+    { "id": "HSS1", "x": 225, "y": 425 },
+    { "id": "TRUNK_SOUTH", "x": 520, "y": 515 },
+    { "id": "ADMIN_TURN", "x": 650, "y": 515 },
+    { "id": "ADMIN", "x": 835, "y": 515 }
+  ],
+  "edges": [
+    { "id": "edge-north-library", "fromNodeId": "TRUNK_NORTH", "toNodeId": "LIBRARY", "directionPolicy": "bidirectional" },
+    { "id": "edge-trunk-north", "fromNodeId": "TRUNK_HSS", "toNodeId": "TRUNK_NORTH", "directionPolicy": "bidirectional" },
+    { "id": "edge-hss-junction", "fromNodeId": "TRUNK_HSS", "toNodeId": "HSS_JUNCTION", "directionPolicy": "bidirectional" },
+    { "id": "edge-hss2-turn", "fromNodeId": "HSS_JUNCTION", "toNodeId": "HSS2_TURN", "directionPolicy": "bidirectional" },
+    { "id": "edge-hss2", "fromNodeId": "HSS2_TURN", "toNodeId": "HSS2", "directionPolicy": "bidirectional" },
+    { "id": "edge-hss1-turn", "fromNodeId": "HSS_JUNCTION", "toNodeId": "HSS1_TURN", "directionPolicy": "bidirectional" },
+    { "id": "edge-hss1", "fromNodeId": "HSS1_TURN", "toNodeId": "HSS1", "directionPolicy": "bidirectional" },
+    { "id": "edge-trunk-south", "fromNodeId": "TRUNK_HSS", "toNodeId": "TRUNK_SOUTH", "directionPolicy": "bidirectional" },
+    { "id": "edge-admin-turn", "fromNodeId": "TRUNK_SOUTH", "toNodeId": "ADMIN_TURN", "directionPolicy": "bidirectional" },
+    { "id": "edge-admin", "fromNodeId": "ADMIN_TURN", "toNodeId": "ADMIN", "directionPolicy": "bidirectional" }
+  ],
+  "locations": [
+    { "code": "LIBRARY", "name": "圖資中心", "detail": "圖資大樓正門・公車站前", "routeNodeId": "LIBRARY", "active": true },
+    { "code": "ADMIN", "name": "行政大樓", "detail": "郵局旁", "routeNodeId": "ADMIN", "active": true },
+    { "code": "HSS1", "name": "人社一館", "detail": "人社院南側取放點", "routeNodeId": "HSS1", "active": true },
+    { "code": "HSS2", "name": "人社二館", "detail": "人社院北側取放點", "routeNodeId": "HSS2", "active": true }
+  ]
+}

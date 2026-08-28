@@ -23,6 +23,9 @@ test('auth, crest, station rules, and validation recovery are complete', async (
 
   await page.locator('input[name="pickup-location"][value="LIBRARY"]').check();
   await page.getByRole('button', { name: '繼續填寫投遞資料' }).click();
+  await expect(page.getByRole('heading', { name: '填寫投遞資料' })).toBeFocused();
+  await expect(page.locator('.skip-link')).not.toBeFocused();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await expect(page.locator('input[name="dropoff-location"][value="LIBRARY"]')).toBeDisabled();
   await page.locator('input[name="dropoff-location"][value="ADMIN"]').check();
   await page.getByRole('button', { name: '檢查並前往確認' }).click();

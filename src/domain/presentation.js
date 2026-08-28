@@ -38,12 +38,20 @@ export function stepForStatus(status) {
  * @param {{connectivity?: string, positionQuality?: string, commandState?: string}} [overlay]
  */
 export function deliveryStatusCopy(status, overlay = {}) {
-  if (overlay.positionQuality === 'off_route') {
+  if (overlay.positionQuality === 'off_route' || overlay.positionQuality === 'invalid') {
     return {
       eyebrow: '安全狀態',
       title: '車輛位置需要確認',
       detail: '系統已停止顯示未驗證的位置。請勿前往尋找車輛，等待現場人員處理。',
       tone: 'danger'
+    };
+  }
+  if (overlay.positionQuality === 'degraded') {
+    return {
+      eyebrow: '定位品質下降',
+      title: '車輛位置可能不準',
+      detail: '地圖保留受限制的路線投影；請以核准站點與現場車輛識別為準。',
+      tone: 'warning'
     };
   }
   if (overlay.connectivity === 'stale' || overlay.connectivity === 'offline') {

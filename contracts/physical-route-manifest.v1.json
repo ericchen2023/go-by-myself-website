@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "routeGraphVersion": "ndhu-four-stop-route-v4",
+  "routeGraphChecksum": "sha256:712c4b12e3932647eb0856699fe4ace4bd9a2434c325b97451e07abbd7120ef9",
+  "capabilityEnabled": false,
+  "mappingStatus": "unapproved",
+  "stopMappings": {
+    "A": null,
+    "B": null,
+    "C": null,
+    "D": null
+  },
+  "legs": [
+    { "legId": "A_B", "physicalFrom": "A", "physicalTo": "B", "allowedSegmentIds": [] },
+    { "legId": "B_A", "physicalFrom": "B", "physicalTo": "A", "allowedSegmentIds": [] },
+    { "legId": "B_C", "physicalFrom": "B", "physicalTo": "C", "allowedSegmentIds": [] },
+    { "legId": "C_B", "physicalFrom": "C", "physicalTo": "B", "allowedSegmentIds": [] },
+    { "legId": "C_D", "physicalFrom": "C", "physicalTo": "D", "allowedSegmentIds": [] },
+    { "legId": "D_C", "physicalFrom": "D", "physicalTo": "C", "allowedSegmentIds": [] },
+    { "legId": "A_D", "physicalFrom": "A", "physicalTo": "D", "allowedSegmentIds": [] },
+    { "legId": "D_A", "physicalFrom": "D", "physicalTo": "A", "allowedSegmentIds": [] }
+  ]
+}

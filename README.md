@@ -22,6 +22,7 @@ npm run demo
 - `npm run build:demo`／`npm run build:production`：建立隔離的兩種 artifact。
 - `npm run check`：lint、checked JavaScript、unit/contract/build/boundary/bundle 檢查。
 - `npm run test:e2e`：執行 Chromium desktop/mobile E2E 與 accessibility baseline。
+- `npm run test:python-agent`：執行車端 Python contract／restart／CANCEL harness。
 - `npm run env:init`／`npm run env:check`：建立與檢查本機環境設定。
 - `npm run local:up`／`local:reset`／`local:down`：Supabase CLI local stack。
 - `npm run gateway`：啟動 robot gateway simulator health server。
@@ -46,5 +47,11 @@ docs/                 architecture、operations、privacy 與 launch gates
 scripts/              doctor、environment、boundary、bundle checks
 ```
 
-更完整的完成度與未啟用能力請看 `docs/IMPLEMENTATION_STATUS.md`。
+## 技術文件
 
+- [完整文件索引](docs/README.md)：依接手、架構、測試、部署與現場營運分類的入口。
+- [目前完成度與未啟用能力](docs/IMPLEMENTATION_STATUS.md)
+- [車端電腦 AI 技術交接](docs/VEHICLE_PC_AI_HANDOFF.md)：Jetson／ROS 現場盤點、staging provisioning、hardware adapter、真車 GO／NO-GO 與可直接交給下一位 AI 的提示。
+- [Robot integration v2 runbook](docs/ROBOT_INTEGRATION_V2.md)
+- [Robot integration questionnaire](docs/ROBOT_QUESTIONNAIRE.md)
+- [Operational runbooks](docs/RUNBOOKS.md)

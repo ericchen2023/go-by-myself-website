@@ -1,18 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://go-by-myself.invalid/contracts/telemetry.schema.json",
-  "title": "Robot telemetry envelope",
+  "title": "Robot telemetry envelope v2",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "vehicleId", "bootId", "sequence", "messageId", "observedAt", "receivedAt", "pose", "battery", "quality"],
+  "required": ["schemaVersion", "vehicleId", "bootId", "sequence", "messageId", "observedAt", "vehicleState", "pose", "speedMps", "battery", "quality", "route"],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "vehicleId": { "type": "string", "format": "uuid" },
     "bootId": { "type": "string", "format": "uuid" },
     "sequence": { "type": "integer", "minimum": 0 },
     "messageId": { "type": "string", "format": "uuid" },
     "observedAt": { "type": "string", "format": "date-time" },
-    "receivedAt": { "type": "string", "format": "date-time" },
+    "vehicleState": { "$ref": "#/$defs/vehicleState" },
     "pose": {
       "type": "object",
       "additionalProperties": false,
@@ -24,9 +24,37 @@
         "heading": { "type": "number", "minimum": -360, "maximum": 360 }
       }
     },
-    "speed": { "type": "number", "minimum": 0 },
-    "battery": { "type": "number", "minimum": 0, "maximum": 100 },
-    "quality": { "type": "string", "enum": ["valid", "degraded", "invalid"] }
+    "speedMps": { "type": "number", "minimum": 0 },
+    "battery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["voltageV", "percent"],
+      "properties": {
+        "voltageV": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "percent": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+      }
+    },
+    "quality": { "type": "string", "enum": ["valid", "degraded", "invalid", "off_route"] },
+    "route": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["legId", "segmentId", "progress", "lateralM", "routeGraphVersion", "routeGraphChecksum"],
+          "properties": {
+            "legId": { "type": "string", "pattern": "^[A-Z0-9_-]{3,64}$" },
+            "segmentId": { "type": "string", "pattern": "^edge-[a-z0-9-]+$" },
+            "progress": { "type": "number", "minimum": 0, "maximum": 1 },
+            "lateralM": { "type": "number", "minimum": 0 },
+            "routeGraphVersion": { "type": "string", "const": "ndhu-four-stop-route-v4" },
+            "routeGraphChecksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "vehicleState": { "type": "string", "enum": ["idle", "preparing", "localizing", "moving", "at_stop", "safe_stopped", "returning_to_base", "fault"] }
   }
 }
-

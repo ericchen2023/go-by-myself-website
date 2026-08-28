@@ -32,3 +32,6 @@ enabled = true
 
 [functions.pickup]
 verify_jwt = false
+
+[functions.robot-api]
+verify_jwt = false
