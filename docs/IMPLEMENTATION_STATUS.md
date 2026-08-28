@@ -16,8 +16,8 @@
 | Node simulator gateway | IMPLEMENTED + UNIT VERIFIED | DISPATCH背景執行、CANCEL可並行、durable dedup、telemetry v2、production simulator fail closed |
 | Jetson Python agent | CONTRACT HARNESS | Outbound poller、背景command executor、durable ledger、CANCEL並行、v2 fixtures；Aurora/ROS hardware adapter尚未實作 |
 | Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；無PII、無delivery completion |
-| Edge robot API | CONTRACT-READY + DENO CI | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；CI執行Deno type-check |
-| Tests | IMPLEMENTED BASELINE | 37 Vitest、20 Playwright/axe、3 Python unittest、49 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks |
+| Edge robot API | CONTRACT-READY + DENO VERIFIED | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；Deno LTS type-check與4組runtime fixture tests已在CI通過 |
+| Tests | IMPLEMENTED BASELINE | 37 Vitest、20 Playwright/axe、3 Python unittest、4 Deno runtime tests、49 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks |
 
 ## 尚未取得的驗證證據
 

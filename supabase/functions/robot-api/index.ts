@@ -1,18 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import AjvModule from 'npm:ajv@8.20.0/dist/2020.js';
-import formatsModule from 'npm:ajv-formats@3.0.1';
-import commandSchema from '../../../contracts/delivery-command.schema.json' with { type: 'json' };
-import telemetrySchema from '../../../contracts/telemetry.schema.json' with { type: 'json' };
-import commandEventSchema from '../../../contracts/command-event.schema.json' with { type: 'json' };
+import { schemaErrors, validateCommand, validateCommandEvent, validateTelemetry } from './contract.ts';
 
 const MAX_BODY_BYTES = 64 * 1024;
-const Ajv2020 = AjvModule.default;
-const addFormats = formatsModule.default;
-const ajv = new Ajv2020({ strict: true, strictRequired: false, allErrors: true });
-addFormats(ajv);
-const validateCommand = ajv.compile(commandSchema);
-const validateTelemetry = ajv.compile(telemetrySchema);
-const validateCommandEvent = ajv.compile(commandEventSchema);
 const rateWindows = new Map<string, { startedAt: number; count: number }>();
 
 const stableCodes = new Set([
@@ -77,10 +66,10 @@ async function readJson(request: Request) {
   }
 }
 
-function schemaFailure(validate: { errors?: Parameters<typeof ajv.errorsText>[0] }, requestId: string) {
+function schemaFailure(validate: Parameters<typeof schemaErrors>[0], requestId: string) {
   return response(422, {
     requestId,
-    error: { code: 'CONTRACT_SCHEMA_INVALID', message: ajv.errorsText(validate.errors), retryable: false }
+    error: { code: 'CONTRACT_SCHEMA_INVALID', message: schemaErrors(validate), retryable: false }
   });
 }
 

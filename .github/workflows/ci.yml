@@ -70,3 +70,4 @@ jobs:
         with:
           deno-version: lts
       - run: deno check supabase/functions/robot-api/index.ts
+      - run: deno test supabase/functions/robot-api/contract_test.ts
