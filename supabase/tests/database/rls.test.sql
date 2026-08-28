@@ -23,7 +23,7 @@ select policies_are('public', 'audit_logs', array[]::text[], 'audit logs have no
 select policies_are('public', 'route_jobs', array['route_jobs_operator_select'], 'route jobs are operator-only');
 
 select col_is_unique('public', 'deliveries', array['public_ref'], 'public ref is unique');
-select col_is_unique('public', 'vehicle_commands', array['command_id'], 'command id is unique');
+select col_is_pk('public', 'vehicle_commands', 'command_id', 'command id is the primary key');
 select triggers_are('public', 'audit_logs', array['audit_logs_append_only'], 'audit is append-only');
 
 select * from finish();
