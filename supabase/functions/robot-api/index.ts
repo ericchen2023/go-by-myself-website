@@ -1,12 +1,14 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import Ajv from 'npm:ajv@8.20.0/dist/2020.js';
-import addFormats from 'npm:ajv-formats@3.0.1';
+import AjvModule from 'npm:ajv@8.20.0/dist/2020.js';
+import formatsModule from 'npm:ajv-formats@3.0.1';
 import commandSchema from '../../../contracts/delivery-command.schema.json' with { type: 'json' };
 import telemetrySchema from '../../../contracts/telemetry.schema.json' with { type: 'json' };
 import commandEventSchema from '../../../contracts/command-event.schema.json' with { type: 'json' };
 
 const MAX_BODY_BYTES = 64 * 1024;
-const ajv = new Ajv({ strict: true, strictRequired: false, allErrors: true });
+const Ajv2020 = AjvModule.default;
+const addFormats = formatsModule.default;
+const ajv = new Ajv2020({ strict: true, strictRequired: false, allErrors: true });
 addFormats(ajv);
 const validateCommand = ajv.compile(commandSchema);
 const validateTelemetry = ajv.compile(telemetrySchema);
