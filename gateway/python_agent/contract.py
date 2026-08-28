@@ -8,6 +8,8 @@ must not change the public command envelope.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
+from pathlib import Path
 from typing import Any
 
 CONTRACT_VERSION = 2
@@ -18,6 +20,9 @@ VEHICLE_STATES = {
     "safe_stopped", "returning_to_base", "fault",
 }
 COMMAND_TYPES = {"DISPATCH", "OPEN_COMPARTMENT", "CANCEL", "RETURN_TO_BASE"}
+PHYSICAL_MANIFEST = json.loads(
+    (Path(__file__).parents[2] / "contracts" / "physical-route-manifest.v1.json").read_text(encoding="utf-8")
+)
 
 
 class ContractError(ValueError):
@@ -68,6 +73,16 @@ def validate_command(command: Any, vehicle_id: str, now: datetime | None = None)
         for field in ("phase", "legId", "legIndex", "legCount", "fromStopCode", "toStopCode"):
             if field not in payload:
                 raise ContractError("COMMAND_SCHEMA_INVALID", f"dispatch payload is missing {field}")
+        physical_leg = next((leg for leg in PHYSICAL_MANIFEST["legs"] if leg["legId"] == payload["legId"]), None)
+        synthetic_leg = str(payload["legId"]).startswith("SIM_")
+        if physical_leg is None and not synthetic_leg:
+            raise ContractError("ROUTE_SEGMENT_NOT_ALLOWED", "physical leg is not in the pinned manifest")
+        if physical_leg is not None and (
+            PHYSICAL_MANIFEST.get("capabilityEnabled") is not True
+            or PHYSICAL_MANIFEST.get("mappingStatus") != "approved"
+            or not physical_leg.get("allowedSegmentIds")
+        ):
+            raise ContractError("PHYSICAL_CAPABILITY_DISABLED", "physical route mapping is not approved")
     return command
 
 

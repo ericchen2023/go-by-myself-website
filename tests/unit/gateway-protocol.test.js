@@ -10,8 +10,15 @@ class MemoryLedger {
   async record(commandId, value) { this.records.set(commandId, value); }
 }
 
+function syntheticCommand(command = fixtures.commands[0]) {
+  return {
+    ...command,
+    payload: { ...command.payload, legId: `SIM_${command.payload.fromStopCode}_${command.payload.toStopCode}` }
+  };
+}
+
 function workerFixture(prior = null) {
-  const command = { ...fixtures.commands[0], expiresAt: '2099-08-22T02:05:00Z' };
+  const command = syntheticCommand({ ...fixtures.commands[0], expiresAt: '2099-08-22T02:05:00Z' });
   const ledger = new MemoryLedger();
   if (prior) ledger.records.set(command.commandId, prior);
   const events = [];
@@ -32,7 +39,7 @@ describe('robot gateway command validation', () => {
   const command = fixtures.commands[0];
 
   it('accepts the supported contract for the assigned vehicle', () => {
-    expect(validateCommand(command, command.vehicleId, new Date('2026-08-22T02:01:00Z')).commandId).toBe(command.commandId);
+    expect(validateCommand(syntheticCommand(command), command.vehicleId, new Date('2026-08-22T02:01:00Z')).commandId).toBe(command.commandId);
   });
 
   it('fails closed on unknown major versions', () => {
@@ -42,6 +49,15 @@ describe('robot gateway command validation', () => {
   it('rejects wrong vehicle and late commands', () => {
     expect(() => validateCommand(command, 'b0000000-0000-4000-8000-000000000001', new Date('2026-08-22T02:01:00Z'))).toThrow(/another vehicle/);
     expect(() => validateCommand(command, command.vehicleId, new Date('2026-08-22T02:31:00Z'))).toThrow(/expired/);
+  });
+
+  it('rejects physical legs while the pinned manifest remains unapproved', () => {
+    const physical = {
+      ...command,
+      payload: { ...command.payload, phase: 'validation', legId: 'A_B' }
+    };
+    expect(() => validateCommand(physical, command.vehicleId, new Date('2026-08-22T02:01:00Z')))
+      .toThrow(/not approved/);
   });
 
   it('persists acceptance before execution and replays a final event without executing twice', async () => {
@@ -70,7 +86,7 @@ describe('robot gateway command validation', () => {
   });
 
   it('keeps polling responsive while a long dispatch is executing so CANCEL can run', async () => {
-    const dispatch = { ...fixtures.commands[0], expiresAt: '2099-08-22T02:30:00Z' };
+    const dispatch = syntheticCommand({ ...fixtures.commands[0], expiresAt: '2099-08-22T02:30:00Z' });
     const cancel = { ...fixtures.commands[1], expiresAt: '2099-08-22T02:32:00Z' };
     let poll = 0;
     let releaseDispatch = () => {};
@@ -100,7 +116,7 @@ describe('robot gateway command validation', () => {
   });
 
   it('executes and preserves the physical result when event delivery is temporarily unavailable', async () => {
-    const command = { ...fixtures.commands[0], expiresAt: '2099-08-22T02:30:00Z' };
+    const command = syntheticCommand({ ...fixtures.commands[0], expiresAt: '2099-08-22T02:30:00Z' });
     const ledger = new MemoryLedger();
     const delivered = [];
     let attempts = 0;

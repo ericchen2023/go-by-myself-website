@@ -15,9 +15,17 @@ class ContractTests(unittest.TestCase):
         fixtures = json.loads((Path(__file__).parents[2] / "contracts" / "fixtures.json").read_text(encoding="utf-8"))
         self.command = fixtures["commands"][0]
 
+    def synthetic_command(self) -> dict:
+        payload = self.command["payload"]
+        return {
+            **self.command,
+            "payload": {**payload, "legId": f"SIM_{payload['fromStopCode']}_{payload['toStopCode']}"},
+        }
+
     def test_accepts_v2_fixture(self) -> None:
         now = datetime(2026, 8, 22, 2, 1, tzinfo=timezone.utc)
-        self.assertEqual(validate_command(self.command, self.command["vehicleId"], now)["schemaVersion"], 2)
+        command = self.synthetic_command()
+        self.assertEqual(validate_command(command, command["vehicleId"], now)["schemaVersion"], 2)
 
     def test_rejects_unknown_version(self) -> None:
         with self.assertRaises(ContractError):
@@ -28,8 +36,16 @@ class ContractTests(unittest.TestCase):
         cancel = fixtures["commands"][1]
         self.assertNotIn("preconditions", validate_command(cancel, cancel["vehicleId"], datetime(2026, 8, 22, 2, 3, tzinfo=timezone.utc)))
 
+    def test_rejects_unapproved_physical_leg(self) -> None:
+        command = {
+            **self.command,
+            "payload": {**self.command["payload"], "phase": "validation", "legId": "A_B"},
+        }
+        with self.assertRaisesRegex(ContractError, "not approved"):
+            validate_command(command, command["vehicleId"], datetime(2026, 8, 22, 2, 1, tzinfo=timezone.utc))
+
     def test_transport_failure_cannot_replace_a_completed_physical_result(self) -> None:
-        command = {**self.command, "expiresAt": "2099-08-22T02:30:00Z"}
+        command = {**self.synthetic_command(), "expiresAt": "2099-08-22T02:30:00Z"}
 
         class ControlPlaneStub:
             vehicle_id = command["vehicleId"]

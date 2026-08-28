@@ -31,10 +31,18 @@ export function validateCommand(value, vehicleId, now = new Date()) {
     if (command.payload.routeGraphVersion !== routeGraph.version || command.payload.routeGraphChecksum !== routeGraph.checksum) {
       throw new CommandRejection('ROUTE_VERSION_MISMATCH', 'Route graph version or checksum does not match the pinned contract.');
     }
-    const knownPhysicalLeg = physicalManifest.legs.some((leg) => leg.legId === command.payload.legId);
+    const physicalLeg = physicalManifest.legs.find((leg) => leg.legId === command.payload.legId);
     const syntheticLeg = String(command.payload.legId).startsWith('SIM_');
-    if (!knownPhysicalLeg && !syntheticLeg) {
+    if (!physicalLeg && !syntheticLeg) {
       throw new CommandRejection('ROUTE_SEGMENT_NOT_ALLOWED', 'Physical leg is not in the pinned route manifest.');
+    }
+    if (physicalLeg && (
+      physicalManifest.capabilityEnabled !== true
+      || physicalManifest.mappingStatus !== 'approved'
+      || !Array.isArray(physicalLeg.allowedSegmentIds)
+      || physicalLeg.allowedSegmentIds.length === 0
+    )) {
+      throw new CommandRejection('PHYSICAL_CAPABILITY_DISABLED', 'Physical route mapping is not approved in the pinned manifest.');
     }
   }
   return command;
