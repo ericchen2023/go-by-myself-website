@@ -148,7 +148,7 @@ select is(
 );
 select is(
   (select segment_id || ':' || progress::text from public.delivery_progress_current where delivery_id = (select delivery_one from route_test_context)),
-  'edge-hss1:0.200000',
+  'edge-hss1:0.20000',
   'valid telemetry updates the privacy-safe marker projection'
 );
 
@@ -183,7 +183,7 @@ select is(
 );
 select is(
   (select segment_id || ':' || progress::text from public.delivery_progress_current where delivery_id = (select delivery_one from route_test_context)),
-  'edge-hss1:0.200000',
+  'edge-hss1:0.20000',
   'off-route telemetry cannot overwrite the last-known-good marker'
 );
 
@@ -323,6 +323,16 @@ do $$ begin
     true
   );
 end $$;
+
+update public.deliveries
+set status = 'delivery_failed', terminal_reason = 'test_cleanup', version = version + 1
+where id = (select delivery_one from route_test_context);
+select is(
+  (select state::text from public.vehicle_reservations where delivery_id = (select delivery_one from route_test_context)),
+  'released',
+  'terminal delivery transition releases its vehicle reservation'
+);
+
 select throws_ok(
   $$ select public.create_route_validation_job(
     (select vehicle_id from route_test_context), 'A_B', 'validation-disabled-test'
@@ -348,15 +358,6 @@ update route_test_context set validation_job = inserted.id from inserted;
 select ok(
   private.can_access_realtime_topic('route-validation:' || (select validation_job::text from route_test_context)),
   'active operator can authorize a route-validation topic'
-);
-
-update public.deliveries
-set status = 'delivery_failed', terminal_reason = 'test_cleanup', version = version + 1
-where id = (select delivery_one from route_test_context);
-select is(
-  (select state::text from public.vehicle_reservations where delivery_id = (select delivery_one from route_test_context)),
-  'released',
-  'terminal delivery transition releases its vehicle reservation'
 );
 
 do $$ begin
