@@ -41,11 +41,11 @@ export class GatewayWorker {
     const prior = this.ledger.get(command.commandId);
     if (prior) {
       if (prior.finalEvent) {
-        await this.controlPlane.postCommandEvent(command.commandId, prior.finalEvent);
+        await this.#postEvent(command.commandId, prior.finalEvent);
         return;
       }
       if (this.activeExecutions.has(command.commandId) && prior.acceptedEvent) {
-        await this.controlPlane.postCommandEvent(command.commandId, prior.acceptedEvent);
+        await this.#postEvent(command.commandId, prior.acceptedEvent);
         return;
       }
       const uncertainEvent = commandEvent(
@@ -60,7 +60,7 @@ export class GatewayWorker {
         finalEvent: uncertainEvent,
         completedAt: new Date().toISOString()
       });
-      await this.controlPlane.postCommandEvent(command.commandId, uncertainEvent);
+      await this.#postEvent(command.commandId, uncertainEvent);
       return;
     }
 
@@ -69,26 +69,33 @@ export class GatewayWorker {
       acceptedEvent,
       acceptedAt: new Date().toISOString()
     });
-    await this.controlPlane.postCommandEvent(command.commandId, acceptedEvent);
-    const execution = this.#execute(command, acceptedEvent).finally(() => this.activeExecutions.delete(command.commandId));
+    const acceptedDelivery = this.#postEvent(command.commandId, acceptedEvent);
+    const execution = this.#execute(command, acceptedEvent, acceptedDelivery)
+      .finally(() => this.activeExecutions.delete(command.commandId));
     this.activeExecutions.set(command.commandId, execution);
   }
 
-  async #execute(command, acceptedEvent) {
+  async #postEvent(commandId, event) {
+    try {
+      await this.controlPlane.postCommandEvent(commandId, event);
+      return true;
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : String(error);
+      return false;
+    }
+  }
+
+  async #execute(command, acceptedEvent, acceptedDelivery) {
+    let finalEvent;
     try {
       const result = await this.hardware.execute(command);
-      const finalEvent = commandEvent(command, result.state, ++this.sequence, result.evidence, result.errorCode);
-      await this.ledger.record(command.commandId, {
-        acceptedEvent,
-        finalEvent,
-        completedAt: new Date().toISOString()
-      });
-      await this.controlPlane.postCommandEvent(command.commandId, finalEvent);
+      finalEvent = commandEvent(command, result.state, ++this.sequence, result.evidence, result.errorCode);
     } catch (error) {
-      const finalEvent = commandEvent(command, 'failed', ++this.sequence, {}, error && typeof error === 'object' && 'code' in error ? String(error.code) : 'HARDWARE_EXECUTION_FAILED');
-      await this.ledger.record(command.commandId, { acceptedEvent, finalEvent, completedAt: new Date().toISOString() });
-      await this.controlPlane.postCommandEvent(command.commandId, finalEvent);
+      finalEvent = commandEvent(command, 'failed', ++this.sequence, {}, error && typeof error === 'object' && 'code' in error ? String(error.code) : 'HARDWARE_EXECUTION_FAILED');
     }
+    await this.ledger.record(command.commandId, { acceptedEvent, finalEvent, completedAt: new Date().toISOString() });
+    await acceptedDelivery;
+    await this.#postEvent(command.commandId, finalEvent);
   }
 
   async publishTelemetry() {

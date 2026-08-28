@@ -78,7 +78,6 @@ class ControlPlane:
             "x-robot-client-id": client_id,
             "authorization": f"Bearer {token}",
         }
-        self.cursor = ""
 
     def request(self, path: str, method: str = "GET", body: Any = None) -> Any:
         data = None if body is None else json.dumps(body).encode("utf-8")
@@ -88,10 +87,7 @@ class ControlPlane:
 
     def commands(self) -> list[dict[str, Any]]:
         query = {"vehicleId": self.vehicle_id}
-        if self.cursor:
-            query["after"] = self.cursor
         envelope = self.request(f"/api/v1/robot/commands?{urllib.parse.urlencode(query)}")
-        self.cursor = envelope.get("cursor", self.cursor)
         return envelope.get("data", [])
 
     def post_event(self, event: dict[str, Any]) -> None:
@@ -103,7 +99,7 @@ class Agent:
         self.control_plane = control_plane
         self.hardware = hardware
         self.ledger = ledger
-        self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="robot-command")
+        self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="robot-command")
         self.sequence = 0
         self.active: set[str] = set()
         self.lock = threading.Lock()
@@ -118,30 +114,45 @@ class Agent:
             command = validate_command(raw, self.control_plane.vehicle_id)
         except ContractError as error:
             if isinstance(raw, dict) and raw.get("commandId"):
-                self.control_plane.post_event(command_event(raw, "rejected", self.next_sequence(), error_code=error.code))
+                self.post_event_safely(command_event(raw, "rejected", self.next_sequence(), error_code=error.code))
             return
         prior = self.ledger.get(command["commandId"])
         if prior and prior.get("finalEvent"):
-            self.control_plane.post_event(prior["finalEvent"])
+            self.post_event_safely(prior["finalEvent"])
             return
-        if prior or command["commandId"] in self.active:
+        with self.lock:
+            is_active = command["commandId"] in self.active
+        if prior or is_active:
             if prior and prior.get("acceptedEvent"):
-                self.control_plane.post_event(prior["acceptedEvent"])
+                self.post_event_safely(prior["acceptedEvent"])
             return
         accepted = command_event(command, "accepted", self.next_sequence())
         self.ledger.put(command["commandId"], {"acceptedEvent": accepted})
-        self.control_plane.post_event(accepted)
-        self.active.add(command["commandId"])
-        self.executor.submit(self.finish, command, accepted)
+        with self.lock:
+            self.active.add(command["commandId"])
+        accepted_delivery = self.executor.submit(self.post_event_safely, accepted)
+        self.executor.submit(self.finish, command, accepted, accepted_delivery)
 
-    def finish(self, command: dict[str, Any], accepted: dict[str, Any]) -> None:
+    def post_event_safely(self, event: dict[str, Any]) -> bool:
         try:
-            result = self.hardware.execute(command)
-            final = command_event(command, result["state"], self.next_sequence(), result.get("evidence", {}), result.get("errorCode"))
+            self.control_plane.post_event(event)
+            return True
+        except Exception:
+            return False
+
+    def finish(self, command: dict[str, Any], accepted: dict[str, Any], accepted_delivery: Any) -> None:
+        try:
+            try:
+                result = self.hardware.execute(command)
+                final = command_event(command, result["state"], self.next_sequence(), result.get("evidence", {}), result.get("errorCode"))
+            except Exception as error:  # Hardware adapters must preserve failure as a terminal fact.
+                final = command_event(command, "failed", self.next_sequence(), error_code=getattr(error, "code", "HARDWARE_EXECUTION_FAILED"))
             self.ledger.put(command["commandId"], {"acceptedEvent": accepted, "finalEvent": final})
-            self.control_plane.post_event(final)
+            accepted_delivery.result()
+            self.post_event_safely(final)
         finally:
-            self.active.discard(command["commandId"])
+            with self.lock:
+                self.active.discard(command["commandId"])
 
     def run(self) -> None:
         while True:

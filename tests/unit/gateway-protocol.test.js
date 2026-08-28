@@ -98,4 +98,31 @@ describe('robot gateway command validation', () => {
     releaseDispatch();
     await worker.waitForIdle();
   });
+
+  it('executes and preserves the physical result when event delivery is temporarily unavailable', async () => {
+    const command = { ...fixtures.commands[0], expiresAt: '2099-08-22T02:30:00Z' };
+    const ledger = new MemoryLedger();
+    const delivered = [];
+    let attempts = 0;
+    const worker = new GatewayWorker({
+      config: { vehicleId: command.vehicleId, pollIntervalMs: 2000 },
+      ledger,
+      hardware: { execute: async () => ({ state: 'completed', evidence: { arrival: 'verified' } }) },
+      controlPlane: {
+        fetchCommands: async () => [command],
+        postCommandEvent: async (_commandId, event) => {
+          attempts += 1;
+          if (attempts <= 2) throw new Error('temporary transport failure');
+          delivered.push(event);
+        }
+      }
+    });
+
+    await worker.pollOnce();
+    await worker.waitForIdle();
+    expect(ledger.get(command.commandId).finalEvent).toMatchObject({ event: 'completed', evidence: { arrival: 'verified' } });
+
+    await worker.pollOnce();
+    expect(delivered.at(-1)).toMatchObject({ event: 'completed', evidence: { arrival: 'verified' } });
+  });
 });
