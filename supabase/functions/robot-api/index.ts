@@ -77,7 +77,7 @@ async function readJson(request: Request) {
   }
 }
 
-function schemaFailure(validate: { errors?: unknown }, requestId: string) {
+function schemaFailure(validate: { errors?: Parameters<typeof ajv.errorsText>[0] }, requestId: string) {
   return response(422, {
     requestId,
     error: { code: 'CONTRACT_SCHEMA_INVALID', message: ajv.errorsText(validate.errors), retryable: false }
