@@ -36,5 +36,20 @@
         "route": null
       }
     }
+  ],
+  "faults": [
+    {
+      "name": "fault-evidence-with-raw-pose",
+      "value": {
+        "schemaVersion": 2,
+        "vehicleId": "b0000000-0000-4000-8000-000000000003",
+        "type": "ROUTE_DEVIATION",
+        "severity": "warning",
+        "observedAt": "2026-08-22T02:00:03.000Z",
+        "evidence": {
+          "rawPose": { "x": 1, "y": 2 }
+        }
+      }
+    }
   ]
 }

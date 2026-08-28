@@ -1,6 +1,6 @@
 import fixtures from '../../../contracts/fixtures.json' with { type: 'json' };
 import invalidFixtures from '../../../contracts/invalid-fixtures.json' with { type: 'json' };
-import { schemaErrors, validateCommand, validateCommandEvent, validateTelemetry } from './contract.ts';
+import { schemaErrors, validateCommand, validateCommandEvent, validateRobotFault, validateTelemetry } from './contract.ts';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -18,12 +18,21 @@ Deno.test('Edge runtime accepts canonical telemetry fixtures', () => {
   }
 });
 
+Deno.test('Edge runtime accepts canonical fault fixtures', () => {
+  for (const [index, fault] of fixtures.faults.entries()) {
+    assert(validateRobotFault(fault), `fault fixture ${index}: ${schemaErrors(validateRobotFault)}`);
+  }
+});
+
 Deno.test('Edge runtime rejects every negative fixture', () => {
   for (const fixture of invalidFixtures.commands) {
     assert(!validateCommand(fixture.value), `invalid command passed: ${fixture.name}`);
   }
   for (const fixture of invalidFixtures.telemetry) {
     assert(!validateTelemetry(fixture.value), `invalid telemetry passed: ${fixture.name}`);
+  }
+  for (const fixture of invalidFixtures.faults) {
+    assert(!validateRobotFault(fixture.value), `invalid fault passed: ${fixture.name}`);
   }
 });
 

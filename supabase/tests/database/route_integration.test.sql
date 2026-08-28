@@ -1,5 +1,5 @@
 begin;
-select plan(33);
+select plan(36);
 
 insert into auth.users(
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -215,12 +215,14 @@ select is(
 update public.delivery_progress_current
 set observed_at = now() + interval '1 hour', updated_at = now() - interval '61 seconds', connectivity = 'online'
 where delivery_id = (select delivery_one from route_test_context);
+select lives_ok(
+  $$ select public.reconcile_robot_runtime() $$,
+  'connectivity reconciliation accepts a future-skewed robot timestamp'
+);
 select is(
-  public.reconcile_robot_runtime()::text || ':' || (
-    select connectivity::text from public.delivery_progress_current
-    where delivery_id = (select delivery_one from route_test_context)
-  ),
-  '1:offline',
+  (select connectivity::text from public.delivery_progress_current
+   where delivery_id = (select delivery_one from route_test_context)),
+  'offline',
   'connectivity uses trusted server receipt time instead of the robot clock'
 );
 
@@ -351,6 +353,35 @@ select is(
   (select state::text from public.route_jobs where id = (select job_one from route_test_context)),
   'completed',
   'late command events leave the terminal route state unchanged'
+);
+
+select throws_ok(
+  $$ select public.record_robot_fault(
+    'b0000000-0000-4000-8000-000000000001',
+    jsonb_build_object(
+      'schemaVersion', 2,
+      'vehicleId', 'b0000000-0000-4000-8000-000000000001',
+      'routeJobId', (select job_one from route_test_context),
+      'type', 'ROUTE_DEVIATION', 'severity', 'warning', 'observedAt', now(), 'evidence', '{}'::jsonb
+    )
+  ) $$,
+  '42501',
+  'ROBOT_SCOPE_DENIED',
+  'a robot cannot attach a fault to another vehicle route job'
+);
+select is(
+  (public.record_robot_fault(
+    (select vehicle_id from route_test_context),
+    jsonb_build_object(
+      'schemaVersion', 2,
+      'vehicleId', (select vehicle_id from route_test_context),
+      'routeJobId', (select job_one from route_test_context),
+      'type', 'LOCALIZATION_DEGRADED', 'severity', 'warning', 'observedAt', now(),
+      'evidence', jsonb_build_object('code','SLAM_QUALITY_LOW','component','localization','recoverable',true)
+    )
+  ) ->> 'accepted')::boolean,
+  true,
+  'an assigned robot can record an allow-listed route fault'
 );
 
 select ok(

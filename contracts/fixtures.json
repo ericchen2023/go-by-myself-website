@@ -57,5 +57,22 @@
         "routeGraphChecksum": "sha256:712c4b12e3932647eb0856699fe4ace4bd9a2434c325b97451e07abbd7120ef9"
       }
     }
+  ],
+  "faults": [
+    {
+      "schemaVersion": 2,
+      "vehicleId": "a0000000-0000-4000-8000-000000000003",
+      "routeJobId": "a0000000-0000-4000-8000-000000000004",
+      "type": "LOCALIZATION_DEGRADED",
+      "severity": "warning",
+      "observedAt": "2026-08-22T02:00:03.000Z",
+      "evidence": {
+        "code": "SLAM_QUALITY_LOW",
+        "component": "localization",
+        "recoverable": true,
+        "vehicleState": "localizing",
+        "legId": "A_B"
+      }
+    }
   ]
 }

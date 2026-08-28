@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { schemaErrors, validateCommand, validateCommandEvent, validateTelemetry } from './contract.ts';
+import { schemaErrors, validateCommand, validateCommandEvent, validateRobotFault, validateTelemetry } from './contract.ts';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const rateWindows = new Map<string, { startedAt: number; count: number }>();
@@ -183,20 +183,13 @@ Deno.serve(async (request) => {
 
     if (request.method === 'POST' && path === '/api/v1/robot/faults') {
       const body = await readJson(request);
-      if (body.schemaVersion !== 2 || body.vehicleId !== vehicleId || typeof body.type !== 'string' || !['info', 'warning', 'critical'].includes(body.severity)) {
-        return response(422, { requestId, error: { code: 'CONTRACT_SCHEMA_INVALID', message: 'Fault envelope is invalid.', retryable: false } });
+      if (!validateRobotFault(body)) return schemaFailure(validateRobotFault, requestId);
+      if (body.vehicleId !== vehicleId) {
+        return response(403, { requestId, error: { code: 'ROBOT_SCOPE_DENIED', message: 'Fault scope denied.', retryable: false } });
       }
-      const result = await client.from('robot_faults').insert({
-        vehicle_id: vehicleId,
-        delivery_id: body.deliveryId ?? null,
-        route_job_id: body.routeJobId ?? null,
-        type: body.type.slice(0, 64),
-        severity: body.severity,
-        safe_evidence: body.evidence ?? {},
-        observed_at: body.observedAt
-      });
+      const result = await client.rpc('record_robot_fault', { p_vehicle_id: vehicleId, p_envelope: body });
       if (result.error) return databaseError(result.error, requestId);
-      return response(202, { requestId, data: { accepted: true } });
+      return response(202, { requestId, data: result.data });
     }
 
     const stateMatch = path.match(/^\/api\/v1\/robot\/vehicles\/([0-9a-f-]+)\/state$/i);

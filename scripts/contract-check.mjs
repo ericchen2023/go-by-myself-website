@@ -28,8 +28,10 @@ const ajv = new Ajv({ strict: true, strictRequired: false, allErrors: true });
 addFormats(ajv);
 const commandSchema = JSON.parse(await readFile('contracts/delivery-command.schema.json', 'utf8'));
 const telemetrySchema = JSON.parse(await readFile('contracts/telemetry.schema.json', 'utf8'));
+const robotFaultSchema = JSON.parse(await readFile('contracts/robot-fault.schema.json', 'utf8'));
 const validateCommand = ajv.compile(commandSchema);
 const validateTelemetry = ajv.compile(telemetrySchema);
+const validateRobotFault = ajv.compile(robotFaultSchema);
 
 const routeGraph = JSON.parse(await readFile('contracts/route-graph.v4.json', 'utf8'));
 const expectedChecksum = routeGraph.checksum;
@@ -82,14 +84,17 @@ for (const pair of routePairs(routeGraph)) {
 
 if (process.argv.includes('--fixtures')) {
   const fixtures = JSON.parse(await readFile('contracts/fixtures.json', 'utf8'));
-  if (!Array.isArray(fixtures.commands) || !Array.isArray(fixtures.telemetry)) {
-    throw new Error('contracts/fixtures.json: missing commands or telemetry arrays');
+  if (!Array.isArray(fixtures.commands) || !Array.isArray(fixtures.telemetry) || !Array.isArray(fixtures.faults)) {
+    throw new Error('contracts/fixtures.json: missing commands, telemetry, or fault arrays');
   }
   fixtures.commands.forEach((fixture, index) => {
     if (!validateCommand(fixture)) throw new Error(`Command fixture ${index} invalid: ${ajv.errorsText(validateCommand.errors)}`);
   });
   fixtures.telemetry.forEach((fixture, index) => {
     if (!validateTelemetry(fixture)) throw new Error(`Telemetry fixture ${index} invalid: ${ajv.errorsText(validateTelemetry.errors)}`);
+  });
+  fixtures.faults.forEach((fixture, index) => {
+    if (!validateRobotFault(fixture)) throw new Error(`Fault fixture ${index} invalid: ${ajv.errorsText(validateRobotFault.errors)}`);
   });
   const invalidFixtures = JSON.parse(await readFile('contracts/invalid-fixtures.json', 'utf8'));
   invalidFixtures.commands.forEach((fixture) => {
@@ -98,7 +103,10 @@ if (process.argv.includes('--fixtures')) {
   invalidFixtures.telemetry.forEach((fixture) => {
     if (validateTelemetry(fixture.value)) throw new Error(`Invalid telemetry fixture unexpectedly passed: ${fixture.name}`);
   });
-  process.stdout.write(`Fixtures loaded: ${fixtures.commands.length} commands, ${fixtures.telemetry.length} telemetry envelopes.\n`);
+  invalidFixtures.faults.forEach((fixture) => {
+    if (validateRobotFault(fixture.value)) throw new Error(`Invalid fault fixture unexpectedly passed: ${fixture.name}`);
+  });
+  process.stdout.write(`Fixtures loaded: ${fixtures.commands.length} commands, ${fixtures.telemetry.length} telemetry envelopes, ${fixtures.faults.length} fault envelopes.\n`);
 }
 
 process.stdout.write(`Validated ${schemaFiles.length} contract schemas and canonical route ${routeGraph.version}.\n`);
