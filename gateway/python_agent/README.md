@@ -10,3 +10,6 @@ Aurora S 與 ROS1 前，robot repo 必須 pin 本網站 repo 的 contract commit
 
 實機 adapter 必須實作 taught-route replay、localization/map-switch 狀態、實體
 e-stop 程序與 telemetry v2；不得把 dry-run 改名後當作 production adapter。
+
+完整車端盤點、staging provisioning、contract reference與 supervised no-cargo
+GO／NO-GO 請依 [`docs/VEHICLE_PC_AI_HANDOFF.md`](../../docs/VEHICLE_PC_AI_HANDOFF.md) 執行。

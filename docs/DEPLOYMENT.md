@@ -14,6 +14,10 @@ Preview deployments 不得收到 production Supabase URL、secret、OAuth/provid
 
 Gateway 必須設定 `GATEWAY_DEPLOY_ENV` 與 `GATEWAY_HARDWARE_ADAPTER`。目前 repository 只提供 staging/local simulator；`production` 會 fail closed，直到核准的 hardware/ROS bridge 實作並通過 physical gates。
 
+## 目前部署狀態（2026-08-29）
+
+GitHub `main` 已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。本機沒有 `SUPABASE_ACCESS_TOKEN`、Supabase staging project、`VERCEL_TOKEN` 或可用的 Docker／Podman，因此目前沒有 hosted staging 或 production deployment；下一步必須由持有 staging 權限的 owner 依[車端 AI 交接文件](VEHICLE_PC_AI_HANDOFF.md)建立獨立環境。缺少這些外部憑證不影響 zero-secret demo，但不得宣稱 hosted integration 已完成。
+
 ## Release sequence
 
 1. `npm ci && npm run check && npm run test:e2e`。

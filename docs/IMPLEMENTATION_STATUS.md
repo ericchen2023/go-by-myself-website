@@ -1,12 +1,12 @@
 # Implementation status
 
-更新日期：2026-08-28。這份文件區分「程式已落地」、「contract-ready」與「已在真實環境驗證」，避免把migration或adapter存在誤稱為可上校園實機。
+更新日期：2026-08-29。這份文件區分「程式已落地」、「contract-ready」與「已在真實環境驗證」，避免把migration或adapter存在誤稱為可上校園實機。
 
 ## 已實作
 
 | Scope | Maturity | Evidence |
 |---|---|---|
-| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、兩種build、NDHU emblem asset、responsive/a11y baseline；1440×1000與390×844實際走完sender/recipient流程，步驟切換會回頁首並聚焦新標題 |
+| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、兩種build、NDHU emblem asset、responsive/a11y baseline；1440×1000與390×844實際走完sender/recipient流程，動態畫面axe為0，640px／320px等效reflow無溢位，步驟切換會回頁首並聚焦新標題 |
 | Canonical route | IMPLEMENTED | `contracts/route-graph.v4.json`是單一資料來源；四站、version/checksum、edge與SVG geometry由CI核對 |
 | Exhibition demo | IMPLEMENTED | Zero-secret、fake clock、八步sender/recipient、robot離線仍可展示 |
 | Robot contract v2 | IMPLEMENTED + UNIT VERIFIED | Command/telemetry/event JSON Schema、正反fixtures、checksum/leg/expiry/state驗證；v1只保留legacy fixture |
@@ -18,11 +18,11 @@
 | Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；無PII、無delivery completion |
 | Edge robot API | CONTRACT-READY + DENO VERIFIED | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；Deno LTS type-check與5組runtime contract tests已在CI通過 |
 | Repository governance | ENABLED | `main`已要求PR、strict `quality/browser/database/edge-contract` checks、linear history與conversation resolution；enforce admins，禁止force-push與deletion |
-| Tests | IMPLEMENTED BASELINE | 39 Vitest、20 Playwright/axe、5 Python unittest、5 Deno runtime tests、58 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks；本輪live QA無console/page error |
+| Tests | IMPLEMENTED BASELINE | 39 Vitest、25 Playwright/axe（另1個跨project skip）、5 Python unittest、5 Deno runtime tests、58 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks；本輪live QA無console/page/network error |
 
 ## 尚未取得的驗證證據
 
-- 本機目前沒有Docker/Podman；但GitHub Linux CI已完成從空資料庫`db reset`與49個pgTAP。Hosted staging的真實Realtime WebSocket、Edge request與多context E2E仍未執行。
+- 本機目前沒有Docker/Podman；但GitHub Linux CI已完成從空資料庫`db reset`與58個pgTAP。Hosted staging的真實Realtime WebSocket、Edge request與多context E2E仍未執行。
 - 尚未建立獨立Supabase staging project、per-client Edge secrets或active staging vehicle provisioning。
 - A／B／C／D到四個公開站點的正式mapping全部是`unapproved`，`route_validation_enabled=false`；server會拒絕建立真車route job。
 - Python agent只有dry-run adapter；沒有Aurora S map switch、ROS1 taught-route replay、真實telemetry或TLS certificate rotation。

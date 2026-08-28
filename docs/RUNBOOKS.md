@@ -2,6 +2,8 @@
 
 這些 runbook 是 operator console 與 alert owner 的輸入，不是一般 sender 可執行的 emergency controls。正式 pilot 前需填入人名、電話、SLA、現場位置與 robot-specific procedures。
 
+車端環境盤點、staging identity 與第一段空載驗證的完整接手順序見[車端電腦 AI 技術交接](VEHICLE_PC_AI_HANDOFF.md)。
+
 ## Robot offline / telemetry stale
 
 1. 凍結 last-known-good；禁止 extrapolation 與假 marker。

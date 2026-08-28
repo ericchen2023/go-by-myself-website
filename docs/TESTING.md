@@ -18,7 +18,7 @@ npm run contract:fixtures
 npm run test:python-agent
 ```
 
-GitHub的`edge-contract` job另以Deno LTS直接執行`robot-api`型別檢查與四組runtime contract tests，確認Edge使用的Ajv版本、JSON imports、正反fixtures及accepted/completed事件語意。這些測試不需要Supabase secret。
+GitHub的`edge-contract` job另以Deno LTS直接執行`robot-api`型別檢查與五組runtime contract tests，確認Edge使用的Ajv版本、JSON imports、正反fixtures、accepted/completed事件語意與fault vehicle scope。這些測試不需要Supabase secret。
 
 ## Browser
 
@@ -27,7 +27,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-目前 Playwright涵蓋 deterministic完整旅程、arrival semantic、keyboard map、axe serious/critical baseline、320–768 overflow與真實 SVG geometry。2026-08-28另以實際Chromium在1440×1000與390×844逐頁走完sender、recipient與completion，共留存13張畫面，console/page error皆為0；並新增step transition的scroll/focus regression與公開UI不得顯示內部狀態版本的斷言。人工仍需涵蓋：NVDA/VoiceOver、200%/400% zoom、large text、真實觸控、virtual keyboard、landscape與低高度。
+目前 Playwright涵蓋 deterministic完整旅程、arrival semantic、keyboard map、靜態與動態sender/recipient axe、320–768 overflow、640px／320px等效reflow、reduced-motion與真實 SVG geometry。2026-08-28另以實際Chromium在1440×1000與390×844逐頁走完sender、recipient與completion，共留存13張畫面，console/page/network error皆為0；並新增step transition的scroll/focus regression與公開UI不得顯示內部狀態版本的斷言。人工仍需涵蓋：NVDA/VoiceOver、實際瀏覽器200%/400% zoom、large text、真實觸控、virtual keyboard、landscape與低高度。
 
 ## Database
 

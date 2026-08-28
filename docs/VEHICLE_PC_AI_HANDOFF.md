@@ -1,14 +1,14 @@
 # 車端電腦 AI 技術交接
 
-更新日期：2026-08-28
+更新日期：2026-08-29
 
 適用對象：可直接接觸自走車、Jetson／工控機、Aurora S 或 ROS1 環境的下一位工程師或 AI agent。
 
 Repository：<https://github.com/ericchen2023/go-by-myself-website>
 
-目前整合分支：`codex/robot-integration-v2`
+穩定交接分支：`main`（protected branch；只接收通過 required checks 的 PR）
 
-目前 PR：<https://github.com/ericchen2023/go-by-myself-website/pull/1>
+Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-website/pull/1>
 
 > **目前可以接軟體與假車，但還不能讓真車移動。** 網站端 contract v2、資料庫 route job、Edge robot API、Node simulator 與 Python dry-run harness 已完成並通過 CI；Aurora／ROS 硬體 adapter、A–D 實體站點 mapping、staging robot identity、TLS 與現場安全程序仍須在車端電腦完成。未通過本文的 Physical GO gate 前，不得把 `capabilityEnabled` 或 `route_validation_enabled` 打開。
 
@@ -27,6 +27,8 @@ Repository：<https://github.com/ericchen2023/go-by-myself-website>
 | A／B／C／D 對四個公開站點 | **未核准，全部為 null** | robot team＋校方／專題 owner |
 | 真車移動、e-stop、disconnect、incident procedure | **未驗證** | 現場 safety owner |
 | 置物艙、門鎖、item sensor、custody | **不存在或未接入** | 後續 physical-delivery phase |
+
+本次網站端發布基線已通過 39 Vitest、25 Playwright/axe（另1個跨project skip）、5 Python unittest、5 Deno runtime tests與58 pgTAP。另有13張逐頁 live QA 畫面；動態 sender／recipient axe為0，640px／320px等效reflow無水平溢位，console／page／network error為0。這些證據只證明網站、contract與模擬器，不證明 hosted Supabase或真車安全。
 
 真車第一階段只做 **supervised route validation**：單車、單段、空載、受控區域、現場人員持有實體 e-stop。這個流程不建立收件人、不發通知，也不會產生 `completed` delivery。
 
@@ -47,17 +49,16 @@ Repository：<https://github.com/ericchen2023/go-by-myself-website>
 
 這一節只驗證 repository 與 contract，不會控制真車。
 
-### 3.1 Clone 並記錄 contract commit
-
-PR 尚未合併時：
+### 3.1 Clone protected `main` 並記錄 contract commit
 
 ```bash
-git clone --branch codex/robot-integration-v2 --single-branch https://github.com/ericchen2023/go-by-myself-website.git
+git clone --branch main --single-branch https://github.com/ericchen2023/go-by-myself-website.git
 cd go-by-myself-website
+git pull --ff-only origin main
 git rev-parse HEAD
 ```
 
-PR 合併後改為 clone `main`。把 `git rev-parse HEAD` 的完整 SHA 記到車端 repo 的依賴文件；不要只寫 branch 名稱，避免 contract 日後悄悄改變。
+確認 `git status --short --branch` 沒有本機變更，並在 GitHub 的 `main` 最新 commit 看見 `quality`、`browser`、`database`、`edge-contract` 全綠。把 `git rev-parse HEAD` 的完整 SHA 記到車端 repo 的依賴文件；不要只寫 branch 名稱，避免 contract 日後悄悄改變。
 
 ### 3.2 確認工具版本
 
@@ -183,6 +184,8 @@ Known gaps:
 ## 5. How-to：建立 production-shaped staging 連線
 
 這一步需要專案 owner 先建立獨立 Supabase staging；目前 repository 沒有可直接使用的 hosted staging URL 或 secret。
+
+撰寫本文件的網站電腦也沒有 `SUPABASE_ACCESS_TOKEN`、`VERCEL_TOKEN`、可用的 Supabase staging URL／publishable key或 Docker／Podman，因此 hosted staging不能在該電腦預先代做。這不是車端 AI 應自行繞過的限制：先由 staging owner建立環境與 scoped identity，再以安全管道提供車端必要值。
 
 ### 5.1 Owner 在 Supabase／資料庫端完成
 
@@ -463,7 +466,8 @@ Staging default：最後可信 telemetry 超過 10 秒為 stale，超過 60 秒�
 
 先完整閱讀 docs/VEHICLE_PC_AI_HANDOFF.md、docs/ROBOT_QUESTIONNAIRE.md、
 docs/ROBOT_INTEGRATION_V2.md、docs/RUNBOOKS.md，以及 contracts/ 下的 v2 schemas。
-網站 repo 是 contract source of truth；先記錄 git rev-parse HEAD 並在車端 repo pin SHA。
+只從 protected main 接手。網站 repo 是 contract source of truth；先執行 git pull --ff-only
+origin main，確認 required checks 全綠，記錄 git rev-parse HEAD 並在車端 repo pin SHA。
 
 第一輪只做唯讀環境盤點、contract tests 與 dry-run。不要控制真車、不要啟用
 physical capability、不要猜 ROS topic/frame/單位，不要把 Web CANCEL 當 e-stop。

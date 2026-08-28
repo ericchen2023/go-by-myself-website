@@ -7,3 +7,5 @@
 預設沒有 `CONTROL_PLANE_URL` 或 robot identity 時只啟動 degraded health server，不會連線或控制硬體。`SimulatorHardware` 是 contract conformance adapter，不應出現在 production robot image。
 
 `python_agent/` 是 Jetson contract harness與 outbound agent骨架；目前仍只有 dry-run hardware adapter。實機 adapter 必須在 `docs/ROBOT_QUESTIONNAIRE.md` 全部回答、完成 TLS/provisioning 與 supervised safety drill 後才可加入。
+
+在可連車輛的電腦接手時，請從 [`docs/VEHICLE_PC_AI_HANDOFF.md`](../docs/VEHICLE_PC_AI_HANDOFF.md) 開始，不要直接執行 physical command。
