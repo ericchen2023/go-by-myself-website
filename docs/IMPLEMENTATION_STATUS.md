@@ -6,7 +6,7 @@
 
 | Scope | Maturity | Evidence |
 |---|---|---|
-| Foundation / UI | IMPLEMENTED | Vite/Vanilla JS、checked JS、兩種build、正式NDHU emblem asset、responsive/a11y baseline |
+| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、兩種build、NDHU emblem asset、responsive/a11y baseline；1440×1000與390×844實際走完sender/recipient流程，步驟切換會回頁首並聚焦新標題 |
 | Canonical route | IMPLEMENTED | `contracts/route-graph.v4.json`是單一資料來源；四站、version/checksum、edge與SVG geometry由CI核對 |
 | Exhibition demo | IMPLEMENTED | Zero-secret、fake clock、八步sender/recipient、robot離線仍可展示 |
 | Robot contract v2 | IMPLEMENTED + UNIT VERIFIED | Command/telemetry/event JSON Schema、正反fixtures、checksum/leg/expiry/state驗證；v1只保留legacy fixture |
@@ -17,7 +17,7 @@
 | Jetson Python agent | CONTRACT HARNESS | Outbound poller、背景command executor、durable ledger、CANCEL並行、v2 fixtures；Aurora/ROS hardware adapter尚未實作 |
 | Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；無PII、無delivery completion |
 | Edge robot API | CONTRACT-READY + DENO VERIFIED | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；Deno LTS type-check與4組runtime fixture tests已在CI通過 |
-| Tests | IMPLEMENTED BASELINE | 37 Vitest、20 Playwright/axe、3 Python unittest、4 Deno runtime tests、49 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks |
+| Tests | IMPLEMENTED BASELINE | 39 Vitest、20 Playwright/axe、5 Python unittest、5 Deno runtime tests、58 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks；本輪live QA無console/page error |
 
 ## 尚未取得的驗證證據
 
@@ -28,6 +28,8 @@
 - 沒有置物艙、門鎖、item sensor、QR scanner或remote emergency stop，因此真實投遞維持NO-GO。
 - Operator workspace不是完整營運console；custody、door、incident assignment與alert owner仍待後續phase。
 - OAuth、SMS/email provider、privacy/legal與校方路線核准仍未完成。
+- GitHub repository目前為public且`main`尚未啟用branch protection；staging claim前必須要求PR、必要CI與approval，並禁止force-push/deletion。
+- GitHub Actions、Deno LTS與`npx supabase`尚未全部鎖定immutable版本；production部署前需完成供應鏈版本固定。
 
 ## Phase gate
 

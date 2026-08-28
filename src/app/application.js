@@ -85,6 +85,19 @@ export class Application {
     this.render();
   }
 
+  /** @param {number} step */
+  #setWizardStep(step) {
+    this.adapter.setWizardStep(step);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    requestAnimationFrame(() => {
+      const heading = /** @type {HTMLElement|null} */ (document.querySelector('#main-content h1'));
+      if (!heading) return;
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+      heading.addEventListener('blur', () => heading.removeAttribute('tabindex'), { once: true });
+    });
+  }
+
   /** @param {() => unknown|Promise<unknown>} action @param {boolean} [markBusy] */
   async #run(action, markBusy = true) {
     if (this.busy && markBusy) return;
@@ -227,7 +240,7 @@ export class Application {
           className: 'button button--primary',
           type: 'button',
           disabled: !selected,
-          onclick: () => this.adapter.setWizardStep(3)
+          onclick: () => this.#setWizardStep(3)
         }, '繼續填寫投遞資料')
       )
     ));
@@ -257,7 +270,7 @@ export class Application {
     );
     form.append(fields);
     form.append(el('div', { className: 'action-row' },
-      el('button', { className: 'button button--ghost', type: 'button', onclick: () => this.adapter.setWizardStep(2) }, '返回放件地點'),
+      el('button', { className: 'button button--ghost', type: 'button', onclick: () => this.#setWizardStep(2) }, '返回放件地點'),
       el('button', { className: 'button button--primary', type: 'submit' }, '檢查並前往確認')
     ));
     form.addEventListener('submit', (event) => {
@@ -274,7 +287,7 @@ export class Application {
       const validation = validateDeliveryInput(candidate);
       this.adapter.saveDraft(candidate);
       this.fieldErrors = validation.errors;
-      if (!Object.keys(validation.errors).length) this.adapter.setWizardStep(4);
+      if (!Object.keys(validation.errors).length) this.#setWizardStep(4);
       else {
         this.uiError = { code: 'DELIVERY_VALIDATION_FAILED', message: '請修正標示的欄位。', retryable: false };
         this.render();
@@ -364,7 +377,7 @@ export class Application {
       ),
       el('p', { className: 'cancellation-copy' }, '尚未派車前可直接取消；車輛開始執行後，取消會先進入安全處理，不會立即宣稱完成。'),
       el('div', { className: 'action-row' },
-        el('button', { className: 'button button--ghost', type: 'button', onclick: () => this.adapter.setWizardStep(3) }, '返回編輯'),
+        el('button', { className: 'button button--ghost', type: 'button', onclick: () => this.#setWizardStep(3) }, '返回編輯'),
         el('button', {
           className: 'button button--primary',
           type: 'button',
@@ -419,8 +432,7 @@ export class Application {
           el('dl', { className: 'compact-summary' },
             summaryItem('放件', pickup?.name ?? ''),
             summaryItem('收件', dropoff?.name ?? ''),
-            summaryItem('車輛', 'GBM-01 · 綠白識別'),
-            summaryItem('狀態版本', `v${delivery.version}`)
+            summaryItem('車輛', 'GBM-01 · 綠白識別')
           )
         ),
         el('section', { className: 'aside-section' },

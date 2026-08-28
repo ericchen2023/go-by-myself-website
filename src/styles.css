@@ -78,6 +78,7 @@ h2 { font-size: clamp(1.4rem, 2.5vw, 2.1rem); }
   color: var(--white); background: var(--ink-strong); transform: translateY(-150%);
 }
 .skip-link:focus { transform: translateY(0); }
+#main-content h1[tabindex="-1"]:focus { outline: none; }
 .muted, .field-help, .map-hint { color: var(--muted); }
 .eyebrow {
   margin-bottom: 10px; color: var(--route); font-family: var(--font-display);
