@@ -36,7 +36,7 @@ npm run local:down
 
 必須用兩個 synthetic sender JWT、anonymous、operator、revoked operator與 robot scoped endpoint做正向/負向 matrix。`service_role`/secret測試不能被當作 RLS證據，因其本來就 bypass RLS。
 
-Route job測試必須涵蓋leg completion、duplicate/restart replay、未accepted expiry、reservation release、舊boot/sequence、private topic ownership與invalid/off-route不覆寫last-known-good。
+目前pgTAP共49個斷言，包含schema/RLS存在性，以及實際dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal與未accepted expiry reservation release。Hosted staging仍需補真正的Realtime WebSocket與Edge HTTP正反測試。
 
 ## Physical acceptance
 

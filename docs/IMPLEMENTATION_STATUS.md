@@ -10,18 +10,18 @@
 | Canonical route | IMPLEMENTED | `contracts/route-graph.v4.json`是單一資料來源；四站、version/checksum、edge與SVG geometry由CI核對 |
 | Exhibition demo | IMPLEMENTED | Zero-secret、fake clock、八步sender/recipient、robot離線仍可展示 |
 | Robot contract v2 | IMPLEMENTED + UNIT VERIFIED | Command/telemetry/event JSON Schema、正反fixtures、checksum/leg/expiry/state驗證；v1只保留legacy fixture |
-| Route jobs | CONTRACT-READY | Immutable migrations新增route job/legs、多段狀態、30分鐘起跑期限、未accepted過期回復、terminal reservation release |
-| Telemetry ingest | CONTRACT-READY | 單一transactional RPC、server received time、boot/sequence ordering、last-known-good、valid/degraded/invalid/off-route projection |
-| Private Realtime | CONTRACT-READY | `delivery:{id}`與`route-validation:{id}` safe projection、topic authorization、10s/60s reconciliation |
+| Route jobs | IMPLEMENTED + DB VERIFIED | Immutable migrations新增route job/legs、多段狀態、30分鐘起跑期限、未accepted過期回復、terminal reservation release；Linux CI從空資料庫套用並跑行為測試 |
+| Telemetry ingest | IMPLEMENTED + DB VERIFIED | 單一transactional RPC、server received time、boot/sequence ordering、last-known-good、valid/degraded/invalid/off-route projection；sequence與retired boot replay已做pgTAP fault injection |
+| Private Realtime | DB AUTH VERIFIED / WIRE PENDING | `delivery:{id}`與`route-validation:{id}` safe projection、topic authorization、10s/60s reconciliation；own/other/operator topic判斷已測，實際WebSocket wire仍待hosted staging |
 | Node simulator gateway | IMPLEMENTED + UNIT VERIFIED | DISPATCH背景執行、CANCEL可並行、durable dedup、telemetry v2、production simulator fail closed |
 | Jetson Python agent | CONTRACT HARNESS | Outbound poller、背景command executor、durable ledger、CANCEL並行、v2 fixtures；Aurora/ROS hardware adapter尚未實作 |
 | Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；無PII、無delivery completion |
-| Edge robot API | CONTRACT-READY | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC |
-| Tests | IMPLEMENTED BASELINE | Vitest、Playwright、axe、gateway並行cancel、contract checksum、Python unittest、build/boundary/bundle checks |
+| Edge robot API | CONTRACT-READY + DENO CI | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；CI執行Deno type-check |
+| Tests | IMPLEMENTED BASELINE | 37 Vitest、20 Playwright/axe、3 Python unittest、49 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks |
 
 ## 尚未取得的驗證證據
 
-- 本機目前沒有Docker/Podman，因此2026-08-28這次變更尚未完成`supabase db reset`、pgTAP與真實Realtime authorization測試。
+- 本機目前沒有Docker/Podman；但GitHub Linux CI已完成從空資料庫`db reset`與49個pgTAP。Hosted staging的真實Realtime WebSocket、Edge request與多context E2E仍未執行。
 - 尚未建立獨立Supabase staging project、per-client Edge secrets或active staging vehicle provisioning。
 - A／B／C／D到四個公開站點的正式mapping全部是`unapproved`，`route_validation_enabled=false`；server會拒絕建立真車route job。
 - Python agent只有dry-run adapter；沒有Aurora S map switch、ROS1 taught-route replay、真實telemetry或TLS certificate rotation。
@@ -34,7 +34,7 @@
 | Phase | Current result |
 |---|---|
 | Exhibition Demo | SOFTWARE GO CANDIDATE；仍需成果展設備現場smoke |
-| Production-shaped staging | SOFTWARE IMPLEMENTED / ENVIRONMENT NO-GO；需DB reset、RLS/Realtime、Edge與simulator E2E |
+| Production-shaped staging | SOFTWARE + DATABASE CI GO CANDIDATE / HOSTED ENVIRONMENT NO-GO；需獨立Supabase、Edge secrets、Realtime wire與simulator多context E2E |
 | Supervised route validation | NO-GO；mapping、robot adapter、現場owner、實體e-stop、TLS與八方向drill未完成 |
 | Full physical delivery | NO-GO；compartment/door/sensor/custody缺失 |
 | Limited Production Pilot | NO-GO；校方、privacy、provider、incident與physical evidence未完成 |
