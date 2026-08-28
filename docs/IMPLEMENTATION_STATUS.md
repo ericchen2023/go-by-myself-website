@@ -16,7 +16,8 @@
 | Node simulator gateway | IMPLEMENTED + UNIT VERIFIED | DISPATCH背景執行、CANCEL可並行、durable dedup、telemetry v2、production simulator fail closed |
 | Jetson Python agent | CONTRACT HARNESS | Outbound poller、背景command executor、durable ledger、CANCEL並行、v2 fixtures；Aurora/ROS hardware adapter尚未實作 |
 | Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；無PII、無delivery completion |
-| Edge robot API | CONTRACT-READY + DENO VERIFIED | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；Deno LTS type-check與4組runtime fixture tests已在CI通過 |
+| Edge robot API | CONTRACT-READY + DENO VERIFIED | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；Deno LTS type-check與5組runtime contract tests已在CI通過 |
+| Repository governance | ENABLED | `main`已要求PR、strict `quality/browser/database/edge-contract` checks、linear history與conversation resolution；enforce admins，禁止force-push與deletion |
 | Tests | IMPLEMENTED BASELINE | 39 Vitest、20 Playwright/axe、5 Python unittest、5 Deno runtime tests、58 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks；本輪live QA無console/page error |
 
 ## 尚未取得的驗證證據
@@ -28,7 +29,7 @@
 - 沒有置物艙、門鎖、item sensor、QR scanner或remote emergency stop，因此真實投遞維持NO-GO。
 - Operator workspace不是完整營運console；custody、door、incident assignment與alert owner仍待後續phase。
 - OAuth、SMS/email provider、privacy/legal與校方路線核准仍未完成。
-- GitHub repository目前為public且`main`尚未啟用branch protection；staging claim前必須要求PR、必要CI與approval，並禁止force-push/deletion。
+- GitHub repository目前為public；`main` branch protection已啟用，但正式staging前仍需確認repository visibility、collaborator權限、environment approvals與secret ownership符合團隊政策。
 - GitHub Actions、Deno LTS與`npx supabase`尚未全部鎖定immutable版本；production部署前需完成供應鏈版本固定。
 
 ## Phase gate

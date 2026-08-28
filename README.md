@@ -46,5 +46,10 @@ docs/                 architecture、operations、privacy 與 launch gates
 scripts/              doctor、environment、boundary、bundle checks
 ```
 
-更完整的完成度與未啟用能力請看 `docs/IMPLEMENTATION_STATUS.md`。
+## 技術文件
 
+- [目前完成度與未啟用能力](docs/IMPLEMENTATION_STATUS.md)
+- [車端電腦 AI 技術交接](docs/VEHICLE_PC_AI_HANDOFF.md)：Jetson／ROS 現場盤點、staging provisioning、hardware adapter、真車 GO／NO-GO 與可直接交給下一位 AI 的提示。
+- [Robot integration v2 runbook](docs/ROBOT_INTEGRATION_V2.md)
+- [Robot integration questionnaire](docs/ROBOT_QUESTIONNAIRE.md)
+- [Operational runbooks](docs/RUNBOOKS.md)
