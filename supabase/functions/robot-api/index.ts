@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import Ajv from 'npm:ajv@8.17.1/dist/2020.js';
+import Ajv from 'npm:ajv@8.20.0/dist/2020.js';
 import addFormats from 'npm:ajv-formats@3.0.1';
 import commandSchema from '../../../contracts/delivery-command.schema.json' with { type: 'json' };
 import telemetrySchema from '../../../contracts/telemetry.schema.json' with { type: 'json' };
