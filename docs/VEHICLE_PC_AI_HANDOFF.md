@@ -76,27 +76,23 @@ git --version
 ```bash
 npm ci
 npm run doctor
-npm run contract:fixtures
-npm run test:python-agent
+npm run check
 ```
 
-若 Linux 只有 `python3`、沒有 `python` 指令，改用：
+`npm run test:python-agent` 會在 Linux 優先使用 `python3`、Windows 優先使用 `python`；需要覆寫時可將 `PYTHON` 指向核准的 executable。也可單獨重跑：
 
 ```bash
-python3 -m unittest discover -s gateway/python_agent -p 'test_*.py'
+npm run contract:fixtures
+npm run test:python-agent
+npm run docs:check
 ```
 
 預期重點：
 
-- `doctor` 的 Node、npm、git、lockfile 與 command schema 都是 `✓`。
+- `doctor` 的 Node、npm、Python、git、lockfile 與 command schema 都是 `✓`。
 - fixtures 顯示 command、telemetry、fault envelopes 已載入，並驗證 `ndhu-four-stop-route-v4`。
 - Python 顯示 5 tests、結果 `OK`。
-
-接著跑完整靜態檢查：
-
-```bash
-npm run check
-```
+- 文件檢查確認所有本機連結可解析，且交接文件的 route version、checksum 與四個公開站點仍和 canonical graph 一致。
 
 如果上述任一指令失敗，先修環境或 repository checkout；不要進入車控整合。
 
