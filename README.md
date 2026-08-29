@@ -20,9 +20,9 @@ npm run demo
 
 - `npm run demo`：啟動 deterministic 展示模式。
 - `npm run build:demo`／`npm run build:production`：建立隔離的兩種 artifact。
-- `npm run check`：lint、checked JavaScript、unit/contract/build/boundary/bundle 檢查。
+- `npm run check`：lint、checked JavaScript、unit、Python agent、contract、文件連結、build、boundary 與 bundle 檢查。
 - `npm run test:e2e`：執行 Chromium desktop/mobile E2E 與 accessibility baseline。
-- `npm run test:python-agent`：執行車端 Python contract／restart／CANCEL harness。
+- `npm run test:python-agent`：以可用的 `python3`／`python` 執行車端 contract／restart／CANCEL harness。
 - `npm run env:init`／`npm run env:check`：建立與檢查本機環境設定。
 - `npm run local:up`／`local:reset`／`local:down`：Supabase CLI local stack。
 - `npm run gateway`：啟動 robot gateway simulator health server。

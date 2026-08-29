@@ -7,15 +7,16 @@ npm run doctor
 npm run check
 ```
 
-`check` 包含 ESLint、TypeScript checked JS、Vitest、JSON contract、兩種 build、adapter boundary 與 gzip budgets。
+`check` 包含 ESLint、TypeScript checked JS、Vitest、Python agent unittest、JSON contract、交接文件連結／route pin、兩種 build、adapter boundary 與 gzip budgets。GitHub `quality` job 固定使用 Node 24 與 Python 3.10 執行同一指令，避免 Windows 有 `python`、Jetson 只有 `python3` 時產生假的通過結果。
 
 2026-08-28本機Edge benchmark：LCP 624 ms、FCP 192 ms、24 requests；demo 23.3 KiB JS / 7.2 KiB CSS gzip，production 78.7 KiB JS / 7.2 KiB CSS gzip，全部通過既定budget。這是local regression evidence，不取代部署後真實裝置/網路的p75 Web Vitals。
 
-Robot v2另執行：
+Robot v2需要針對單一層除錯時，可個別執行：
 
 ```powershell
 npm run contract:fixtures
 npm run test:python-agent
+npm run docs:check
 ```
 
 GitHub的`edge-contract` job另以Deno LTS直接執行`robot-api`型別檢查與五組runtime contract tests，確認Edge使用的Ajv版本、JSON imports、正反fixtures、accepted/completed事件語意與fault vehicle scope。這些測試不需要Supabase secret。

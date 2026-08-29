@@ -14,11 +14,11 @@
 | Telemetry ingest | IMPLEMENTED + DB VERIFIED | 單一transactional RPC、server received time、boot/sequence ordering、last-known-good、valid/degraded/invalid/off-route projection；sequence與retired boot replay已做pgTAP fault injection |
 | Private Realtime | DB AUTH VERIFIED / WIRE PENDING | `delivery:{id}`與`route-validation:{id}` safe projection、topic authorization、10s/60s reconciliation；own/other/operator topic判斷已測，實際WebSocket wire仍待hosted staging |
 | Node simulator gateway | IMPLEMENTED + UNIT VERIFIED | DISPATCH背景執行、CANCEL可並行、durable dedup、telemetry v2、production simulator fail closed |
-| Jetson Python agent | CONTRACT HARNESS | Outbound poller、背景command executor、durable ledger、CANCEL並行、v2 fixtures；Aurora/ROS hardware adapter尚未實作 |
+| Jetson Python agent | CONTRACT HARNESS | Outbound poller、背景command executor、durable ledger、CANCEL並行、v2 fixtures；跨平台launcher會在Linux優先選`python3`並要求Python 3.10+；Aurora/ROS hardware adapter尚未實作 |
 | Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；無PII、無delivery completion |
 | Edge robot API | CONTRACT-READY + DENO VERIFIED | `verify_jwt=false`＋函式內per-client constant-time token、vehicle scope、size/schema/rate limit、trusted RPC；Deno LTS type-check與5組runtime contract tests已在CI通過 |
 | Repository governance | ENABLED | `main`已要求PR、strict `quality/browser/database/edge-contract` checks、linear history與conversation resolution；enforce admins，禁止force-push與deletion |
-| Tests | IMPLEMENTED BASELINE | 39 Vitest、25 Playwright/axe（另1個跨project skip）、5 Python unittest、5 Deno runtime tests、58 pgTAP、gateway並行cancel、contract checksum、build/boundary/bundle checks；本輪live QA無console/page/network error |
+| Tests | IMPLEMENTED BASELINE | 39 Vitest、25 Playwright/axe（另1個跨project skip）、5 Python unittest、5 Deno runtime tests、58 pgTAP、gateway並行cancel、contract checksum、交接文件local-link/route-pin、build/boundary/bundle checks；本輪live QA無console/page/network error |
 
 ## 尚未取得的驗證證據
 

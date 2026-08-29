@@ -24,6 +24,25 @@ for (const command of ['npm', 'git']) {
   }
 }
 
+const pythonCandidates = process.platform === 'win32' ? ['python', 'python3'] : ['python3', 'python'];
+let pythonCheck = { name: 'Python 3.10+', ok: false, note: '找不到 Python；安裝 3.10+ 或設定 PYTHON' };
+for (const command of process.env.PYTHON ? [process.env.PYTHON] : pythonCandidates) {
+  try {
+    const version = execFileSync(command, ['--version'], { encoding: 'utf8' }).trim();
+    const match = version.match(/Python\s+(\d+)\.(\d+)/i);
+    const supported = Boolean(match) && (Number(match[1]) > 3 || (Number(match[1]) === 3 && Number(match[2]) >= 10));
+    pythonCheck = {
+      name: `${command} ${version}`,
+      ok: supported,
+      note: supported ? '符合車端 agent 基準' : '版本過舊；需要 Python 3.10+'
+    };
+    if (supported) break;
+  } catch {
+    // Try the next common executable name.
+  }
+}
+checks.push(pythonCheck);
+
 for (const file of ['package-lock.json', '.env.example', 'contracts/delivery-command.schema.json']) {
   try {
     await access(file, constants.R_OK);

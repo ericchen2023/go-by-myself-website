@@ -29,11 +29,12 @@
     "test:a11y": "playwright test tests/e2e/accessibility.spec.js",
     "contract:check": "node scripts/contract-check.mjs --fixtures",
     "contract:fixtures": "node scripts/contract-check.mjs --fixtures",
+    "docs:check": "node scripts/check-docs.mjs",
     "route:generate": "node scripts/generate-route-seed.mjs",
     "boundary:check": "node scripts/check-boundaries.mjs",
     "bundle:check": "node scripts/check-bundles.mjs",
     "benchmark:local": "node scripts/benchmark-local.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run contract:check && npm run build:demo && npm run build:production && npm run boundary:check && npm run bundle:check",
+    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run test:python-agent && npm run contract:check && npm run docs:check && npm run build:demo && npm run build:production && npm run boundary:check && npm run bundle:check",
     "local:up": "npx supabase start",
     "local:reset": "npx supabase db reset",
     "local:down": "npx supabase stop",
@@ -43,7 +44,7 @@
     "smoke:demo": "playwright test tests/e2e/demo-happy-path.spec.js",
     "smoke:staging": "node scripts/smoke-remote.mjs staging",
     "smoke:production": "node scripts/smoke-remote.mjs production",
-    "test:python-agent": "python -m unittest discover -s gateway/python_agent -p test_*.py",
+    "test:python-agent": "node scripts/run-python-tests.mjs",
     "gateway": "node gateway/src/server.js"
   },
   "dependencies": {
