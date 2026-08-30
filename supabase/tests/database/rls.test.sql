@@ -1,5 +1,5 @@
 begin;
-select plan(22);
+select plan(25);
 
 select has_table('public', 'deliveries', 'deliveries table exists');
 select has_table('private', 'delivery_recipients', 'recipient PII is private');
@@ -15,6 +15,37 @@ select has_function('public', 'ingest_robot_telemetry_v2', array['uuid','jsonb']
 select has_function('public', 'record_departure_ready', array['uuid','jsonb'], 'departure evidence has a trusted transition');
 select has_function('public', 'create_route_validation_job', array['uuid','text','text'], 'operator route validation RPC exists');
 select has_function('public', 'reconcile_robot_runtime', 'connectivity and expiry reconciliation exists');
+select ok(
+  not has_function_privilege('anon', 'public.finalize_auth_assurance()', 'EXECUTE'),
+  'anonymous callers cannot finalize auth assurance'
+);
+select ok(
+  not has_function_privilege('anon', 'public.get_active_delivery_projection()', 'EXECUTE'),
+  'anonymous callers cannot query sender delivery projection'
+);
+select is(
+  (
+    select count(*)::integer from pg_indexes
+    where schemaname = 'public' and indexname in (
+      'deliveries_pickup_location_idx',
+      'deliveries_dropoff_location_idx',
+      'deliveries_route_graph_version_idx',
+      'deliveries_vehicle_idx',
+      'delivery_progress_route_job_idx',
+      'robot_faults_delivery_idx',
+      'robot_faults_route_job_idx',
+      'route_job_legs_command_idx',
+      'route_jobs_route_graph_version_idx',
+      'support_requests_delivery_idx',
+      'vehicle_commands_delivery_idx',
+      'vehicle_commands_route_job_idx',
+      'vehicle_state_current_route_job_idx',
+      'vehicle_telemetry_route_job_idx'
+    )
+  ),
+  14,
+  'foreign key indexes required by staging are present'
+);
 
 select policies_are('public', 'deliveries', array['deliveries_operator_select','deliveries_select_own'], 'deliveries policies are explicit');
 select policies_are('public', 'delivery_status_history', array['delivery_history_select_own','history_operator_select'], 'history policies are explicit');
