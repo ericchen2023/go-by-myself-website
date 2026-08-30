@@ -1,5 +1,6 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.112.4';
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
+import { getSupabaseSecretKey, getSupabaseUrl } from '../_shared/supabase-env.ts';
 
 function hex(bytes: ArrayBuffer) {
   return [...new Uint8Array(bytes)].map((value) => value.toString(16).padStart(2, '0')).join('');
@@ -9,8 +10,8 @@ Deno.serve(async (request) => {
   const requestId = crypto.randomUUID();
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
   if (request.method !== 'POST') return errorResponse(request, requestId, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
-  const url = Deno.env.get('SUPABASE_URL');
-  const secretKey = Deno.env.get('SUPABASE_SECRET_KEY');
+  const url = getSupabaseUrl();
+  const secretKey = getSupabaseSecretKey();
   if (!url || !secretKey) return errorResponse(request, requestId, 503, 'ENV_CONFIG_INVALID', 'Pickup service is not configured.');
 
   try {

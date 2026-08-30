@@ -28,6 +28,7 @@ const forbiddenProductionMarkers = [
   '模擬物品已取出並關門'
 ];
 const forbiddenBrowserSecretMarkers = [
+  'SUPABASE_SECRET_KEYS',
   'SUPABASE_SECRET_KEY',
   'CREDENTIAL_PEPPER',
   'ROBOT_GATEWAY_TOKEN',

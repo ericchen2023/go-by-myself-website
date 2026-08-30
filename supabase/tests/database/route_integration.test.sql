@@ -1,5 +1,18 @@
 begin;
-select plan(36);
+select plan(40);
+
+select ok(
+  has_schema_privilege('authenticated', 'private', 'USAGE'),
+  'authenticated can resolve the private RLS helper schema'
+);
+select ok(
+  has_function_privilege('authenticated', 'private.is_active_operator(text)', 'EXECUTE'),
+  'authenticated can execute the operator RLS helper'
+);
+select ok(
+  not has_function_privilege('anon', 'private.is_active_operator(text)', 'EXECUTE'),
+  'anonymous callers cannot execute the operator RLS helper'
+);
 
 insert into auth.users(
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -7,7 +20,8 @@ insert into auth.users(
 ) values
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'sender-one@gms.ndhu.edu.tw', '', now(), '{}'::jsonb, '{"full_name":"Sender One"}'::jsonb, now(), now()),
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated', 'sender-two@gms.ndhu.edu.tw', '', now(), '{}'::jsonb, '{"full_name":"Sender Two"}'::jsonb, now(), now()),
-  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'operator@gms.ndhu.edu.tw', '', now(), '{}'::jsonb, '{"full_name":"Operator"}'::jsonb, now(), now());
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'operator@gms.ndhu.edu.tw', '', now(), '{}'::jsonb, '{"full_name":"Operator"}'::jsonb, now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000004', 'authenticated', 'authenticated', 'pending-operator@example.com', '', now(), '{}'::jsonb, '{"full_name":"Pending Operator"}'::jsonb, now(), now());
 
 update public.profiles
 set auth_assurance = 'google_hd'
@@ -17,7 +31,20 @@ where id in (
   '00000000-0000-4000-8000-000000000003'
 );
 insert into public.user_roles(user_id, role, granted_by)
-values ('00000000-0000-4000-8000-000000000003', 'operator', '00000000-0000-4000-8000-000000000003');
+values
+  ('00000000-0000-4000-8000-000000000003', 'operator', '00000000-0000-4000-8000-000000000003'),
+  ('00000000-0000-4000-8000-000000000004', 'operator', '00000000-0000-4000-8000-000000000003');
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated"}',
+  true
+);
+select is(
+  public.get_operator_route_validation_workspace() ->> 'error',
+  'RLS_DENIED',
+  'an operator role without trusted auth assurance is denied'
+);
 
 update public.vehicles
 set active = true,
