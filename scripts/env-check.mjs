@@ -9,6 +9,7 @@ if (!allowedModes.has(mode) || !allowedDeployEnvs.has(deployEnv)) {
 
 if (mode === 'demo') {
   const forbidden = [
+    'SUPABASE_SECRET_KEYS',
     'SUPABASE_SECRET_KEY',
     'CREDENTIAL_PEPPER_V1',
     'SMS_PROVIDER_API_KEY',

@@ -27,10 +27,10 @@ Server會保存每台車的boot epoch。同一boot的sequence必須單調增加�
 ```text
 ROBOT_GBM_01_TOKEN
 ROBOT_GBM_01_VEHICLE_ID
-SUPABASE_SECRET_KEY
+SUPABASE_SECRET_KEYS (hosted Edge auto-injected)
 ```
 
-Robot image只持有`CONTROL_PLANE_URL`、`ROBOT_CLIENT_ID=gbm-01`、其scoped token與未來TLS material；不持有Supabase secret key。
+Robot image只持有`CONTROL_PLANE_URL`、`ROBOT_CLIENT_ID=gbm-01`、其scoped token與未來TLS material；不持有Supabase secret key。`SUPABASE_SECRET_KEY`／`SUPABASE_SERVICE_ROLE_KEY`僅是local/legacy fallback，不是車端設定。
 
 ## Staging順序
 

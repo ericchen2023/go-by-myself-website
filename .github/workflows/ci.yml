@@ -71,6 +71,6 @@ jobs:
       - run: npm ci
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: lts
-      - run: deno check supabase/functions/robot-api/index.ts
-      - run: deno test supabase/functions/robot-api/contract_test.ts
+          deno-version: 2.9.6
+      - run: deno check supabase/functions/delivery-intent/index.ts supabase/functions/pickup/index.ts supabase/functions/robot-api/index.ts
+      - run: deno test supabase/functions/_shared/supabase-env_test.ts supabase/functions/robot-api/contract_test.ts

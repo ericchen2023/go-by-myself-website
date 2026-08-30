@@ -189,15 +189,15 @@ Known gaps:
 2. 部署 `robot-api`，確認 [`supabase/config.toml`](../supabase/config.toml) 的 `verify_jwt=false` 保持不變。
 3. 建立一台 active staging vehicle 與 route-validation scoped identity。
 4. 產生高熵、每車獨立的 token，以安全管道交給車端 owner。
-5. Edge secrets 依 `clientId=gbm-01` 命名：
+5. Edge secrets 依 `clientId=gbm-01` 命名；Supabase API keys由hosted Edge自動注入：
 
 ```text
 ROBOT_GBM_01_TOKEN
 ROBOT_GBM_01_VEHICLE_ID
-SUPABASE_SECRET_KEY
+SUPABASE_SECRET_KEYS (auto-injected; JSON key dictionary)
 ```
 
-`SUPABASE_SECRET_KEY` 只留在 Edge，不能交給車端。
+Secret key只留在Edge，不能交給車端。Staging另外設定`APP_ORIGIN`為正式的staging frontend origin；不得使用demo hostname。
 
 ### 5.2 車端只設定 scoped values
 

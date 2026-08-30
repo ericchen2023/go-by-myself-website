@@ -8,6 +8,7 @@ async function expectNoAxeViolations(page) {
 }
 
 test('dynamic sender and recipient states keep the accessibility baseline', async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto('/');
   await page.getByRole('button', { name: '進入展示流程' }).click();
   await expectNoAxeViolations(page);

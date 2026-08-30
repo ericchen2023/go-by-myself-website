@@ -1,5 +1,6 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.112.4';
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
+import { getSupabasePublishableKey, getSupabaseUrl } from '../_shared/supabase-env.ts';
 
 Deno.serve(async (request) => {
   const requestId = crypto.randomUUID();
@@ -8,8 +9,8 @@ Deno.serve(async (request) => {
   const authorization = request.headers.get('authorization');
   if (!authorization) return errorResponse(request, requestId, 401, 'AUTH_SESSION_EXPIRED', 'Authentication required.');
 
-  const url = Deno.env.get('SUPABASE_URL');
-  const publishableKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+  const url = getSupabaseUrl();
+  const publishableKey = getSupabasePublishableKey();
   if (!url || !publishableKey) return errorResponse(request, requestId, 503, 'ENV_CONFIG_INVALID', 'Control plane is not configured.');
   const client = createClient(url, publishableKey, { global: { headers: { Authorization: authorization } } });
 
@@ -52,4 +53,3 @@ Deno.serve(async (request) => {
     return errorResponse(request, requestId, 400, 'CONTRACT_INVALID', 'Invalid JSON request.');
   }
 });
-

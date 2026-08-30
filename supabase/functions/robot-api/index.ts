@@ -1,4 +1,5 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.112.4';
+import { getSupabaseSecretKey, getSupabaseUrl } from '../_shared/supabase-env.ts';
 import { schemaErrors, validateCommand, validateCommandEvent, validateRobotFault, validateTelemetry } from './contract.ts';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -96,8 +97,8 @@ Deno.serve(async (request) => {
     return response(401, { requestId, error: { code: 'ROBOT_IDENTITY_INVALID', message: 'Robot identity rejected.', retryable: false } });
   }
 
-  const url = Deno.env.get('SUPABASE_URL');
-  const secretKey = Deno.env.get('SUPABASE_SECRET_KEY');
+  const url = getSupabaseUrl();
+  const secretKey = getSupabaseSecretKey();
   if (!url || !secretKey) {
     return response(503, { requestId, error: { code: 'ENV_CONFIG_INVALID', message: 'Robot control plane is not configured.', retryable: false } });
   }
