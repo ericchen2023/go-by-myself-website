@@ -21,7 +21,8 @@
 | Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站 dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；`routeValidationEnabled=false`，無 PII、無 delivery completion |
 | Edge Functions | HOSTED HTTP VERIFIED | `delivery-intent`（platform JWT）、`pickup`（public credential flow）、`robot-api`（per-client constant-time token）均 ACTIVE；錯 token 401、正確 scope 200、跨車 403、pickup generic 404、CORS exact-origin 204 |
 | Repository governance | ENABLED | `main` 與 `staging` 都要求 PR、strict `quality/browser/database/edge-contract` checks、linear history 與 conversation resolution；enforce admins，禁止 force-push 與 deletion |
-| Tests | IMPLEMENTED BASELINE | 43 Vitest、25 Playwright/axe（另 1 個跨 project skip）、10 Python unittest、5 Deno runtime tests、65 hosted pgTAP（RLS 25＋integration 40），另有 contract/build/boundary/bundle 與 hosted HTTP smoke |
+| Vercel deployment protection | ENABLED + AUTOMATION BYPASS VERIFIED | Standard Protection維持開啟；CI／E2E專用bypass只存GitHub Actions secret，header對staging health實測通過，不提供給browser bundle或車端 |
+| Tests | IMPLEMENTED BASELINE | 45 Vitest、25 Playwright/axe（另 2 個 hosted-only與1個跨 project skip）、10 Python unittest、5 Deno runtime tests、65 hosted pgTAP（RLS 25＋integration 40），另有 contract/build/boundary/bundle、protected staging health與production shell E2E |
 
 ## 尚未取得的驗證證據
 

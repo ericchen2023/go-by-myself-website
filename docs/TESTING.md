@@ -54,9 +54,21 @@ npm run local:down
 - `pickup` exact staging origin preflight → `204`並回相同`Access-Control-Allow-Origin`；不存在publicRef → generic `404 PICKUP_CONTEXT_UNAVAILABLE`。
 - 無JWT的`delivery-intent` → Supabase gateway `401`。
 - Vercel `staging` branch確實載入production-shaped auth；production shell regression禁止literal `null`與假的simulator文案。
+- Vercel Standard Protection維持開啟；Automation Bypass已以header實測`/health.json`回`200`與`status=ok`。GitHub Actions secret只提供給手動`Staging verification` workflow，測試程式與報告不輸出值。
 - Supabase Auth custom Gmail SMTP已儲存並兩次成功重載；email limiter由2/h更新為30/h。SMTP地址與app password不進測試輸出或repository。
 
 尚待：authenticated Realtime WebSocket snapshot/subscription/resync、custom Gmail SMTP啟用後的magic-link實際收信、sender/recipient不同browser contexts與完整simulator journey。這些完成前不可把hosted control-plane ready升級為integration-ready staging GO。
+
+保護中的前端驗證指令：
+
+```text
+STAGING_BASE_URL=<protected staging origin>
+VERCEL_AUTOMATION_BYPASS_SECRET=<secure runtime secret>
+npm run smoke:staging
+npm run test:e2e:staging
+```
+
+`test:e2e:staging`只驗證health、production-shaped shell、校徽、auth capability gate與demo isolation；不把demo八步流程誤跑到production-shaped環境。
 
 ## Physical acceptance
 

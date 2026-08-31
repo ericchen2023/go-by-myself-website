@@ -32,6 +32,8 @@ npm run demo
 - `npm run build:demo`／`npm run build:production`：建立隔離的兩種 artifact。
 - `npm run check`：lint、checked JavaScript、unit、Python agent、contract、文件連結、build、boundary 與 bundle 檢查。
 - `npm run test:e2e`：執行 Chromium desktop/mobile E2E 與 accessibility baseline。
+- `npm run smoke:staging`：以 `STAGING_BASE_URL` 檢查 hosted health；受 Vercel 保護時由 `VERCEL_AUTOMATION_BYPASS_SECRET` 自動加入官方 bypass header。
+- `npm run test:e2e:staging`：對 production-shaped staging 執行 health 與前端 shell E2E，不啟動本機 demo server。
 - `npm run test:python-agent`：以可用的 `python3`／`python` 執行車端 contract／restart／CANCEL harness。
 - `npm run env:init`／`npm run env:check`：建立與檢查本機環境設定。
 - `npm run local:up`／`local:reset`／`local:down`：Supabase CLI local stack。
