@@ -166,7 +166,7 @@ export class ProductionAdapter {
     this.#patch({
       session: {
         id: session.user.id,
-        displayName: String(session.user.user_metadata?.full_name ?? '東華使用者'),
+        displayName: String(session.user.user_metadata?.full_name ?? 'Google 使用者'),
         email: session.user.email ?? '',
         assurance,
         roles: isOperator ? ['operator'] : []
@@ -174,13 +174,13 @@ export class ProductionAdapter {
       ...(isOperator ? { routeValidation: { ...this.state.routeValidation, ...workspaceResult.data } } : {}),
       wizardStep: 2,
       actionError: assurance === 'pending'
-        ? { code: 'AUTH_DOMAIN_NOT_ALLOWED', message: '帳號仍待 trusted hosted-domain gate 驗證。', retryable: false }
+        ? { code: 'AUTH_EMAIL_UNVERIFIED', message: 'Google 尚未確認此帳號的 Email，無法啟用投遞功能。', retryable: false }
         : null
     });
     if (assurance !== 'pending') await this.#loadActiveDelivery();
   }
 
-  async signInWithGoogle(intent = 'login') {
+  async signInWithGoogle() {
     if (!runtimeConfig.googleAuthEnabled) {
       throw new DomainError('AUTH_PROVIDER_UNAVAILABLE', 'Google 登入尚未在此環境啟用。');
     }
@@ -189,24 +189,10 @@ export class ProductionAdapter {
       provider: 'google',
       options: {
         redirectTo: new URL('/', window.location.origin).toString(),
-        queryParams: { hd: 'gms.ndhu.edu.tw', prompt: intent === 'signup' ? 'select_account' : 'select_account' }
+        queryParams: { prompt: 'select_account' }
       }
     });
     if (error) throw new DomainError('AUTH_PROVIDER_ERROR', '無法啟動 Google 登入。', { retryable: true });
-  }
-
-  /** @param {string} email */
-  async signInWithMagicLink(email) {
-    const normalized = email.trim().toLowerCase();
-    if (!normalized.endsWith('@gms.ndhu.edu.tw')) {
-      throw new DomainError('AUTH_DOMAIN_NOT_ALLOWED', 'Magic link 僅接受 gms.ndhu.edu.tw 帳號。');
-    }
-    const client = this.#requireClient();
-    const { error } = await client.auth.signInWithOtp({
-      email: normalized,
-      options: { emailRedirectTo: new URL('/', window.location.origin).toString(), shouldCreateUser: true }
-    });
-    if (error) throw new DomainError('AUTH_PROVIDER_ERROR', '無法寄送專題登入連結。', { retryable: true });
   }
 
   async signOut() {

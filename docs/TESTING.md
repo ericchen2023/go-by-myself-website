@@ -43,7 +43,7 @@ npm run local:down
 
 必須用兩個 synthetic sender JWT、anonymous、operator、revoked operator與 robot scoped endpoint做正向/負向 matrix。`service_role`/secret測試不能被當作 RLS證據，因其本來就 bypass RLS。
 
-目前 hosted pgTAP 共65個斷言（RLS 25、route integration 40），包含schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal與未accepted expiry reservation release；另外覆蓋idempotency request hash、terminal command event monotonicity與robot fault vehicle scope。Deno runtime另有5組Edge contract tests。
+目前hosted pgTAP為65個斷言；套用public Google OAuth migration後的repository基線為67個（RLS 27、route integration 40）。新增斷言確認auth assurance函式要求Google identity與provider-verified email；其餘涵蓋schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal與未accepted expiry reservation release。Deno runtime另有5組Edge contract tests。
 
 ## Hosted staging smoke（2026-08-31）
 
@@ -56,9 +56,9 @@ npm run local:down
 - 無JWT的`delivery-intent` → Supabase gateway `401`。
 - Vercel `staging` branch確實載入production-shaped auth；production shell regression禁止literal `null`與假的simulator文案。
 - Vercel Standard Protection維持開啟；Automation Bypass已以header實測`/health.json`回`200`與`status=ok`。GitHub Actions secret只提供給手動`Staging verification` workflow，測試程式與報告不輸出值。
-- Supabase Auth custom Gmail SMTP已儲存並兩次成功重載；email limiter由2/h更新為30/h。SMTP地址與app password不進測試輸出或repository。
+- Supabase Auth custom Gmail SMTP仍保存在hosted設定，但目前公開登入流程為Google-only，不再以magic link作fallback。SMTP地址與app password不進測試輸出或repository。
 
-尚待：authenticated Realtime WebSocket snapshot/subscription/resync、custom Gmail SMTP啟用後的magic-link實際收信、sender/recipient不同browser contexts與完整simulator journey。這些完成前不可把hosted control-plane ready升級為integration-ready staging GO。
+尚待：public Google OAuth使用一般Google帳號的首次註冊／再次登入／session resume E2E、authenticated Realtime WebSocket snapshot/subscription/resync、sender/recipient不同browser contexts與完整simulator journey。這些完成前不可把hosted control-plane ready升級為integration-ready staging GO。
 
 保護中的前端驗證指令：
 

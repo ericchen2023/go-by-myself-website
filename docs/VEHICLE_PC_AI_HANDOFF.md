@@ -18,7 +18,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 |---|---|---|
 | Web、四站動態 SVG、公開 safe projection | 已實作並測試 | 網站 repo |
 | Robot contract v2、fixtures、版本與 checksum gate | 已實作並測試 | 網站 repo 是 source of truth |
-| Route job／leg、reservation、ACK 與 telemetry ingest | 14 個 migrations、65 個 hosted pgTAP 與 v2 telemetry smoke 已通過 | 網站／Supabase staging owner |
+| Route job／leg、reservation、ACK 與 telemetry ingest | 14個hosted migrations、65個hosted pgTAP與v2 telemetry smoke已通過；repository的route v5與public Google auth migrations及67-test基線待網站端發布 | 網站／Supabase staging owner |
 | Edge robot API | Hosted ACTIVE；wrong token 401、correct scope 200、wrong vehicle 403、bad schema 422 已實測 | 網站／Supabase staging owner |
 | Node gateway simulator | 可送 v2 telemetry、可並行 CANCEL | 網站 repo |
 | Jetson Python agent | 已有read-only connection check、outbound command poller、durable ledger、dry-run adapter | 車端repo／車端電腦 |
@@ -28,7 +28,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 | 真車移動、e-stop、disconnect、incident procedure | **未驗證** | 現場 safety owner |
 | 置物艙、門鎖、item sensor、custody | **不存在或未接入** | 後續 physical-delivery phase |
 
-本次網站端發布基線已通過54 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。Supabase Auth custom Gmail SMTP也已儲存並成功重載；這只用於網站magic-link登入，與車端連線無關，且新SMTP的實際收信仍待一次E2E。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
+本次網站端發布基線已通過54 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP；auth migration發布後資料庫基線會是67個pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。網站登入已改為任何verified Google帳號，live provider與E2E仍由網站端處理；這與車端連線無關。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
 
 真車第一階段只做 **supervised route validation**：單車、單段、空載、受控區域、現場人員持有實體 e-stop。這個流程不建立收件人、不發通知，也不會產生 `completed` delivery。
 
@@ -37,13 +37,13 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 交給車端前，網站端已完成下列工作；車端不需要重建或重做：
 
 - GitHub `main`與`staging`均為protected branch，要求PR與strict `quality`、`browser`、`database`、`edge-contract` checks，禁止force-push與刪除。
-- Supabase staging `go-by-myself-staging`已套用14個immutable migrations；v4四站graph啟用，physical legs仍為0個approved。
+- Supabase staging `go-by-myself-staging`目前套用14個immutable migrations；網站repo另有route graph v5與public Google auth兩個migrations待發布。Hosted仍為v4四站graph，physical legs仍為0個approved。
 - `delivery-intent`、`pickup`、`robot-api`三個Edge Functions均為version 2 ACTIVE，robot API已完成錯token、正確scope、跨車scope、v2 telemetry與錯schema的hosted正反測試。
 - `GBM-01` synthetic vehicle與UUID已建立，但`route_validation_enabled=false`；這是刻意的安全鎖，不是漏設定。
 - Vercel demo與production-shaped staging已分離；公開sender map只收`segmentId + progress`，不收raw SLAM座標。
 - Vercel staging保留Deployment Protection；網站CI使用獨立Automation Bypass secret。該secret不屬於robot contract，車端不得要求、保存或傳送它；車端只連下方Supabase control plane並使用per-vehicle scoped robot token。
 - Node simulator與Python contract harness已實作；新增`connection_check.py`讓車端在不讀command、不呼叫hardware的情況下先確認Supabase scoped identity。
-- Auth custom Gmail SMTP已載入；SMTP帳號與app password沒有進GitHub、Vercel或車端設定。投遞通知provider仍未完成。
+- 網站登入已改為public Google OAuth；provider啟用與live E2E由網站端owner負責，車端不需要Google client或secret。既有Auth SMTP與投遞通知provider也都不屬於robot設定。
 
 車端接手後應只補足車輛所在電腦才能取得的facts與adapter，不應重新設計contract、另建一套route graph或繞過physical capability gate。
 

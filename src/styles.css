@@ -254,9 +254,6 @@ h2 { font-size: clamp(1.4rem, 2.5vw, 2.1rem); }
 .text-button { display: block; margin: 12px auto 0; }
 .recovery-note { padding: 12px 0; color: var(--ink-soft); border-top: 1px solid var(--line); font-size: .88rem; }
 .project-disclaimer { margin: 22px 0 0; color: var(--muted); font-size: .76rem; text-align: center; }
-.magic-link { border-top: 1px solid var(--line); }
-.magic-link summary { padding: 14px 0; font-weight: 700; }
-.magic-link form { display: grid; padding: 0 0 16px; gap: 10px; }
 .auth-notice { margin: 0; padding: 10px 12px; color: var(--success); background: var(--surface-green); border-left: 3px solid var(--success); }
 
 /* Progress and sender flow. */

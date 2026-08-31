@@ -2,11 +2,11 @@ import { el, ndhuEmblem } from './dom.js';
 import { errorBanner } from './components.js';
 import { createRoutePreview } from '../map/map-view.js';
 
-/** @param {{homeModeCopy:{divider:string,cta:string,tag:string,intro:string}, authTab: 'login'|'signup', recoveryOpen: boolean, authNotice:string, error: {code:string,message:string,retryable?:boolean}|null, googleDisabled:boolean, googleHelp:string, authAlternative:Node, recoveryText:string, setAuthTab: (tab:'login'|'signup')=>void, toggleRecovery:()=>void, google:()=>void, dismissError:()=>void}} options */
+/** @param {{homeModeCopy:{divider:string,cta:string,tag:string,intro:string}, authTab: 'login'|'signup', recoveryOpen: boolean, authNotice:string, error: {code:string,message:string,retryable?:boolean}|null, googleDisabled:boolean, googleHelp:string, authAlternative:Node|null, recoveryText:string, setAuthTab: (tab:'login'|'signup')=>void, toggleRecovery:()=>void, google:()=>void, dismissError:()=>void}} options */
 export function homeScreen(options) {
   const modeCopy = options.homeModeCopy;
   const authTitle = options.authTab === 'login' ? '登入後開始投遞' : '第一次使用';
-  const googleLabel = options.authTab === 'login' ? '使用東華 Google 帳號登入' : '使用東華 Google 帳號建立帳號';
+  const googleLabel = options.authTab === 'login' ? '使用 Google 帳號登入' : '使用 Google 帳號建立帳號';
   const authPanel = el('section', { className: 'auth-panel', 'aria-labelledby': 'auth-title' },
     el('div', { className: 'auth-panel__index', 'aria-hidden': 'true' }, '開始投遞'),
     el('div', { className: 'segmented-tabs', role: 'tablist', 'aria-label': '帳號操作' },
@@ -26,7 +26,7 @@ export function homeScreen(options) {
       }, '註冊')
     ),
     el('h2', { id: 'auth-title' }, authTitle),
-    el('p', { className: 'muted' }, '登入會由 Google 或專題登入連結完成。我們不會向你索取或保存東華密碼。'),
+    el('p', { className: 'muted' }, '登入會由 Google 完成。我們不會向你索取或保存 Google 密碼。'),
     errorBanner(options.error, options.dismissError),
     el('button', {
       className: 'button button--primary button--full',
@@ -36,7 +36,7 @@ export function homeScreen(options) {
       onclick: options.google
     }, googleLabel),
     options.googleHelp ? el('p', { id: 'google-auth-help', className: 'field-help' }, options.googleHelp) : null,
-    el('div', { className: 'divider', role: 'separator' }, el('span', {}, modeCopy.divider)),
+    options.authAlternative ? el('div', { className: 'divider', role: 'separator' }, el('span', {}, modeCopy.divider)) : null,
     options.authAlternative,
     options.authNotice ? el('p', { className: 'auth-notice', role: 'status' }, options.authNotice) : null,
     el('button', { className: 'text-button', type: 'button', onclick: options.toggleRecovery }, '登入遇到問題？'),

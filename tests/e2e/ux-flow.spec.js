@@ -9,7 +9,7 @@ test('auth, crest, station rules, and validation recovery are complete', async (
 
   await page.getByRole('tab', { name: '註冊' }).click();
   await expect(page.getByRole('heading', { name: '第一次使用' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '使用東華 Google 帳號建立帳號' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '使用 Google 帳號建立帳號' })).toBeDisabled();
 
   await page.getByRole('tab', { name: '登入' }).click();
   await page.getByRole('button', { name: '登入遇到問題？' }).click();
