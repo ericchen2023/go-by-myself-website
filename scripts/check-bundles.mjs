@@ -25,7 +25,9 @@ const forbiddenProductionMarkers = [
   '以展示身份開始八步流程',
   'happy-path',
   'DEMO_PICKUP',
-  '模擬物品已取出並關門'
+  '模擬物品已取出並關門',
+  '展示模式使用測試帳號與模擬車輛',
+  '開始展示投遞'
 ];
 const forbiddenBrowserSecretMarkers = [
   'SUPABASE_SECRET_KEYS',

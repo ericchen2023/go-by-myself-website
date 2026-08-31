@@ -1,6 +1,12 @@
 import { el } from '../app/dom.js';
 import { DEMO_SCENARIOS } from '../domain/scenarios.js';
 
+export const homeModeCopy = Object.freeze({
+  divider: '或先體驗完整流程',
+  cta: '開始展示投遞',
+  tag: '展示模擬',
+  intro: '展示模式使用測試帳號與模擬車輛，不會寄出通知，也不會控制真實車輛。'
+});
 export const googleDisabled = true;
 export const googleHelp = '展示模式不連接 Google，請使用下方展示帳號。';
 export const recoveryText = '展示模式不使用密碼；重設展示資料後可重新開始。';
@@ -24,7 +30,7 @@ export function modeSupportSection() {
   );
 }
 
-/** @param {{adapter:any,navigate:(path:string)=>void,run:(action:()=>unknown|Promise<unknown>)=>void}} options */
+/** @param {{adapter:any,navigate:(path:string)=>void,run:(action:()=>unknown|Promise<unknown>)=>Promise<boolean>,setNotice:(message:string)=>void}} options */
 export function authAlternative(options) {
   return el('button', {
     className: 'button button--signal button--full',

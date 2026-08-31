@@ -18,14 +18,27 @@ Gateway 必須設定 `GATEWAY_DEPLOY_ENV` 與 `GATEWAY_HARDWARE_ADAPTER`。目�
 
 ## 目前部署狀態（2026-08-31）
 
-GitHub `main` 已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI鎖定為`2.116.0`；建立hosted staging前先執行`supabase db push --dry-run`，並保留所有physical capability為disabled。最新hosted狀態記錄於[實作狀態](IMPLEMENTATION_STATUS.md)，未完成hosted smoke前不得宣稱integration-ready。
+GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；14 個 migration 已套用到獨立 hosted staging，所有 physical capability 仍為 disabled。
+
+| Resource | Hosted staging value | Verified state |
+|---|---|---|
+| Vercel frontend | <https://go-by-myself-website-git-staging-hsuanisgay.vercel.app> | `staging` branch Preview；production-shaped build、獨立 branch env |
+| Supabase project | `go-by-myself-staging` / `aiuajbflpwdzkaeeocab` / Tokyo | ACTIVE_HEALTHY；v4 route active、4 stops、0 approved physical legs |
+| Control-plane URL | `https://aiuajbflpwdzkaeeocab.supabase.co` | Browser publishable config只存在 staging Preview scope |
+| Edge Functions | `delivery-intent`、`pickup`、`robot-api` | version 1 ACTIVE；JWT/custom-auth 邊界已以 hosted HTTP 正反測試 |
+| Auth URL | staging frontend origin | Site URL與redirect allow-list已設定；Email enabled、Google disabled |
+| Synthetic vehicle | `GBM-01` | active/available；telemetry v2 enabled；route validation disabled |
+
+已驗證：65 個 hosted pgTAP、錯／對 robot token、wrong-vehicle scope、v2 idle telemetry、schema rejection、pickup generic failure、exact-origin CORS 與 sender JWT gate。尚未驗證：authenticated Realtime WebSocket、magic-link實際收信、sender/recipient多context E2E。因此目前是 **hosted control-plane ready**，仍不是完整 integration-ready GO。Secret 值只保存在 Supabase encrypted secrets，不寫入本文、GitHub、Vercel或車端 image。
+
+Google CTA 由 browser-safe `VITE_GOOGLE_AUTH_ENABLED` 控制；staging 未設定時預設為 `false`。只有在 Supabase Google provider、校方 OAuth 授權與 signed hosted-domain 實測都完成後，才可在對應 deployment 設為 `true`。
 
 ## Release sequence
 
 1. `npm ci && npm run check && npm run test:e2e`。
 2. 從空 local/test database 套用所有 immutable migrations與 pgTAP。
-3. Hosted migration成功後，以[`supabase/snippets/provision_staging_simulator.sql`](../supabase/snippets/provision_staging_simulator.sql)啟用synthetic vehicle；此snippet會稽核操作，並在任何physical mapping已核准時fail closed。
-4. 在 staging 執行 Auth/RLS/simulator/recipient/headers/health smoke。
+3. Hosted migration成功後，以[`supabase/snippets/provision_staging_simulator.sql`](../supabase/snippets/provision_staging_simulator.sql)啟用synthetic vehicle；此步已完成，且任何physical mapping已核准時仍會fail closed。
+4. 在 staging 執行 Auth/RLS/simulator/recipient/headers/health smoke；DB、Edge HTTP與headers已完成，magic-link、Realtime與完整sender/recipient flow仍待補齊。
 5. 以錯 token、舊 boot、倒退 sequence、expired command、late ACK 與 CANCEL 做故障注入；確認 raw telemetry 可稽核，但 current projection 不倒退。
 6. 驗證 private `delivery:{id}`／`route-validation:{id}` topic 的正反 RLS，並觀察 10 秒 stale、60 秒 offline staging default。
 7. 驗證 backup/restore，先 expand migration，再 deploy相容 backend。

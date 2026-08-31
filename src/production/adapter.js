@@ -148,6 +148,9 @@ export class ProductionAdapter {
   }
 
   async signInWithGoogle(intent = 'login') {
+    if (!runtimeConfig.googleAuthEnabled) {
+      throw new DomainError('AUTH_PROVIDER_UNAVAILABLE', 'Google 登入尚未在此環境啟用。');
+    }
     const client = this.#requireClient();
     const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
