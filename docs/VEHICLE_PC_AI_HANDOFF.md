@@ -10,7 +10,7 @@ Repository：<https://github.com/ericchen2023/go-by-myself-website>
 
 Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-website/pull/1>
 
-> **Hosted staging 已可接車端 dry-run，但還不能讓真車移動。** 網站端 contract v2、hosted database、Edge robot API、Vercel staging、scoped GBM-01 identity、Node simulator 與 Python dry-run harness 已完成；Aurora／ROS 硬體 adapter、A–D 實體站點 mapping、client TLS 與現場安全程序仍須在車端電腦完成。未通過本文的 Physical GO gate 前，不得把 `capabilityEnabled` 或 `route_validation_enabled` 打開。
+> **Hosted staging 已可接車端read-only preflight與dry-run，但還不能讓真車移動。** 網站端contract v2、hosted database、Edge robot API、Vercel staging、scoped GBM-01 identity、Node simulator、Python read-only connection check與dry-run harness已完成；Aurora／ROS硬體adapter、A–D實體站點mapping、client TLS與現場安全程序仍須在車端電腦完成。未通過本文的Physical GO gate前，不得把`capabilityEnabled`或`route_validation_enabled`打開。
 
 ## 1. 接手時先掌握的結論
 
@@ -21,16 +21,30 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 | Route job／leg、reservation、ACK 與 telemetry ingest | 14 個 migrations、65 個 hosted pgTAP 與 v2 telemetry smoke 已通過 | 網站／Supabase staging owner |
 | Edge robot API | Hosted ACTIVE；wrong token 401、correct scope 200、wrong vehicle 403、bad schema 422 已實測 | 網站／Supabase staging owner |
 | Node gateway simulator | 可送 v2 telemetry、可並行 CANCEL | 網站 repo |
-| Jetson Python agent | 只有 outbound command poller、durable ledger、dry-run adapter | 車端 repo／車端電腦 |
+| Jetson Python agent | 已有read-only connection check、outbound command poller、durable ledger、dry-run adapter | 車端repo／車端電腦 |
 | 真實 telemetry、SLAM map switch、taught-route replay | **尚未實作** | 車端 repo／robot team |
 | Robot TLS | HTTPS 會使用作業系統 CA 驗證 server；client certificate／mTLS 尚未接入 agent | 車端 repo＋staging owner |
 | A／B／C／D 對四個公開站點 | **未核准，全部為 null** | robot team＋校方／專題 owner |
 | 真車移動、e-stop、disconnect、incident procedure | **未驗證** | 現場 safety owner |
 | 置物艙、門鎖、item sensor、custody | **不存在或未接入** | 後續 physical-delivery phase |
 
-本次網站端發布基線已通過 43 Vitest、25 Playwright/axe（另1個跨project skip）、5 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
+本次網站端發布基線已通過43 Vitest、25 Playwright/axe（另1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。Supabase Auth custom Gmail SMTP也已儲存並成功重載；這只用於網站magic-link登入，與車端連線無關，且新SMTP的實際收信仍待一次E2E。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
 
 真車第一階段只做 **supervised route validation**：單車、單段、空載、受控區域、現場人員持有實體 e-stop。這個流程不建立收件人、不發通知，也不會產生 `completed` delivery。
+
+### 1.1 這台網站端電腦已完成什麼
+
+交給車端前，網站端已完成下列工作；車端不需要重建或重做：
+
+- GitHub `main`與`staging`均為protected branch，要求PR與strict `quality`、`browser`、`database`、`edge-contract` checks，禁止force-push與刪除。
+- Supabase staging `go-by-myself-staging`已套用14個immutable migrations；v4四站graph啟用，physical legs仍為0個approved。
+- `delivery-intent`、`pickup`、`robot-api`三個Edge Functions均為version 2 ACTIVE，robot API已完成錯token、正確scope、跨車scope、v2 telemetry與錯schema的hosted正反測試。
+- `GBM-01` synthetic vehicle與UUID已建立，但`route_validation_enabled=false`；這是刻意的安全鎖，不是漏設定。
+- Vercel demo與production-shaped staging已分離；公開sender map只收`segmentId + progress`，不收raw SLAM座標。
+- Node simulator與Python contract harness已實作；新增`connection_check.py`讓車端在不讀command、不呼叫hardware的情況下先確認Supabase scoped identity。
+- Auth custom Gmail SMTP已載入；SMTP帳號與app password沒有進GitHub、Vercel或車端設定。投遞通知provider仍未完成。
+
+車端接手後應只補足車輛所在電腦才能取得的facts與adapter，不應重新設計contract、另建一套route graph或繞過physical capability gate。
 
 ## 2. 不可跨越的安全邊界
 
@@ -232,9 +246,56 @@ PYTHON_AGENT_LEDGER=/var/lib/go-by-myself/python-agent-ledger.json
 
 目前 Node config 雖保留 `ROBOT_CERT_PATH`／`ROBOT_PRIVATE_KEY_PATH` 欄位，但 Node client與 Python agent 都尚未把 client certificate 加入 HTTP transport。現在只有一般 HTTPS server certificate validation；完成 mTLS／client certificate transport與rotation測試前，不得宣稱雙向 TLS 已就緒。
 
-### 5.3 先以 Python dry-run 驗證 outbound contract
+### 5.3 先做read-only Supabase連線預檢
 
-在已安全載入上述環境後：
+這是車端第一次連線的唯一入口。它只呼叫本車的`GET /state`，不會取得command、不會送ACK、不會呼叫hardware，也不會改變Supabase資料。
+
+先由staging owner與車端owner同時進行一次coordinated token rotation：
+
+1. staging owner在Supabase Edge Function secrets產生新的32-byte以上高熵值，更新`ROBOT_GBM_01_TOKEN`；不要沿用hosted smoke token。
+2. 以受控password manager、面交或等價安全管道把同一值交給車端owner；不得貼在聊天、issue、PR、截圖或本文。
+3. 車端只把token載入目前process或權限受限的service secret。輪替成功後，舊token必須無法通過preflight。
+4. `ROBOT_GBM_01_VEHICLE_ID`維持本文UUID；若變更，網站端secret與車端env必須同時更新。
+
+公開值可參考[`vehicle.env.example`](../gateway/python_agent/vehicle.env.example)。Linux／Jetson可在shell中設定：
+
+```bash
+export CONTROL_PLANE_URL='https://aiuajbflpwdzkaeeocab.supabase.co/functions/v1/robot-api'
+export ROBOT_VEHICLE_ID='52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2'
+export ROBOT_CLIENT_ID='gbm-01'
+export SUPPORTED_CONTRACT_VERSION='2'
+export GATEWAY_DEPLOY_ENV='staging'
+export PYTHON_AGENT_ADAPTER='dry-run'
+read -rsp 'Scoped robot token: ' ROBOT_CLIENT_TOKEN; export ROBOT_CLIENT_TOKEN; echo
+python3 gateway/python_agent/connection_check.py
+```
+
+Windows PowerShell 7可使用：
+
+```powershell
+$env:CONTROL_PLANE_URL = 'https://aiuajbflpwdzkaeeocab.supabase.co/functions/v1/robot-api'
+$env:ROBOT_VEHICLE_ID = '52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2'
+$env:ROBOT_CLIENT_ID = 'gbm-01'
+$env:SUPPORTED_CONTRACT_VERSION = '2'
+$env:GATEWAY_DEPLOY_ENV = 'staging'
+$env:PYTHON_AGENT_ADAPTER = 'dry-run'
+$env:ROBOT_CLIENT_TOKEN = Read-Host 'Scoped robot token' -MaskInput
+python gateway/python_agent/connection_check.py
+```
+
+成功時只會輸出`ok`、`authenticated`、`vehicleScopeMatched`、`vehicleId`、`vehicleState`與`connectivity`。車輛尚未送telemetry時，`vehicleState`為`null`或`connectivity=offline`仍可算身分連線成功；non-null state若缺少正確vehicle ID會fail closed。輸出不含token、Authorization header、route job ID或raw pose。
+
+常見失敗：
+
+- `ENV_CONFIG_INVALID`：本機缺少必要env，未連到Supabase。
+- `ROBOT_IDENTITY_INVALID`：client ID／token／Edge secret不一致；停止重試並由兩位owner核對輪替。
+- `ROBOT_SCOPE_DENIED`：vehicle UUID不屬於此client；不要改成另一台vehicle碰運氣。
+- `CONTROL_PLANE_RESPONSE_INVALID`：Supabase回應不是可信JSON envelope；停止agent並保留不含secret的HTTP狀態供網站端查修。
+- `CONTROL_PLANE_UNREACHABLE`：先查DNS、TLS、proxy/firewall與校園網路outbound HTTPS。
+
+### 5.4 再以Python dry-run驗證outbound command contract
+
+只有read-only preflight成功後，才執行`agent.py`。程式啟動時會再次強制執行同一個identity/scope preflight；通過後才開始poll command並回報event。`PYTHON_AGENT_ADAPTER=dry-run`不會控制真車：
 
 ```bash
 python3 gateway/python_agent/agent.py
@@ -249,7 +310,7 @@ python3 gateway/python_agent/agent.py
 - accepted 與 completed 分成兩筆 event。
 - ledger 在 process restart 後仍存在，且不含 token 或 PII。
 
-Python harness 目前**不會送 telemetry，也沒有 health server**。Hosted telemetry、stale/offline 與 SVG marker 的 staging 測試應先使用 Node simulator：
+Python harness目前**不會送telemetry，也沒有health server**。Hosted telemetry、stale/offline與SVG marker的staging測試應先使用Node simulator：
 
 ```bash
 npm run gateway
@@ -441,6 +502,8 @@ Staging default：最後可信 telemetry 超過 10 秒為 stale，超過 60 秒�
 | [`contracts/command-event.schema.json`](../contracts/command-event.schema.json) | ACK／final event v2 |
 | [`contracts/robot-fault.schema.json`](../contracts/robot-fault.schema.json) | fault v2 |
 | [`gateway/python_agent/agent.py`](../gateway/python_agent/agent.py) | Jetson outbound agent skeleton |
+| [`gateway/python_agent/connection_check.py`](../gateway/python_agent/connection_check.py) | 不取command、不控制hardware的scoped identity預檢 |
+| [`gateway/python_agent/vehicle.env.example`](../gateway/python_agent/vehicle.env.example) | 不含secret的車端staging環境範例 |
 | [`gateway/python_agent/contract.py`](../gateway/python_agent/contract.py) | Python fail-closed semantic checks |
 | [`gateway/src/simulator-hardware.js`](../gateway/src/simulator-hardware.js) | production-shaped simulator reference |
 | [`supabase/functions/robot-api/index.ts`](../supabase/functions/robot-api/index.ts) | robot HTTP boundary |
@@ -454,7 +517,7 @@ Staging default：最後可信 telemetry 超過 10 秒為 stale，超過 60 秒�
 
 1. 車端系統／ROS／controller inventory，敏感資料已遮蔽。
 2. 完整回答 `ROBOT_QUESTIONNAIRE.md`，未知項明確標 `UNKNOWN`。
-3. 車端 repo pin 的網站 contract commit SHA。
+3. read-only Supabase preflight結果（只含`ok/authenticated/scope/state/connectivity`）與車端repo pin的網站contract commit SHA。
 4. Aurora／ROS adapter 設計與實際 controller interface evidence。
 5. Python telemetry sender、health/readiness、boot／sequence persistence 的測試。
 6. 正反 fixtures、duplicate、late ACK、restart、CANCEL、disconnect、off-route 測試結果。
@@ -480,18 +543,20 @@ Hosted staging 已建立：
 - client ID: gbm-01
 ROBOT_CLIENT_TOKEN 必須由 staging owner 在接手時輪替並透過安全管道提供；不要要求把token貼到聊天、文件或Git。
 
-第一輪只做唯讀環境盤點、contract tests 與 dry-run。不要控制真車、不要啟用
+第一輪只做唯讀環境盤點、contract tests與read-only connection preflight。先執行
+gateway/python_agent/connection_check.py，確認scoped identity後才能跑dry-run agent。不要控制真車、不要啟用
 physical capability、不要猜 ROS topic/frame/單位，不要把 Web CANCEL 當 e-stop。
 不要在 source、聊天或 log 顯示 token、private key、精準地圖或個資。
 
 依交接文件輸出：
 1) 已確認的 OS/CPU/ROS/controller/route/pose/safe-stop facts；
 2) 30 題 questionnaire，未知項標 UNKNOWN；
-3) 可重現的測試結果；
+3) 可重現的測試結果與不含secret的read-only Supabase preflight摘要；
 4) Aurora/ROS hardware adapter 與 telemetry sender 的實作計畫；
 5) 仍阻擋 supervised no-cargo route validation 的 GO/NO-GO 清單。
 
-只有 robot owner 核准介面、A–D mapping/checksum、scoped identity/TLS、現場 operator
+先規畫下一階段，再逐步實作；每一階段完成後做code/contract/security/physical gate審查，
+不得把尚未驗證的hardware fact標成完成。只有robot owner核准介面、A–D mapping/checksum、scoped identity/TLS、現場operator
 與實體 e-stop 全部就緒後，才提出單車、單段、空載的 supervised test。置物艙與
 custody 未完成前，不載物、不產生 completed delivery。
 ```

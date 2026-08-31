@@ -9,6 +9,8 @@ npm run check
 
 `check` 包含 ESLint、TypeScript checked JS、Vitest、Python agent unittest、JSON contract、交接文件連結／route pin、兩種 build、adapter boundary 與 gzip budgets。GitHub `quality` job 固定使用 Node 24 與 Python 3.10 執行同一指令，避免 Windows 有 `python`、Jetson 只有 `python3` 時產生假的通過結果。
 
+Python agent目前共10個unittest，其中五個專門驗證read-only connection preflight不輸出token、Authorization header或raw pose、能把hosted 401轉成穩定的`ROBOT_IDENTITY_INVALID`、對缺少vehicle ID的malformed state fail closed、損壞回應不顯示traceback，且`agent.py`啟動時不能繞過preflight。
+
 2026-08-28本機Edge benchmark：LCP 624 ms、FCP 192 ms、24 requests；demo 23.3 KiB JS / 7.2 KiB CSS gzip，production 78.7 KiB JS / 7.2 KiB CSS gzip，全部通過既定budget。這是local regression evidence，不取代部署後真實裝置/網路的p75 Web Vitals。
 
 Robot v2需要針對單一層除錯時，可個別執行：
@@ -52,8 +54,9 @@ npm run local:down
 - `pickup` exact staging origin preflight → `204`並回相同`Access-Control-Allow-Origin`；不存在publicRef → generic `404 PICKUP_CONTEXT_UNAVAILABLE`。
 - 無JWT的`delivery-intent` → Supabase gateway `401`。
 - Vercel `staging` branch確實載入production-shaped auth；production shell regression禁止literal `null`與假的simulator文案。
+- Supabase Auth custom Gmail SMTP已儲存並兩次成功重載；email limiter由2/h更新為30/h。SMTP地址與app password不進測試輸出或repository。
 
-尚待：authenticated Realtime WebSocket snapshot/subscription/resync、magic-link實際收信、sender/recipient不同browser contexts與完整simulator journey。這些完成前不可把hosted control-plane ready升級為integration-ready staging GO。
+尚待：authenticated Realtime WebSocket snapshot/subscription/resync、custom Gmail SMTP啟用後的magic-link實際收信、sender/recipient不同browser contexts與完整simulator journey。這些完成前不可把hosted control-plane ready升級為integration-ready staging GO。
 
 ## Physical acceptance
 
