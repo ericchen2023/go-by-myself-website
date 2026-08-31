@@ -555,7 +555,7 @@ begin
   ) returning command_id into cancel_command;
 
   perform public.process_robot_command_event(
-    cancel_command, gen_random_uuid(), context.vehicle_id, 'completed', 9001,
+    context.vehicle_id, cancel_command, gen_random_uuid(), 'completed', 9001,
     jsonb_build_object('safeStop', true), null
   );
 end $$;
