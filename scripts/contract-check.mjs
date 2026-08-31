@@ -33,19 +33,19 @@ const validateCommand = ajv.compile(commandSchema);
 const validateTelemetry = ajv.compile(telemetrySchema);
 const validateRobotFault = ajv.compile(robotFaultSchema);
 
-const routeGraph = JSON.parse(await readFile('contracts/route-graph.v4.json', 'utf8'));
+const routeGraph = JSON.parse(await readFile('contracts/route-graph.v5.json', 'utf8'));
 const expectedChecksum = routeGraph.checksum;
 delete routeGraph.checksum;
 const actualChecksum = `sha256:${createHash('sha256').update(JSON.stringify(routeGraph)).digest('hex')}`;
 if (actualChecksum !== expectedChecksum) {
-  throw new Error(`contracts/route-graph.v4.json: checksum mismatch; expected ${expectedChecksum}, got ${actualChecksum}`);
+  throw new Error(`contracts/route-graph.v5.json: checksum mismatch; expected ${expectedChecksum}, got ${actualChecksum}`);
 }
 const stopCodes = routeGraph.locations.map((location) => location.code);
 if (stopCodes.length !== 4 || new Set(stopCodes).size !== 4) {
-  throw new Error('contracts/route-graph.v4.json: exactly four unique visible stops are required');
+  throw new Error('contracts/route-graph.v5.json: exactly four unique visible stops are required');
 }
 const edgeIds = new Set(routeGraph.edges.map((edge) => edge.id));
-if (edgeIds.size !== routeGraph.edges.length) throw new Error('contracts/route-graph.v4.json: duplicate edge id');
+if (edgeIds.size !== routeGraph.edges.length) throw new Error('contracts/route-graph.v5.json: duplicate edge id');
 
 const manifest = JSON.parse(await readFile('contracts/physical-route-manifest.v1.json', 'utf8'));
 if (manifest.routeGraphVersion !== routeGraph.version || manifest.routeGraphChecksum !== expectedChecksum) {
@@ -76,7 +76,14 @@ for (const leg of manifest.legs) {
   }
 }
 
-const migration = (await readFile('supabase/migrations/202608280006_route_contract_v2.sql', 'utf8')).replace(/\s+/g, '');
+// Seeds live in whichever migration introduced the active graph. Migrations are
+// immutable, so a graph bump adds a new one rather than editing the old; search
+// them all so this check follows the graph instead of a fixed filename.
+const migrationDir = 'supabase/migrations';
+const migrationFiles = (await readdir(migrationDir)).filter((name) => name.endsWith('.sql')).sort();
+const migration = (await Promise.all(migrationFiles.map((name) => readFile(join(migrationDir, name), 'utf8'))))
+  .join('\n')
+  .replace(/\s+/g, '');
 for (const pair of routePairs(routeGraph)) {
   const tuple = routePairSqlTuple(pair).replace(/\s+/g, '');
   if (!migration.includes(tuple)) throw new Error(`Route seed migration is missing generated pair ${pair.from} -> ${pair.to}`);

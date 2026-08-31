@@ -1,5 +1,5 @@
 begin;
-select plan(25);
+select plan(27);
 
 select has_table('public', 'deliveries', 'deliveries table exists');
 select has_table('private', 'delivery_recipients', 'recipient PII is private');
@@ -18,6 +18,18 @@ select has_function('public', 'reconcile_robot_runtime', 'connectivity and expir
 select ok(
   not has_function_privilege('anon', 'public.finalize_auth_assurance()', 'EXECUTE'),
   'anonymous callers cannot finalize auth assurance'
+);
+select ok(
+  position(
+    'identity.provider = ''google''' in pg_get_functiondef('public.finalize_auth_assurance()'::regprocedure)
+  ) > 0,
+  'auth assurance requires a Google identity'
+);
+select ok(
+  position(
+    'email_verified' in pg_get_functiondef('public.finalize_auth_assurance()'::regprocedure)
+  ) > 0,
+  'auth assurance requires a provider-verified email'
 );
 select ok(
   not has_function_privilege('anon', 'public.get_active_delivery_projection()', 'EXECUTE'),

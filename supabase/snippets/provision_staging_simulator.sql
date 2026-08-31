@@ -8,7 +8,7 @@ declare
 begin
   if not exists (
     select 1 from public.route_graph_versions
-    where version = 'ndhu-four-stop-route-v4' and status = 'active'
+    where version = 'ndhu-four-stop-route-v5' and status = 'active'
   ) then
     raise exception 'STAGING_ROUTE_GRAPH_NOT_READY';
   end if;

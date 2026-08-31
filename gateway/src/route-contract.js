@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const graph = JSON.parse(readFileSync(resolve('contracts/route-graph.v4.json'), 'utf8'));
+const graph = JSON.parse(readFileSync(resolve('contracts/route-graph.v5.json'), 'utf8'));
 const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
 const edges = graph.edges.map((item) => {
   const from = nodes.get(item.fromNodeId);
