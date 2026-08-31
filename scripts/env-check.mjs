@@ -2,9 +2,13 @@ const mode = process.env.VITE_APP_MODE ?? 'demo';
 const deployEnv = process.env.VITE_DEPLOY_ENV ?? (mode === 'demo' ? 'demo' : 'local');
 const allowedModes = new Set(['demo', 'production']);
 const allowedDeployEnvs = new Set(['demo', 'local', 'test', 'staging', 'production']);
+const googleAuthFlag = process.env.VITE_GOOGLE_AUTH_ENABLED;
 
 if (!allowedModes.has(mode) || !allowedDeployEnvs.has(deployEnv)) {
   throw new Error(`ENV_CONFIG_INVALID: mode=${mode}, deployEnv=${deployEnv}`);
+}
+if (googleAuthFlag && !['true', 'false'].includes(googleAuthFlag)) {
+  throw new Error('ENV_CONFIG_INVALID: VITE_GOOGLE_AUTH_ENABLED must be true or false');
 }
 
 if (mode === 'demo') {
