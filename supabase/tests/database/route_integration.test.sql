@@ -200,7 +200,7 @@ select is(
 );
 select is(
   (select segment_id || ':' || progress::text from public.delivery_progress_current where delivery_id = (select delivery_one from route_test_context)),
-  'edge-hss1:0.20000',
+  'edge-hss2-hss1:0.20000',
   'valid telemetry updates the privacy-safe marker projection'
 );
 
@@ -235,7 +235,7 @@ select is(
 );
 select is(
   (select segment_id || ':' || progress::text from public.delivery_progress_current where delivery_id = (select delivery_one from route_test_context)),
-  'edge-hss1:0.20000',
+  'edge-hss2-hss1:0.20000',
   'off-route telemetry cannot overwrite the last-known-good marker'
 );
 
