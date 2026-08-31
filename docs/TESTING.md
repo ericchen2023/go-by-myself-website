@@ -43,9 +43,9 @@ npm run local:down
 
 必須用兩個 synthetic sender JWT、anonymous、operator、revoked operator與 robot scoped endpoint做正向/負向 matrix。`service_role`/secret測試不能被當作 RLS證據，因其本來就 bypass RLS。
 
-目前hosted pgTAP為65個斷言；套用public Google OAuth migration後的repository基線為67個（RLS 27、route integration 40）。新增斷言確認auth assurance函式要求Google identity與provider-verified email；其餘涵蓋schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal與未accepted expiry reservation release。Deno runtime另有5組Edge contract tests。
+Repository與GitHub database job基線為67個pgTAP（RLS 27、route integration 40）。Hosted先前已執行65個既有斷言；2026-09-01套用public Google OAuth migration後，另以定向SQL確認anonymous不可執行、authenticated可執行，且auth assurance函式同時要求Google identity與provider-verified email，沒有重跑已通過的65項。其餘基線涵蓋schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal與未accepted expiry reservation release。Deno runtime另有5組Edge contract tests。
 
-## Hosted staging smoke（2026-08-31）
+## Hosted staging smoke（2026-08-31；OAuth設定更新於2026-09-01）
 
 已在 `go-by-myself-staging` 執行：
 
@@ -55,6 +55,7 @@ npm run local:down
 - `pickup` exact staging origin preflight → `204`並回相同`Access-Control-Allow-Origin`；不存在publicRef → generic `404 PICKUP_CONTEXT_UNAVAILABLE`。
 - 無JWT的`delivery-intent` → Supabase gateway `401`。
 - Vercel `staging` branch確實載入production-shaped auth；production shell regression禁止literal `null`與假的simulator文案。
+- Google External OAuth app已正式發布；Supabase Google provider顯示Enabled；hosted第16筆auth migration與Vercel `staging` branch限定的`VITE_GOOGLE_AUTH_ENABLED=true`已確認。
 - Vercel Standard Protection維持開啟；Automation Bypass已以header實測`/health.json`回`200`與`status=ok`。GitHub Actions secret只提供給手動`Staging verification` workflow，測試程式與報告不輸出值。
 - Supabase Auth custom Gmail SMTP仍保存在hosted設定，但目前公開登入流程為Google-only，不再以magic link作fallback。SMTP地址與app password不進測試輸出或repository。
 
