@@ -4,6 +4,39 @@ import { assertValidDeliveryInput } from '../domain/validation.js';
 import { runtimeConfig, assertProductionBrowserConfig } from '../config/runtime.js';
 
 /** @returns {any} */
+/**
+ * Recovers the Edge Function's own error envelope from a supabase-js
+ * FunctionsHttpError, whose `context` is the unread Response.
+ * @param {unknown} error
+ */
+export async function edgeErrorEnvelope(error) {
+  const context = error && typeof error === 'object' ? Reflect.get(error, 'context') : null;
+  if (!context || typeof context.json !== 'function') return null;
+  try {
+    const source = typeof context.clone === 'function' ? context.clone() : context;
+    const body = await source.json();
+    return body && typeof body === 'object' ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reports the cause the Edge Function actually returned. Collapsing every
+ * failure into one code makes VEHICLE_UNAVAILABLE, DELIVERY_INVALID_TRANSITION
+ * and an expired session indistinguishable to whoever has to act on them.
+ * @param {Record<string, any> | null} body
+ * @param {{code: string, message: string, retryable: boolean}} fallback
+ */
+export function domainErrorFrom(body, fallback) {
+  const detail = body?.error;
+  const code = typeof detail?.code === 'string' && detail.code ? detail.code : fallback.code;
+  const message = typeof detail?.message === 'string' && detail.message ? detail.message : fallback.message;
+  const reference = typeof body?.requestId === 'string' && body.requestId ? body.requestId : '';
+  const retryable = typeof detail?.retryable === 'boolean' ? detail.retryable : fallback.retryable;
+  return new DomainError(code, reference ? `${message}（request reference: ${reference}）` : message, { retryable });
+}
+
 function initialState() {
   return {
     mode: 'production',
@@ -305,7 +338,13 @@ export class ProductionAdapter {
     const { data, error } = await client.functions.invoke('delivery-intent', {
       body: { schemaVersion: 1, intent, expectedVersion, idempotencyKey, ...payload }
     });
-    if (error) throw new DomainError('DELIVERY_INTENT_FAILED', '投遞操作未完成，請依 request reference 安全重試。', { retryable: true });
+    if (error) {
+      throw domainErrorFrom(await edgeErrorEnvelope(error), {
+        code: 'DELIVERY_INTENT_FAILED',
+        message: '投遞操作未完成，請依 request reference 安全重試。',
+        retryable: true
+      });
+    }
     return data.data;
   }
 
@@ -314,6 +353,8 @@ export class ProductionAdapter {
     const { data, error } = await client.functions.invoke('pickup', {
       body: { schemaVersion: 1, intent, ...payload }
     });
+    // Deliberately generic: the pickup endpoint is unauthenticated and already
+    // collapses its own failures into one code so a credential cannot be probed.
     if (error) throw new DomainError('PICKUP_CREDENTIAL_INVALID', '取件資訊無效或已失效。');
     return data.data;
   }

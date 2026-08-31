@@ -74,3 +74,12 @@ npm run test:e2e:staging
 ## Physical acceptance
 
 Automated suites全綠不允許 moving robot。先做supervised no-cargo route validation：單段、八方向、disconnect、late ACK、duplicate/expired command、off-route、cancel/safe-stop。置物艙與custody capability完成後，才另做inert payload、door failure、return與custody recovery。
+
+## Edge Function 錯誤回報
+
+`ProductionAdapter` 必須把 Edge Function 回傳的 `error.code` 原樣呈現，不得收斂成單一代碼。
+`tests/unit/edge-error-surfacing.test.js` 涵蓋成功還原（含 `requestId`）與四種退回原因：
+傳輸層失敗、回應非 JSON、envelope 缺少 code、envelope 未帶 `retryable`。
+
+公開的 `pickup` 端點例外：它本身就刻意把所有失敗收斂成 `PICKUP_CREDENTIAL_INVALID`，
+避免未認證的呼叫者藉錯誤差異試探取件碼，因此前端維持通用訊息。
