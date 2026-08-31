@@ -13,16 +13,24 @@ from pathlib import Path
 from typing import Any
 
 CONTRACT_VERSION = 2
-ROUTE_VERSION = "ndhu-four-stop-route-v4"
-ROUTE_CHECKSUM = "sha256:712c4b12e3932647eb0856699fe4ace4bd9a2434c325b97451e07abbd7120ef9"
+_CONTRACTS = Path(__file__).parents[2] / "contracts"
+# Read the pinned graph rather than restating it: a copy here would drift from
+# the file the vehicle vendors, and the two disagreeing is not detectable from
+# either side alone.
+ROUTE_GRAPH = json.loads((_CONTRACTS / "route-graph.v5.json").read_text(encoding="utf-8"))
+ROUTE_VERSION = ROUTE_GRAPH["version"]
+ROUTE_CHECKSUM = ROUTE_GRAPH["checksum"]
 VEHICLE_STATES = {
     "idle", "preparing", "localizing", "moving", "at_stop",
     "safe_stopped", "returning_to_base", "fault",
 }
 COMMAND_TYPES = {"DISPATCH", "OPEN_COMPARTMENT", "CANCEL", "RETURN_TO_BASE"}
 PHYSICAL_MANIFEST = json.loads(
-    (Path(__file__).parents[2] / "contracts" / "physical-route-manifest.v1.json").read_text(encoding="utf-8")
+    (_CONTRACTS / "physical-route-manifest.v1.json").read_text(encoding="utf-8")
 )
+if PHYSICAL_MANIFEST["routeGraphVersion"] != ROUTE_VERSION \
+        or PHYSICAL_MANIFEST["routeGraphChecksum"] != ROUTE_CHECKSUM:
+    raise RuntimeError("physical route manifest is pinned to a different route graph")
 
 
 class ContractError(ValueError):

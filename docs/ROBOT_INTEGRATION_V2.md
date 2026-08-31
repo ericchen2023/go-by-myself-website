@@ -10,7 +10,7 @@ Route validation不建立recipient credential、不發notification、不進入de
 
 ## Contract ownership
 
-- Canonical graph：`contracts/route-graph.v4.json`
+- Canonical graph：`contracts/route-graph.v5.json`
 - Physical mapping gate：`contracts/physical-route-manifest.v1.json`
 - Command／telemetry／event：`contracts/*.schema.json`
 - Positive fixtures：`contracts/fixtures.json`

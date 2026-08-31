@@ -16,7 +16,7 @@ export const runtimeConfig = Object.freeze({
   supabasePublishableKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
   googleAuthEnabled: googleAuthFlag === 'true',
   releaseSha: import.meta.env.VITE_RELEASE_SHA || 'local',
-  routeGraphVersion: import.meta.env.VITE_ROUTE_GRAPH_VERSION || 'ndhu-four-stop-route-v4',
+  routeGraphVersion: import.meta.env.VITE_ROUTE_GRAPH_VERSION || 'ndhu-four-stop-route-v5',
   supportUrl: import.meta.env.VITE_SUPPORT_URL || '/support'
 });
 
