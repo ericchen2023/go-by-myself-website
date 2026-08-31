@@ -313,6 +313,9 @@ h2 { font-size: clamp(1.4rem, 2.5vw, 2.1rem); }
 .journey-motion-path { fill: none; stroke: none; }
 .journey-segment--remaining { stroke: var(--lime); }
 .journey-segment--traveled { stroke: var(--pine); transition: stroke-dashoffset 220ms linear; }
+/* Deliberately thinner and lighter than .route-edge: it is the way in to a
+   stop, not part of the corridor the vehicle drives. */
+.stop-approach { stroke: #c6d2ca; stroke-width: 5; stroke-linecap: round; }
 .route-arrow { fill: var(--pine); }
 .map-station-label {
   fill: var(--ink-strong); font-family: var(--font-body); font-size: 25px; font-weight: 780;
