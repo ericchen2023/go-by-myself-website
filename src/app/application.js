@@ -11,6 +11,7 @@ import {
   summaryItem
 } from './components.js';
 import { createRouteSelector } from '../map/map-view.js';
+import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
 import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
 import { notificationCopy, stepForStatus } from '../domain/presentation.js';
@@ -49,6 +50,8 @@ export class Application {
     this.uiError = null;
     /** @type {Record<string, string>} */
     this.fieldErrors = {};
+    this.arrivalSamples = [];
+    this.arrivalSegmentId = null;
     this.busy = false;
     this.operatorSelection = { vehicleId: '', legId: '' };
     this.route = window.location.pathname;
@@ -265,6 +268,20 @@ export class Application {
   #detailsStep() {
     const draft = this.state.draft;
     const form = el('form', { className: 'delivery-form', novalidate: true });
+    // Choosing a stop saves the draft, which re-renders this whole form from the
+    // draft. Anything typed but not yet saved would be rebuilt as empty — so the
+    // reader fills the form in, picks a stop, and silently loses the lot, then
+    // gets told the fields are missing. Carry what is on screen along with it.
+    const typedFields = () => {
+      const data = new FormData(form);
+      return {
+        recipientName: String(data.get('recipientName') ?? ''),
+        recipientPhone: String(data.get('recipientPhone') ?? ''),
+        recipientEmail: String(data.get('recipientEmail') ?? ''),
+        itemType: String(data.get('itemType') ?? ''),
+        note: String(data.get('note') ?? '')
+      };
+    };
     form.append(createRouteSelector({
       id: 'dropoff-location',
       label: '選取收件地點',
@@ -273,7 +290,7 @@ export class Application {
       dropoffCode: draft.dropoffCode,
       disabledCodes: [draft.pickupCode],
       interactive: true,
-      onSelect: (code) => this.adapter.saveDraft({ dropoffCode: code })
+      onSelect: (code) => this.adapter.saveDraft({ ...typedFields(), dropoffCode: code })
     }));
 
     const fields = el('div', { className: 'form-grid' });
@@ -414,6 +431,11 @@ export class Application {
     const pickup = locationByCode(delivery.pickupCode);
     const dropoff = locationByCode(delivery.dropoffCode);
     const telemetry = this.state.telemetry;
+    // Sampled here rather than in the adapter: the estimate belongs to what is
+    // on screen, and both adapters feed this same state.
+    this.arrivalSamples = trackProgress(this.arrivalSamples, telemetry.position, this.arrivalSegmentId, Date.now());
+    this.arrivalSegmentId = telemetry.position?.segmentId ?? null;
+    const etaSeconds = estimateRemainingSeconds(this.arrivalSamples);
     const projectedFrom = locationByCode(telemetry.routeFromStopCode);
     const projectedTo = locationByCode(telemetry.routeToStopCode);
     const activeRouteParts = projectedFrom && projectedTo
@@ -435,7 +457,7 @@ export class Application {
     });
     const body = el('div', { className: 'status-layout' },
       el('div', { className: 'status-primary' },
-        statusHero({ status: delivery.status, telemetry }),
+        statusHero({ status: delivery.status, telemetry: { ...telemetry, etaSeconds } }),
         this.#statusActions(delivery),
         changingLeg ? el('div', { className: 'route-transition-notice', role: 'status' },
           el('strong', {}, '車輛正在準備下一段路線'),
