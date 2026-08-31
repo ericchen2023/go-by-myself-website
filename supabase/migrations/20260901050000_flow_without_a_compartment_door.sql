@@ -79,7 +79,10 @@ $$;
 revoke all on function public.record_departure_ready(uuid,jsonb) from public, anon;
 grant execute on function public.record_departure_ready(uuid,jsonb) to authenticated, service_role;
 
-create or replace function public.execute_delivery_intent(
+-- 注意：要改的是內層。202608280010 把原本的函式改名為 execute_delivery_intent_unlocked，
+-- 另外建了一個同名外層來擋 idempotency key 重用；用舊版本 create or replace 同名函式
+-- 會把那層防護整個蓋掉。
+create or replace function public.execute_delivery_intent_unlocked(
   p_delivery_id uuid,
   p_intent text,
   p_expected_version integer,
@@ -225,8 +228,8 @@ begin
   return prior_response;
 end;
 $$;
-revoke all on function public.execute_delivery_intent(uuid,text,integer,text) from public;
-grant execute on function public.execute_delivery_intent(uuid,text,integer,text) to authenticated;
+revoke all on function public.execute_delivery_intent_unlocked(uuid,text,integer,text)
+from public, anon, authenticated;
 
 
 create or replace function public.redeem_pickup_credential(
