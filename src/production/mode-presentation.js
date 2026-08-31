@@ -1,7 +1,16 @@
 import { el } from '../app/dom.js';
+import { runtimeConfig } from '../config/runtime.js';
 
-export const googleDisabled = false;
-export const googleHelp = '';
+export const homeModeCopy = Object.freeze({
+  divider: '或使用專題登入連結',
+  cta: '進入整合測試',
+  tag: '整合測試',
+  intro: '整合測試環境使用獨立資料庫與受信任控制服務；真實車輛功能在現場核准前維持關閉。'
+});
+export const googleDisabled = !runtimeConfig.googleAuthEnabled;
+export const googleHelp = googleDisabled
+  ? 'Google OAuth 尚待校方與專案端完成設定；目前請使用下方專題登入連結。'
+  : '網站會轉往 Google 登入；本網站不會接收你的東華密碼。';
 export const recoveryText = 'Google 帳號請使用 Google 或東華帳號復原；專題登入連結則可重新寄送。';
 export const supportCopy = '聯絡專案指定的協助窗口時，請一併提供畫面上的操作編號。';
 export const dispatchIntro = '按下「呼叫車輛」後，系統會確認車輛可用並建立派車要求。';
@@ -21,15 +30,17 @@ export function modeSupportSection() {
   );
 }
 
-/** @param {{adapter:any,navigate:(path:string)=>void,run:(action:()=>unknown|Promise<unknown>)=>void}} options */
+/** @param {{adapter:any,navigate:(path:string)=>void,run:(action:()=>unknown|Promise<unknown>)=>Promise<boolean>,setNotice:(message:string)=>void}} options */
 export function authAlternative(options) {
   const emailId = 'magic-email';
   return el('details', { className: 'magic-link' },
     el('summary', {}, 'Google 暫時無法使用？改用專題登入連結'),
-    el('form', { onsubmit: (event) => {
+    el('form', { onsubmit: async (event) => {
       event.preventDefault();
       const form = /** @type {HTMLFormElement} */ (event.currentTarget);
-      options.run(() => options.adapter.signInWithMagicLink(String(new FormData(form).get('email') ?? '')));
+      options.setNotice('');
+      const accepted = await options.run(() => options.adapter.signInWithMagicLink(String(new FormData(form).get('email') ?? '')));
+      if (accepted) options.setNotice('登入連結已排程寄送，請檢查信箱；若未收到，可稍後安全重試。');
     } },
     el('label', { htmlFor: emailId }, '東華 Google Workspace Email'),
     el('input', { id: emailId, name: 'email', type: 'email', autocomplete: 'email', required: true, placeholder: 'student@gms.ndhu.edu.tw' }),

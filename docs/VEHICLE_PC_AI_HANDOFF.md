@@ -1,6 +1,6 @@
 # 車端電腦 AI 技術交接
 
-更新日期：2026-08-29
+更新日期：2026-08-31
 
 適用對象：可直接接觸自走車、Jetson／工控機、Aurora S 或 ROS1 環境的下一位工程師或 AI agent。
 
@@ -10,7 +10,7 @@ Repository：<https://github.com/ericchen2023/go-by-myself-website>
 
 Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-website/pull/1>
 
-> **目前可以接軟體與假車，但還不能讓真車移動。** 網站端 contract v2、資料庫 route job、Edge robot API、Node simulator 與 Python dry-run harness 已完成並通過 CI；Aurora／ROS 硬體 adapter、A–D 實體站點 mapping、staging robot identity、TLS 與現場安全程序仍須在車端電腦完成。未通過本文的 Physical GO gate 前，不得把 `capabilityEnabled` 或 `route_validation_enabled` 打開。
+> **Hosted staging 已可接車端 dry-run，但還不能讓真車移動。** 網站端 contract v2、hosted database、Edge robot API、Vercel staging、scoped GBM-01 identity、Node simulator 與 Python dry-run harness 已完成；Aurora／ROS 硬體 adapter、A–D 實體站點 mapping、client TLS 與現場安全程序仍須在車端電腦完成。未通過本文的 Physical GO gate 前，不得把 `capabilityEnabled` 或 `route_validation_enabled` 打開。
 
 ## 1. 接手時先掌握的結論
 
@@ -18,8 +18,8 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 |---|---|---|
 | Web、四站動態 SVG、公開 safe projection | 已實作並測試 | 網站 repo |
 | Robot contract v2、fixtures、版本與 checksum gate | 已實作並測試 | 網站 repo 是 source of truth |
-| Route job／leg、reservation、ACK 與 telemetry ingest | migrations 與 pgTAP 已在 Linux CI 通過 | Supabase staging |
-| Edge robot API | Deno type-check／contract tests 已通過，尚未做 hosted HTTP 測試 | Supabase staging |
+| Route job／leg、reservation、ACK 與 telemetry ingest | 14 個 migrations、65 個 hosted pgTAP 與 v2 telemetry smoke 已通過 | 網站／Supabase staging owner |
+| Edge robot API | Hosted ACTIVE；wrong token 401、correct scope 200、wrong vehicle 403、bad schema 422 已實測 | 網站／Supabase staging owner |
 | Node gateway simulator | 可送 v2 telemetry、可並行 CANCEL | 網站 repo |
 | Jetson Python agent | 只有 outbound command poller、durable ledger、dry-run adapter | 車端 repo／車端電腦 |
 | 真實 telemetry、SLAM map switch、taught-route replay | **尚未實作** | 車端 repo／robot team |
@@ -28,7 +28,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 | 真車移動、e-stop、disconnect、incident procedure | **未驗證** | 現場 safety owner |
 | 置物艙、門鎖、item sensor、custody | **不存在或未接入** | 後續 physical-delivery phase |
 
-本次網站端發布基線已通過 39 Vitest、25 Playwright/axe（另1個跨project skip）、5 Python unittest、5 Deno runtime tests與58 pgTAP。另有13張逐頁 live QA 畫面；動態 sender／recipient axe為0，640px／320px等效reflow無水平溢位，console／page／network error為0。這些證據只證明網站、contract與模擬器，不證明 hosted Supabase或真車安全。
+本次網站端發布基線已通過 43 Vitest、25 Playwright/axe（另1個跨project skip）、5 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
 
 真車第一階段只做 **supervised route validation**：單車、單段、空載、受控區域、現場人員持有實體 e-stop。這個流程不建立收件人、不發通知，也不會產生 `completed` delivery。
 
@@ -179,16 +179,24 @@ Known gaps:
 
 ## 5. How-to：建立 production-shaped staging 連線
 
-這一步需要專案 owner 先建立獨立 Supabase staging；目前 repository 沒有可直接使用的 hosted staging URL 或 secret。
+獨立 hosted staging 已建立。網站端與車端只透過下列公開 contract URL 連線；任何 token、pepper 或 Supabase secret key 都不記錄在 Git、本文或聊天。
 
-撰寫本文件的網站電腦也沒有 `SUPABASE_ACCESS_TOKEN`、`VERCEL_TOKEN`、可用的 Supabase staging URL／publishable key或 Docker／Podman，因此 hosted staging不能在該電腦預先代做。這不是車端 AI 應自行繞過的限制：先由 staging owner建立環境與 scoped identity，再以安全管道提供車端必要值。
+```text
+Frontend: https://go-by-myself-website-git-staging-hsuanisgay.vercel.app
+Supabase project ref: aiuajbflpwdzkaeeocab
+Robot control plane: https://aiuajbflpwdzkaeeocab.supabase.co/functions/v1/robot-api
+Staging vehicle code: GBM-01
+Staging vehicle UUID: 52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2
+```
+
+目前Edge的GBM-01 token只用於網站端hosted smoke，**沒有被保存到交接文件**。車端正式接手時由staging owner產生並同步替換一個新token，再用面交、受控password manager或等價安全管道提供給車端；不要要求AI從log、GitHub或browser bundle找回舊值。
 
 ### 5.1 Owner 在 Supabase／資料庫端完成
 
-1. 建立獨立 staging project，從空資料庫套用 `supabase/migrations/`。
-2. 部署 `robot-api`，確認 [`supabase/config.toml`](../supabase/config.toml) 的 `verify_jwt=false` 保持不變。
-3. 建立一台 active staging vehicle 與 route-validation scoped identity。
-4. 產生高熵、每車獨立的 token，以安全管道交給車端 owner。
+1. 已建立 `go-by-myself-staging`，並從空資料庫套用全部 `supabase/migrations/`。
+2. 已部署 `robot-api`；[`supabase/config.toml`](../supabase/config.toml) 的 `verify_jwt=false` 保持不變，函式內自行驗證scoped token。
+3. 已建立 active staging vehicle `GBM-01`；`routeValidationEnabled=false`，未核准前不可切換。
+4. 車端接手當下產生新的高熵、每車獨立 token，同步更新Edge secret並以安全管道交給車端owner。
 5. Edge secrets 依 `clientId=gbm-01` 命名；Supabase API keys由hosted Edge自動注入：
 
 ```text
@@ -201,17 +209,17 @@ Secret key只留在Edge，不能交給車端。Staging另外設定`APP_ORIGIN`�
 
 ### 5.2 車端只設定 scoped values
 
-`CONTROL_PLANE_URL` 應指向 robot function base，例如：
+`CONTROL_PLANE_URL` 使用已建立的 robot function base：
 
 ```text
-https://PROJECT_REF.supabase.co/functions/v1/robot-api
+https://aiuajbflpwdzkaeeocab.supabase.co/functions/v1/robot-api
 ```
 
 車端所需變數：
 
 ```text
 CONTROL_PLANE_URL
-ROBOT_VEHICLE_ID
+ROBOT_VEHICLE_ID=52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2
 ROBOT_CLIENT_ID=gbm-01
 ROBOT_CLIENT_TOKEN
 SUPPORTED_CONTRACT_VERSION=2
@@ -464,6 +472,13 @@ Staging default：最後可信 telemetry 超過 10 秒為 stale，超過 60 秒�
 docs/ROBOT_INTEGRATION_V2.md、docs/RUNBOOKS.md，以及 contracts/ 下的 v2 schemas。
 只從 protected main 接手。網站 repo 是 contract source of truth；先執行 git pull --ff-only
 origin main，確認 required checks 全綠，記錄 git rev-parse HEAD 並在車端 repo pin SHA。
+
+Hosted staging 已建立：
+- frontend: https://go-by-myself-website-git-staging-hsuanisgay.vercel.app
+- control plane: https://aiuajbflpwdzkaeeocab.supabase.co/functions/v1/robot-api
+- vehicle UUID: 52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2
+- client ID: gbm-01
+ROBOT_CLIENT_TOKEN 必須由 staging owner 在接手時輪替並透過安全管道提供；不要要求把token貼到聊天、文件或Git。
 
 第一輪只做唯讀環境盤點、contract tests 與 dry-run。不要控制真車、不要啟用
 physical capability、不要猜 ROS topic/frame/單位，不要把 Web CANCEL 當 e-stop。

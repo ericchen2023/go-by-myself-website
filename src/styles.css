@@ -257,6 +257,7 @@ h2 { font-size: clamp(1.4rem, 2.5vw, 2.1rem); }
 .magic-link { border-top: 1px solid var(--line); }
 .magic-link summary { padding: 14px 0; font-weight: 700; }
 .magic-link form { display: grid; padding: 0 0 16px; gap: 10px; }
+.auth-notice { margin: 0; padding: 10px 12px; color: var(--success); background: var(--surface-green); border-left: 3px solid var(--success); }
 
 /* Progress and sender flow. */
 .flow-main { width: min(calc(100% - 40px), var(--max)); min-height: 620px; margin: 0 auto; padding: 38px 0 20px; }

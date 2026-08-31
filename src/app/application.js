@@ -28,6 +28,7 @@ import {
   modePrivacyLead,
   modeSupportSection,
   modeToolbar,
+  homeModeCopy,
   notificationDisclaimer,
   pickupOpenAction,
   recipientBadge,
@@ -44,6 +45,7 @@ export class Application {
     /** @type {'login'|'signup'} */
     this.authTab = 'login';
     this.recoveryOpen = false;
+    this.authNotice = '';
     this.uiError = null;
     /** @type {Record<string, string>} */
     this.fieldErrors = {};
@@ -100,12 +102,13 @@ export class Application {
 
   /** @param {() => unknown|Promise<unknown>} action @param {boolean} [markBusy] */
   async #run(action, markBusy = true) {
-    if (this.busy && markBusy) return;
+    if (this.busy && markBusy) return false;
     if (markBusy) this.busy = true;
     this.uiError = null;
     this.render();
     try {
       await action();
+      return true;
     } catch (error) {
       this.uiError = {
         code: error && typeof error === 'object' && 'code' in error ? String(error.code) : 'UNEXPECTED_ERROR',
@@ -115,6 +118,7 @@ export class Application {
       if (error && typeof error === 'object' && 'fieldErrors' in error && error.fieldErrors) {
         this.fieldErrors = /** @type {Record<string,string>} */ (error.fieldErrors);
       }
+      return false;
     } finally {
       if (markBusy) this.busy = false;
       this.render();
@@ -154,10 +158,11 @@ export class Application {
     else if (this.route.startsWith('/delivery')) content = this.#deliveryPage();
     else content = this.#notFound();
 
+    const toolbar = modeToolbar(this.state, this.adapter, (path) => this.navigate(path));
     this.root.replaceChildren(
       header,
       content,
-      modeToolbar(this.state, this.adapter, (path) => this.navigate(path)),
+      ...(toolbar ? [toolbar] : []),
       siteFooter(),
       liveRegion(this.#liveMessage())
     );
@@ -165,14 +170,17 @@ export class Application {
 
   #homePage() {
     return homeScreen({
+      homeModeCopy,
       authTab: this.authTab,
       recoveryOpen: this.recoveryOpen,
+      authNotice: this.authNotice,
       error: this.uiError ?? this.state.actionError,
       googleDisabled,
       googleHelp,
       recoveryText,
       setAuthTab: (tab) => {
         this.authTab = tab;
+        this.authNotice = '';
         this.uiError = null;
         this.render();
       },
@@ -187,7 +195,11 @@ export class Application {
       authAlternative: authAlternative({
         adapter: this.adapter,
         navigate: (path) => this.navigate(path),
-        run: (action) => void this.#run(action)
+        run: (action) => this.#run(action),
+        setNotice: (message) => {
+          this.authNotice = message;
+          this.render();
+        }
       }),
       dismissError: () => {
         this.uiError = null;
