@@ -1,5 +1,5 @@
 begin;
-select plan(46);
+select plan(54);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -619,6 +619,118 @@ select is(
   (select operational_status::text from public.vehicles where id = (select vehicle_id from route_test_context)),
   'available',
   'a cancel with no route job still frees the vehicle'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 沒有艙門的車：開艙不再是一道注定被拒絕的指令，關艙就是出發訊號。
+-- ---------------------------------------------------------------------------
+alter table route_test_context add column delivery_three uuid;
+alter table route_test_context add column delivery_four uuid;
+
+update public.vehicles
+set active = true, operational_status = 'available', current_stop_code = 'LIBRARY',
+    home_stop_code = 'LIBRARY', has_compartment = false
+where code = 'GBM-01';
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+
+with created as (
+  select public.create_and_confirm_delivery(
+    'LIBRARY', 'ADMIN', '無艙門收件人', '+886912345678', '', false,
+    'document', 'doorless flow', 'doorless-create'
+  ) as payload
+)
+update route_test_context set delivery_three = (created.payload #>> '{delivery,id}')::uuid from created;
+
+do $$
+declare target uuid;
+begin
+  select delivery_three into target from route_test_context;
+  perform public.execute_delivery_intent(target, 'REQUEST_DISPATCH', 2, 'doorless-dispatch');
+  perform public.execute_delivery_intent(target, 'REQUEST_SENDER_OPEN', 3, 'doorless-open');
+end $$;
+
+select is(
+  (select status::text from public.deliveries where id = (select delivery_three from route_test_context)),
+  'compartment_open_for_sender',
+  'a vehicle with no compartment opens for the sender instead of waiting on a command'
+);
+select is(
+  (select count(*) from public.vehicle_commands
+   where delivery_id = (select delivery_three from route_test_context) and type = 'OPEN_COMPARTMENT'),
+  0::bigint,
+  'no compartment command is sent to a vehicle that has no compartment to open'
+);
+select is(
+  (select safe_metadata ->> 'assertedBy' from public.delivery_status_history
+   where delivery_id = (select delivery_three from route_test_context)
+     and to_status = 'compartment_open_for_sender'),
+  'sender',
+  'the open is recorded as a sender assertion rather than a sensor reading'
+);
+
+do $$
+declare target uuid;
+begin
+  select delivery_three into target from route_test_context;
+  perform public.execute_delivery_intent(target, 'LOAD_CONFIRMED', 4, 'doorless-load');
+end $$;
+
+select is(
+  (select status::text from public.deliveries where id = (select delivery_three from route_test_context)),
+  'in_transit',
+  'confirming the load departs the vehicle when there is no door sensor to wait for'
+);
+select is(
+  (select count(*) from public.route_jobs
+   where delivery_id = (select delivery_three from route_test_context) and kind = 'to_dropoff'),
+  1::bigint,
+  'the departure creates the route job to the dropoff'
+);
+select is(
+  (select actor_type::text from public.delivery_status_history
+   where delivery_id = (select delivery_three from route_test_context) and to_status = 'in_transit'),
+  'sender',
+  'the departure names the sender as the actor, because the sender is what confirmed it'
+);
+
+-- 對照組：有艙門的車必須維持原本的指令路徑。
+insert into public.vehicles(code, display_name, operational_status, active, current_stop_code, home_stop_code, route_validation_enabled, has_compartment)
+values ('GBM-02', '有艙門測試車', 'available', true, 'LIBRARY', 'LIBRARY', false, true);
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+end $$;
+
+with created as (
+  select public.create_and_confirm_delivery(
+    'LIBRARY', 'ADMIN', '有艙門收件人', '+886912345678', '', false,
+    'document', 'compartment flow', 'compartment-create'
+  ) as payload
+)
+update route_test_context set delivery_four = (created.payload #>> '{delivery,id}')::uuid from created;
+
+do $$
+declare target uuid;
+begin
+  select delivery_four into target from route_test_context;
+  perform public.execute_delivery_intent(target, 'REQUEST_DISPATCH', 2, 'compartment-dispatch');
+  perform public.execute_delivery_intent(target, 'REQUEST_SENDER_OPEN', 3, 'compartment-open');
+end $$;
+
+select is(
+  (select count(*) from public.vehicle_commands
+   where delivery_id = (select delivery_four from route_test_context) and type = 'OPEN_COMPARTMENT'),
+  1::bigint,
+  'a vehicle that has a compartment is still asked to open it'
+);
+select is(
+  (select status::text from public.deliveries where id = (select delivery_four from route_test_context)),
+  'arrived_pickup',
+  'a vehicle that has a compartment still waits for the command before the sender loads'
 );
 
 select * from finish();

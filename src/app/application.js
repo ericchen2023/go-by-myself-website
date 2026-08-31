@@ -14,7 +14,7 @@ import { createRouteSelector } from '../map/map-view.js';
 import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
 import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
-import { notificationCopy, stepForStatus } from '../domain/presentation.js';
+import { compartmentRequest, notificationCopy, stepForStatus } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
 import {
   authAlternative,
@@ -505,19 +505,44 @@ export class Application {
     } else if (status === 'dispatching') {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '派車命令已接受，等待車輛完成抵達。'));
     } else if (status === 'arrived_pickup') {
-      action.append(
-        el('p', {}, '請先核對車輛 GBM-01 與站點，再要求開啟置物艙。'),
-        el('button', { className: 'button button--primary', type: 'button', disabled: this.busy || this.state.commandState === 'accepted', onclick: () => void this.#run(() => this.adapter.requestSenderOpen()) }, this.state.commandState === 'accepted' ? '正在要求開艙…' : '開啟置物艙')
-      );
+      const compartment = compartmentRequest(this.state.command);
+      const doorless = this.state.vehicle?.hasCompartment === false;
+      action.append(el('p', {}, doorless
+        ? '請先核對車輛 GBM-01 與站點。這台車沒有艙門，按下後會直接開放放件。'
+        : '請先核對車輛 GBM-01 與站點，再要求開啟置物艙。'));
+      if (compartment.phase === 'refused') {
+        // 車輛已經拒絕過。把理由說出來，並且不再把按鈕重新打開。
+        action.append(el('p', { className: 'notice notice--warning', role: 'alert' }, compartment.message));
+      } else {
+        action.append(el('button', {
+          className: 'button button--primary',
+          type: 'button',
+          disabled: this.busy || compartment.phase === 'waiting',
+          onclick: () => void this.#run(() => this.adapter.requestSenderOpen())
+        }, compartment.phase === 'waiting' ? '正在要求開艙…' : (doorless ? '開啟置物櫃' : '開啟置物艙')));
+      }
     } else if (status === 'compartment_open_for_sender') {
+      // 這台車是開放式載台，沒有艙門可關。照著關門的指示走只會讓人找不到艙門。
+      const doorless = this.state.vehicle?.hasCompartment === false;
       action.append(
-        el('ol', { className: 'instruction-list' },
-          el('li', {}, '將小型物品平穩放入置物艙。'),
-          el('li', {}, '確認物品不會阻擋艙門。'),
-          el('li', {}, '關閉艙門後再按下確認。')
-        ),
+        doorless
+          ? el('ol', { className: 'instruction-list' },
+            el('li', {}, '將小型物品平穩放入車上的置物區。'),
+            el('li', {}, '確認物品放穩，行進中不會滑落。'),
+            el('li', {}, '放好後按下「關閉置物櫃」，車輛就會出發。')
+          )
+          : el('ol', { className: 'instruction-list' },
+            el('li', {}, '將小型物品平穩放入置物艙。'),
+            el('li', {}, '確認物品不會阻擋艙門。'),
+            el('li', {}, '關閉艙門後再按下確認。')
+          ),
         manualLoadNotice(this.state.scenario),
-        el('button', { className: 'button button--primary', type: 'button', onclick: () => void this.#run(() => this.adapter.confirmLoaded()) }, loadButtonLabel(this.state.scenario))
+        el('button', {
+          className: 'button button--primary',
+          type: 'button',
+          disabled: this.busy,
+          onclick: () => void this.#run(() => this.adapter.confirmLoaded())
+        }, doorless ? '關閉置物櫃' : loadButtonLabel(this.state.scenario))
       );
     } else if (status === 'loaded') {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '已取得放件證據，正在確認艙門與移動條件。'));
