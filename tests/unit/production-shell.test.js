@@ -1,6 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import { homeScreen } from '../../src/app/home.js';
-import { authAlternative } from '../../src/production/mode-presentation.js';
 import { ProductionAdapter } from '../../src/production/adapter.js';
 
 vi.mock('#mode-presentation', async () => import('../../src/production/mode-presentation.js'));
@@ -36,7 +35,7 @@ test('production shell omits nullable mode UI and never claims simulator behavio
   expect(root.textContent).not.toContain('展示模式使用測試帳號與模擬車輛');
 });
 
-test('production home uses truthful staging copy when Google OAuth is unavailable', () => {
+test('production home fails closed without showing a legacy email-login fallback', () => {
   const screen = homeScreen({
     homeModeCopy: {
       divider: '或使用專題登入連結',
@@ -46,11 +45,11 @@ test('production home uses truthful staging copy when Google OAuth is unavailabl
     },
     authTab: 'login',
     recoveryOpen: false,
-    authNotice: '登入連結已排程寄送。',
+    authNotice: '',
     error: null,
     googleDisabled: true,
-    googleHelp: 'Google OAuth 尚待設定；目前請使用專題登入連結。',
-    authAlternative: document.createElement('div'),
+    googleHelp: '此環境尚未完成 Google OAuth 設定，登入功能暫不可用。',
+    authAlternative: null,
     recoveryText: '',
     setAuthTab: () => {},
     toggleRecovery: () => {},
@@ -60,7 +59,8 @@ test('production home uses truthful staging copy when Google OAuth is unavailabl
 
   expect(screen.textContent).not.toContain('展示模式使用測試帳號與模擬車輛');
   expect(screen.textContent).toContain('整合測試環境使用獨立資料庫與受信任控制服務');
-  expect(screen.textContent).toContain('登入連結已排程寄送。');
+  expect(screen.textContent).not.toContain('專題登入連結');
+  expect(screen.querySelector('.divider')).toBeNull();
   const googleButton = /** @type {HTMLButtonElement|null} */ (screen.querySelector('button.button--primary'));
   expect(googleButton?.disabled).toBe(true);
   expect(googleButton?.getAttribute('aria-describedby')).toBe('google-auth-help');
@@ -69,25 +69,4 @@ test('production home uses truthful staging copy when Google OAuth is unavailabl
 test('production adapter rejects Google OAuth while the capability is disabled', async () => {
   const adapter = new ProductionAdapter();
   await expect(adapter.signInWithGoogle()).rejects.toMatchObject({ code: 'AUTH_PROVIDER_UNAVAILABLE' });
-});
-
-test('magic-link fallback reports accepted delivery without claiming receipt', async () => {
-  let notice = '';
-  const signInWithMagicLink = vi.fn().mockResolvedValue(undefined);
-  const alternative = authAlternative({
-    adapter: { signInWithMagicLink },
-    navigate: () => {},
-    run: async (action) => { await action(); return true; },
-    setNotice: (message) => { notice = message; }
-  });
-  document.body.append(alternative);
-  const input = /** @type {HTMLInputElement} */ (alternative.querySelector('input'));
-  input.value = 'student@gms.ndhu.edu.tw';
-  alternative.querySelector('form')?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
-
-  await vi.waitFor(() => {
-    expect(signInWithMagicLink).toHaveBeenCalledWith('student@gms.ndhu.edu.tw');
-    expect(notice).toContain('已排程寄送');
-  });
-  expect(notice).not.toContain('已送達');
 });
