@@ -19,7 +19,7 @@
 | Node simulator gateway | IMPLEMENTED + UNIT VERIFIED | DISPATCH 背景執行、CANCEL 可並行、durable dedup、telemetry v2、production simulator fail closed |
 | Jetson Python agent | CONTRACT HARNESS | 新增不取command、不接hardware的read-only連線預檢；既有outbound poller、背景command executor、durable ledger、CANCEL並行、v2 fixtures；Aurora/ROS hardware adapter尚未實作 |
 | Operator route validation | IMPLEMENTED UI / CAPABILITY OFF | 四站 dynamic map、state/SLAM/connectivity/leg/lateral/voltage、folded diagnostics、安全停止要求；`routeValidationEnabled=false`，無 PII、無 delivery completion |
-| Edge Functions | HOSTED HTTP VERIFIED | `delivery-intent`（platform JWT）、`pickup`（public credential flow）、`robot-api`（per-client constant-time token）均 ACTIVE；錯 token 401、正確 scope 200、跨車 403、pickup generic 404、CORS exact-origin 204 |
+| Edge Functions | HOSTED HTTP VERIFIED | `delivery-intent`（platform JWT）、`pickup`（public credential flow）、`robot-api`（per-client constant-time token）均 ACTIVE；GBM-01交接token已於2026-08-31輪替，read-only state preflight 200且scope一致；錯 token 401、跨車 403、pickup generic 404、CORS exact-origin 204 |
 | Repository governance | ENABLED | `main` 與 `staging` 都要求 PR、strict `quality/browser/database/edge-contract` checks、linear history 與 conversation resolution；enforce admins，禁止 force-push 與 deletion |
 | Vercel deployment protection | ENABLED + AUTOMATION BYPASS VERIFIED | Standard Protection維持開啟；CI／E2E專用bypass只存GitHub Actions secret，header對staging health實測通過，不提供給browser bundle或車端 |
 | Tests | IMPLEMENTED BASELINE | 45 Vitest、25 Playwright/axe（另 2 個 hosted-only與1個跨 project skip）、10 Python unittest、5 Deno runtime tests、65 hosted pgTAP（RLS 25＋integration 40），另有 contract/build/boundary/bundle、protected staging health與production shell E2E |

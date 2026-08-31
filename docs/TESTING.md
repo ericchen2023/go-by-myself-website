@@ -50,6 +50,7 @@ npm run local:down
 已在 `go-by-myself-staging` 執行：
 
 - `robot-api` 錯token → `401 ROBOT_IDENTITY_INVALID`；正確GBM-01 scope → `200`；wrong vehicle → `403 ROBOT_SCOPE_DENIED`。
+- 2026-08-31交接輪替後，以新token呼叫GBM-01 `GET /state` → `200`，vehicle scope matched，safe state為`idle/online`；token值未進repository或測試輸出。
 - v2 idle telemetry → `202 accepted/currentUpdated`，隨後vehicle state為`idle/online/sequence=1`；錯major version → `422 CONTRACT_SCHEMA_INVALID`。
 - `pickup` exact staging origin preflight → `204`並回相同`Access-Control-Allow-Origin`；不存在publicRef → generic `404 PICKUP_CONTEXT_UNAVAILABLE`。
 - 無JWT的`delivery-intent` → Supabase gateway `401`。
