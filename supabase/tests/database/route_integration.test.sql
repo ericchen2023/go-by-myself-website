@@ -1,5 +1,5 @@
 begin;
-select plan(40);
+select plan(44);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -527,6 +527,58 @@ select is(
   (select operational_status::text from public.vehicles where id = (select vehicle_id from route_test_context)),
   'available',
   'vehicle returns to available after safe expiry recovery'
+);
+
+-- A cancel the vehicle has confirmed must free the vehicle. Leaving the
+-- delivery in cancel_requested held its reservation open for good, and with one
+-- vehicle that stopped every later dispatch with VEHICLE_UNAVAILABLE.
+do $$
+declare
+  context route_test_context;
+  cancel_command uuid;
+begin
+  select * into context from route_test_context;
+  insert into public.vehicle_reservations(vehicle_id, delivery_id, route_job_id, state)
+  values (context.vehicle_id, context.delivery_one, context.job_one, 'active');
+  update public.vehicles set operational_status = 'reserved' where id = context.vehicle_id;
+  update public.route_jobs set state = 'running' where id = context.job_one;
+  update public.deliveries set status = 'cancel_requested', version = version + 1
+  where id = context.delivery_one;
+
+  insert into public.vehicle_commands(
+    correlation_id, delivery_id, route_job_id, vehicle_id, type, idempotency_key,
+    schema_version, expires_at, payload
+  ) values (
+    gen_random_uuid(), context.delivery_one, context.job_one, context.vehicle_id, 'CANCEL',
+    'route-test-cancel-release', 2, now() + interval '30 minutes',
+    jsonb_build_object('actor','sender')
+  ) returning command_id into cancel_command;
+
+  perform public.process_robot_command_event(
+    context.vehicle_id, cancel_command, gen_random_uuid(), 'completed', 9001,
+    jsonb_build_object('safeStop', true), null
+  );
+end $$;
+select is(
+  (select status::text from public.deliveries where id = (select delivery_one from route_test_context)),
+  'cancelled',
+  'a vehicle-confirmed cancel finalises the delivery'
+);
+select is(
+  (select state::text from public.route_jobs where id = (select job_one from route_test_context)),
+  'cancelled',
+  'a vehicle-confirmed cancel closes the route job'
+);
+select is(
+  (select state::text from public.vehicle_reservations
+    where delivery_id = (select delivery_one from route_test_context) order by started_at desc limit 1),
+  'released',
+  'a vehicle-confirmed cancel releases the reservation'
+);
+select is(
+  (select operational_status::text from public.vehicles where id = (select vehicle_id from route_test_context)),
+  'available',
+  'the vehicle is dispatchable again after a confirmed cancel'
 );
 
 select * from finish();
