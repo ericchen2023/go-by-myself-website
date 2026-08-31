@@ -28,7 +28,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 | 真車移動、e-stop、disconnect、incident procedure | **未驗證** | 現場 safety owner |
 | 置物艙、門鎖、item sensor、custody | **不存在或未接入** | 後續 physical-delivery phase |
 
-本次網站端發布基線已通過45 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。Supabase Auth custom Gmail SMTP也已儲存並成功重載；這只用於網站magic-link登入，與車端連線無關，且新SMTP的實際收信仍待一次E2E。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
+本次網站端發布基線已通過51 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。Supabase Auth custom Gmail SMTP也已儲存並成功重載；這只用於網站magic-link登入，與車端連線無關，且新SMTP的實際收信仍待一次E2E。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
 
 真車第一階段只做 **supervised route validation**：單車、單段、空載、受控區域、現場人員持有實體 e-stop。這個流程不建立收件人、不發通知，也不會產生 `completed` delivery。
 
