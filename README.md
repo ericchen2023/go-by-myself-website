@@ -16,6 +16,16 @@ npm run demo
 
 開啟 <http://127.0.0.1:4173>。展示模式不需要 Supabase、OAuth、SMS、email 或自走車憑證，也不會呼叫 production API。
 
+## Hosted staging
+
+- Frontend：<https://go-by-myself-website-git-staging-hsuanisgay.vercel.app>
+- Supabase project ref：`aiuajbflpwdzkaeeocab`（Tokyo）
+- Maturity：hosted control-plane ready；不是 supervised robot 或 production GO。
+- Google OAuth 尚未核准／設定，畫面會停用Google CTA；Email magic-link fallback已啟用但仍待實際收信E2E。
+- `GBM-01`只允許scoped robot API；token不在repository或文件。A–D mapping與physical route validation維持disabled。
+
+`main`與`staging`均為protected branch，禁止force-push/deletion並要求`quality`、`browser`、`database`、`edge-contract` checks。部署、rollback與剩餘驗證請見[Deployment](docs/DEPLOYMENT.md)及[Implementation status](docs/IMPLEMENTATION_STATUS.md)。
+
 ## 主要指令
 
 - `npm run demo`：啟動 deterministic 展示模式。

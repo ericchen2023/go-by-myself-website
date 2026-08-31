@@ -41,7 +41,19 @@ npm run local:down
 
 必須用兩個 synthetic sender JWT、anonymous、operator、revoked operator與 robot scoped endpoint做正向/負向 matrix。`service_role`/secret測試不能被當作 RLS證據，因其本來就 bypass RLS。
 
-目前pgTAP共58個斷言，包含schema/RLS存在性，以及實際dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal與未accepted expiry reservation release；另外覆蓋idempotency request hash、terminal command event monotonicity與robot fault vehicle scope。Deno runtime已有5組Edge contract tests；Hosted staging仍需補真正的per-client auth、Realtime WebSocket與Edge HTTP正反測試。
+目前 hosted pgTAP 共65個斷言（RLS 25、route integration 40），包含schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal與未accepted expiry reservation release；另外覆蓋idempotency request hash、terminal command event monotonicity與robot fault vehicle scope。Deno runtime另有5組Edge contract tests。
+
+## Hosted staging smoke（2026-08-31）
+
+已在 `go-by-myself-staging` 執行：
+
+- `robot-api` 錯token → `401 ROBOT_IDENTITY_INVALID`；正確GBM-01 scope → `200`；wrong vehicle → `403 ROBOT_SCOPE_DENIED`。
+- v2 idle telemetry → `202 accepted/currentUpdated`，隨後vehicle state為`idle/online/sequence=1`；錯major version → `422 CONTRACT_SCHEMA_INVALID`。
+- `pickup` exact staging origin preflight → `204`並回相同`Access-Control-Allow-Origin`；不存在publicRef → generic `404 PICKUP_CONTEXT_UNAVAILABLE`。
+- 無JWT的`delivery-intent` → Supabase gateway `401`。
+- Vercel `staging` branch確實載入production-shaped auth；production shell regression禁止literal `null`與假的simulator文案。
+
+尚待：authenticated Realtime WebSocket snapshot/subscription/resync、magic-link實際收信、sender/recipient不同browser contexts與完整simulator journey。這些完成前不可把hosted control-plane ready升級為integration-ready staging GO。
 
 ## Physical acceptance
 
