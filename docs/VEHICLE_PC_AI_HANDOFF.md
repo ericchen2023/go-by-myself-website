@@ -204,14 +204,14 @@ Staging vehicle code: GBM-01
 Staging vehicle UUID: 52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2
 ```
 
-目前Edge的GBM-01 token只用於網站端hosted smoke，**沒有被保存到交接文件**。車端正式接手時由staging owner產生並同步替換一個新token，再用面交、受控password manager或等價安全管道提供給車端；不要要求AI從log、GitHub或browser bundle找回舊值。
+2026-08-31 已完成GBM-01交接輪替：staging owner以新的256-bit高熵值替換Edge secret，並以`GET /state`實測HTTP 200與vehicle scope一致。token值仍不寫入repository或本文，只能透過受控password manager、面交或等價安全管道提供給車端owner；不要要求AI從log、GitHub或browser bundle找回。
 
 ### 5.1 Owner 在 Supabase／資料庫端完成
 
 1. 已建立 `go-by-myself-staging`，並從空資料庫套用全部 `supabase/migrations/`。
 2. 已部署 `robot-api`；[`supabase/config.toml`](../supabase/config.toml) 的 `verify_jwt=false` 保持不變，函式內自行驗證scoped token。
 3. 已建立 active staging vehicle `GBM-01`；`routeValidationEnabled=false`，未核准前不可切換。
-4. 車端接手當下產生新的高熵、每車獨立 token，同步更新Edge secret並以安全管道交給車端owner。
+4. 已產生新的高熵、每車獨立token並同步更新Edge secret；車端owner從受控交接管道取得，不在Git或聊天傳遞。
 5. Edge secrets 依 `clientId=gbm-01` 命名；Supabase API keys由hosted Edge自動注入：
 
 ```text
@@ -251,7 +251,7 @@ PYTHON_AGENT_LEDGER=/var/lib/go-by-myself/python-agent-ledger.json
 
 這是車端第一次連線的唯一入口。它只呼叫本車的`GET /state`，不會取得command、不會送ACK、不會呼叫hardware，也不會改變Supabase資料。
 
-先由staging owner與車端owner同時進行一次coordinated token rotation：
+本次交接輪替已完成。車端先使用受控交接值執行read-only preflight；只有憑證疑似外洩、車端owner變更或例行rotation時才重跑下列程序：
 
 1. staging owner在Supabase Edge Function secrets產生新的32-byte以上高熵值，更新`ROBOT_GBM_01_TOKEN`；不要沿用hosted smoke token。
 2. 以受控password manager、面交或等價安全管道把同一值交給車端owner；不得貼在聊天、issue、PR、截圖或本文。
@@ -542,7 +542,7 @@ Hosted staging 已建立：
 - control plane: https://aiuajbflpwdzkaeeocab.supabase.co/functions/v1/robot-api
 - vehicle UUID: 52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2
 - client ID: gbm-01
-ROBOT_CLIENT_TOKEN 必須由 staging owner 在接手時輪替並透過安全管道提供；不要要求把token貼到聊天、文件或Git。
+ROBOT_CLIENT_TOKEN 已由staging owner於2026-08-31輪替並透過受控交接檔提供；不要要求把token貼到聊天、一般文件或Git。
 
 第一輪只做唯讀環境盤點、contract tests與read-only connection preflight。先執行
 gateway/python_agent/connection_check.py，確認scoped identity後才能跑dry-run agent。不要控制真車、不要啟用

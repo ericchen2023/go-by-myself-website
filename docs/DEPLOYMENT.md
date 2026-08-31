@@ -27,7 +27,7 @@ GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `qual
 | Control-plane URL | `https://aiuajbflpwdzkaeeocab.supabase.co` | Browser publishable config只存在 staging Preview scope |
 | Edge Functions | `delivery-intent`、`pickup`、`robot-api` | version 2 ACTIVE；JWT/custom-auth 邊界已以 hosted HTTP 正反測試 |
 | Auth URL / SMTP | staging frontend origin / custom Gmail SMTP | Site URL與redirect allow-list已設定；Auth config重載成功、email rate limit已由2/h更新為30/h；Google disabled |
-| Synthetic vehicle | `GBM-01` | active/available；telemetry v2 enabled；route validation disabled |
+| Synthetic vehicle | `GBM-01` | active/available；handoff token已輪替並通過read-only state preflight；telemetry v2 enabled；route validation disabled |
 
 Staging Preview 保留 Vercel Standard Protection，不公開關閉登入保護。已建立用途限定為 CI／E2E 的 Protection Bypass for Automation，值只保存於 GitHub Actions repository secret `VERCEL_AUTOMATION_BYPASS_SECRET`；固定網址保存在 Actions variable `STAGING_BASE_URL`。測試只透過 `x-vercel-protection-bypass` request header 使用，不放在 URL、文件、browser bundle、log 或車端環境。車端直接連 Supabase robot control plane，不需要也不得取得這組 Vercel secret。
 
