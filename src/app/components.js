@@ -57,14 +57,19 @@ export function stepper(current) {
   );
 }
 
-/** @param {{code: string, message: string, retryable?: boolean}|null} error @param {() => void} [onDismiss] */
+/** @param {{code: string, message: string, retryable?: boolean, fieldErrors?: Record<string, string>|null}|null} error @param {() => void} [onDismiss] */
 export function errorBanner(error, onDismiss) {
   if (!error) return null;
+  // A form the reader can fix is not a fault they need to report. Leading with
+  // a code like DELIVERY_VALIDATION_FAILED reads as a crash, and the fields
+  // already carry their own messages; keep the code for everything else, where
+  // it is the thing support will ask for.
+  const fieldCount = Object.keys(error.fieldErrors ?? {}).length;
   return el('div', { className: 'alert alert--danger', role: 'alert' },
     el('div', {},
-      el('strong', {}, error.code),
+      fieldCount ? null : el('strong', {}, error.code),
       el('p', {}, error.message),
-      error.retryable ? el('small', {}, '此操作可用相同資料安全重試。') : null
+      error.retryable && !fieldCount ? el('small', {}, '此操作可用相同資料安全重試。') : null
     ),
     onDismiss ? el('button', { className: 'icon-button', type: 'button', 'aria-label': '關閉錯誤訊息', onclick: onDismiss }, '×') : null
   );
