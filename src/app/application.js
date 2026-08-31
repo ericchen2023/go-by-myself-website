@@ -110,14 +110,18 @@ export class Application {
       await action();
       return true;
     } catch (error) {
+      const fieldErrors = error && typeof error === 'object' && 'fieldErrors' in error && error.fieldErrors
+        ? /** @type {Record<string,string>} */ (error.fieldErrors)
+        : null;
       this.uiError = {
         code: error && typeof error === 'object' && 'code' in error ? String(error.code) : 'UNEXPECTED_ERROR',
         message: error instanceof Error ? error.message : '操作未完成，請安全重試。',
-        retryable: Boolean(error && typeof error === 'object' && 'retryable' in error && error.retryable)
+        retryable: Boolean(error && typeof error === 'object' && 'retryable' in error && error.retryable),
+        // Carried so the banner can tell a form the reader can fix from a fault
+        // they would have to report.
+        fieldErrors
       };
-      if (error && typeof error === 'object' && 'fieldErrors' in error && error.fieldErrors) {
-        this.fieldErrors = /** @type {Record<string,string>} */ (error.fieldErrors);
-      }
+      if (fieldErrors) this.fieldErrors = fieldErrors;
       return false;
     } finally {
       if (markBusy) this.busy = false;
