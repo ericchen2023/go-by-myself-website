@@ -197,12 +197,17 @@ Known gaps:
 獨立 hosted staging 已建立。網站端與車端只透過下列公開 contract URL 連線；任何 token、pepper 或 Supabase secret key 都不記錄在 Git、本文或聊天。
 
 ```text
-Frontend: https://go-by-myself-website-git-staging-hsuanisgay.vercel.app
+Frontend: https://go-by-myself-website.vercel.app
 Supabase project ref: aiuajbflpwdzkaeeocab
 Robot control plane: https://aiuajbflpwdzkaeeocab.supabase.co/functions/v1/robot-api
 Staging vehicle code: GBM-01
 Staging vehicle UUID: 52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2
 ```
+
+⚠ 本文先前記載的 frontend 是 `...-git-staging-hsuanisgay.vercel.app`。那是 Vercel 給
+`staging` **分支**的網址，該分支已刪除，Vercel 因此把最後一次 build 永久凍結在那裡 ——
+它不會再更新。照舊網址操作會看到舊版前端配上目前的資料庫：程式是舊的、資料是新的，
+症狀很難懂（2026-08-31 就這樣浪費了一輪除錯）。**永遠用上面那個 `main` 的網址。**
 
 2026-08-31 已完成GBM-01交接輪替：staging owner以新的256-bit高熵值替換Edge secret，並以`GET /state`實測HTTP 200與vehicle scope一致。token值仍不寫入repository或本文，只能透過受控password manager、面交或等價安全管道提供給車端owner；不要要求AI從log、GitHub或browser bundle找回。
 
@@ -538,7 +543,7 @@ docs/ROBOT_INTEGRATION_V2.md、docs/RUNBOOKS.md，以及 contracts/ 下的 v2 sc
 origin main，確認 required checks 全綠，記錄 git rev-parse HEAD 並在車端 repo pin SHA。
 
 Hosted staging 已建立：
-- frontend: https://go-by-myself-website-git-staging-hsuanisgay.vercel.app
+- frontend: https://go-by-myself-website.vercel.app
 - control plane: https://aiuajbflpwdzkaeeocab.supabase.co/functions/v1/robot-api
 - vehicle UUID: 52a9b769-0e51-4c9c-9490-1c0b4ca0f7d2
 - client ID: gbm-01
