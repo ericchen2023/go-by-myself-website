@@ -22,6 +22,14 @@ from typing import Any
 from contract import ContractError, command_event, validate_command
 
 
+class ControlPlaneScopeError(RuntimeError):
+    """The authenticated response does not belong to the configured vehicle."""
+
+
+class ControlPlaneResponseError(RuntimeError):
+    """The control plane returned a response that cannot be trusted."""
+
+
 class DurableLedger:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -83,12 +91,31 @@ class ControlPlane:
         data = None if body is None else json.dumps(body).encode("utf-8")
         request = urllib.request.Request(f"{self.base_url}{path}", data=data, method=method, headers=self.headers)
         with urllib.request.urlopen(request, timeout=10) as response:
-            return json.loads(response.read().decode("utf-8"))
+            try:
+                envelope = json.loads(response.read().decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ControlPlaneResponseError("Control-plane response is not valid JSON.") from error
+        if not isinstance(envelope, dict):
+            raise ControlPlaneResponseError("Control-plane response envelope is not an object.")
+        return envelope
 
     def commands(self) -> list[dict[str, Any]]:
         query = {"vehicleId": self.vehicle_id}
         envelope = self.request(f"/api/v1/robot/commands?{urllib.parse.urlencode(query)}")
         return envelope.get("data", [])
+
+    def vehicle_state(self) -> dict[str, Any] | None:
+        envelope = self.request(f"/api/v1/robot/vehicles/{self.vehicle_id}/state")
+        state = envelope.get("data")
+        if state is not None and not isinstance(state, dict):
+            raise ControlPlaneResponseError("Vehicle state is not an object.")
+        return state
+
+    def verify_identity_scope(self) -> dict[str, Any] | None:
+        state = self.vehicle_state()
+        if state is not None and (not isinstance(state, dict) or state.get("vehicle_id") != self.vehicle_id):
+            raise ControlPlaneScopeError("Vehicle state response failed the configured scope check.")
+        return state
 
     def post_event(self, event: dict[str, Any]) -> None:
         self.request(f"/api/v1/robot/commands/{event['commandId']}/events", "POST", event)
@@ -175,6 +202,10 @@ def main() -> None:
     if not all(required.values()):
         raise SystemExit("Robot identity/control plane environment is incomplete.")
     control_plane = ControlPlane(required["CONTROL_PLANE_URL"], required["ROBOT_VEHICLE_ID"], required["ROBOT_CLIENT_ID"], required["ROBOT_CLIENT_TOKEN"])
+    try:
+        control_plane.verify_identity_scope()
+    except (ControlPlaneResponseError, ControlPlaneScopeError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+        raise SystemExit("Robot identity/control plane preflight failed.") from None
     ledger = DurableLedger(Path(os.environ.get("PYTHON_AGENT_LEDGER", "gateway/data/python-agent-ledger.json")))
     Agent(control_plane, DryRunHardware(), ledger).run()
 
