@@ -1,5 +1,5 @@
 begin;
-select plan(44);
+select plan(46);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -579,6 +579,46 @@ select is(
   (select operational_status::text from public.vehicles where id = (select vehicle_id from route_test_context)),
   'available',
   'the vehicle is dispatchable again after a confirmed cancel'
+);
+
+-- The other cancel door: once the vehicle has arrived there is no running route
+-- job for the cancel to attach to, and requiring one left the delivery stuck in
+-- cancel_requested with its reservation held.
+do $$
+declare
+  context route_test_context;
+  cancel_command uuid;
+begin
+  select * into context from route_test_context;
+  insert into public.vehicle_reservations(vehicle_id, delivery_id, route_job_id, state)
+  values (context.vehicle_id, context.delivery_two, null, 'active');
+  update public.vehicles set operational_status = 'reserved' where id = context.vehicle_id;
+  update public.deliveries set status = 'cancel_requested', version = version + 1
+  where id = context.delivery_two;
+
+  insert into public.vehicle_commands(
+    correlation_id, delivery_id, route_job_id, vehicle_id, type, idempotency_key,
+    schema_version, expires_at, payload
+  ) values (
+    gen_random_uuid(), context.delivery_two, null, context.vehicle_id, 'CANCEL',
+    'route-test-cancel-no-job', 2, now() + interval '30 minutes',
+    jsonb_build_object('actor','sender')
+  ) returning command_id into cancel_command;
+
+  perform public.process_robot_command_event(
+    context.vehicle_id, cancel_command, gen_random_uuid(), 'completed', 9002,
+    jsonb_build_object('safeStop', true), null
+  );
+end $$;
+select is(
+  (select status::text from public.deliveries where id = (select delivery_two from route_test_context)),
+  'cancelled',
+  'a cancel with no route job still finalises the delivery'
+);
+select is(
+  (select operational_status::text from public.vehicles where id = (select vehicle_id from route_test_context)),
+  'available',
+  'a cancel with no route job still frees the vehicle'
 );
 
 select * from finish();
