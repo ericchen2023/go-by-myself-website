@@ -188,8 +188,8 @@ begin
     'battery', jsonb_build_object('voltageV',23.7,'percent',null),
     'quality', 'valid',
     'route', jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss1','progress',0.2,'lateralM',0.1,
-      'routeGraphVersion','ndhu-four-stop-route-v4','routeGraphChecksum',graph_checksum
+      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss2-hss1','progress',0.2,'lateralM',0.1,
+      'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
 end $$;
@@ -224,7 +224,7 @@ begin
     'quality', 'valid',
     'route', jsonb_build_object(
       'legId','SIM_HSS1_LIBRARY','segmentId','edge-not-approved','progress',0.8,'lateralM',4.2,
-      'routeGraphVersion','ndhu-four-stop-route-v4','routeGraphChecksum',graph_checksum
+      'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
 end $$;
@@ -267,8 +267,8 @@ begin
     'vehicleState','moving','pose',jsonb_build_object('frameId','site-v1','x',2.0,'y',2.0,'heading',0.0),
     'speedMps',0.5,'battery',jsonb_build_object('voltageV',23.5,'percent',null),'quality','valid',
     'route',jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss1','progress',0.1,'lateralM',0.1,
-      'routeGraphVersion','ndhu-four-stop-route-v4','routeGraphChecksum',graph_checksum
+      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss2-hss1','progress',0.1,'lateralM',0.1,
+      'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
   update route_test_context set out_of_order_result = result;
@@ -292,8 +292,8 @@ begin
     'vehicleState','moving','pose',jsonb_build_object('frameId','site-v1','x',3.0,'y',2.0,'heading',0.0),
     'speedMps',0.5,'battery',jsonb_build_object('voltageV',23.4,'percent',null),'quality','degraded',
     'route',jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss1','progress',0.3,'lateralM',0.3,
-      'routeGraphVersion','ndhu-four-stop-route-v4','routeGraphChecksum',graph_checksum
+      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss2-hss1','progress',0.3,'lateralM',0.3,
+      'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
 end $$;
@@ -317,8 +317,8 @@ begin
     'vehicleState','moving','pose',jsonb_build_object('frameId','site-v1','x',9.0,'y',9.0,'heading',0.0),
     'speedMps',0.5,'battery',jsonb_build_object('voltageV',23.3,'percent',null),'quality','valid',
     'route',jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss1','progress',0.9,'lateralM',0.1,
-      'routeGraphVersion','ndhu-four-stop-route-v4','routeGraphChecksum',graph_checksum
+      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss2-hss1','progress',0.9,'lateralM',0.1,
+      'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
   update route_test_context set retired_boot_result = result;

@@ -49,9 +49,9 @@ for (const file of await markdownFiles(root)) {
   }
 }
 
-const routeGraph = JSON.parse(await readFile(join(root, 'contracts', 'route-graph.v4.json'), 'utf8'));
+const routeGraph = JSON.parse(await readFile(join(root, 'contracts', 'route-graph.v5.json'), 'utf8'));
 const handoff = await readFile(join(root, 'docs', 'VEHICLE_PC_AI_HANDOFF.md'), 'utf8');
-const expectedStops = ['LIBRARY', 'ADMIN', 'HSS1', 'HSS2'];
+const expectedStops = ['LIBRARY', 'HSS2', 'HSS1', 'ADMIN'];
 const activeStops = routeGraph.locations.filter((location) => location.active).map((location) => location.code);
 
 const contractErrors = [];

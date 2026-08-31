@@ -7,7 +7,7 @@
 | Scope | Maturity | Evidence |
 |---|---|---|
 | Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、demo/production-shaped 兩種 build、NDHU emblem asset、responsive/a11y baseline；production shell regression test 保證不輸出 `null`，staging 不再宣稱 simulator |
-| Canonical route | IMPLEMENTED | `contracts/route-graph.v4.json` 是單一資料來源；四站、version/checksum、edge 與 SVG geometry 由 CI 核對 |
+| Canonical route | IMPLEMENTED | `contracts/route-graph.v5.json` 是單一資料來源；四站、version/checksum、edge 與 SVG geometry 由 CI 核對。v5 改用實測道路中心線（`routes_site/pass_spine.csv`）：四站沿單一走廊 LIBRARY–HSS2–HSS1–ADMIN，三條帶折線幾何的邊，每條示教路線對應一條邊。v4 的主幹＋分支拓撲會讓 LIBRARY→ADMIN 略過兩個人社站，車子被畫在沒走過的路段上 |
 | Exhibition demo | IMPLEMENTED + HOSTED | Zero-secret、fake clock、八步 sender/recipient、robot 離線仍可展示；Vercel `main` 保持 demo artifact |
 | Hosted staging control plane | HOSTED + MIGRATION VERIFIED | Supabase `go-by-myself-staging`（project ref `aiuajbflpwdzkaeeocab`，Tokyo）已從空 project 套用 14 個 immutable migrations，v4 route active、4 個 visible stops、0 個 approved physical legs |
 | Hosted staging frontend | HOSTED + BUILD VERIFIED | Vercel `staging` branch 固定網址：<https://go-by-myself-website-git-staging-hsuanisgay.vercel.app>；branch-scoped public config 指向 staging Supabase，`main` 不取得 staging keys |
@@ -22,7 +22,7 @@
 | Edge Functions | HOSTED HTTP VERIFIED | `delivery-intent`（platform JWT）、`pickup`（public credential flow）、`robot-api`（per-client constant-time token）均 ACTIVE；GBM-01交接token已於2026-08-31輪替，read-only state preflight 200且scope一致；錯 token 401、跨車 403、pickup generic 404、CORS exact-origin 204 |
 | Repository governance | ENABLED | `main` 與 `staging` 都要求 PR、strict `quality/browser/database/edge-contract` checks、linear history 與 conversation resolution；enforce admins，禁止 force-push 與 deletion |
 | Vercel deployment protection | ENABLED + AUTOMATION BYPASS VERIFIED | Standard Protection維持開啟；CI／E2E專用bypass只存GitHub Actions secret，header對staging health實測通過，不提供給browser bundle或車端 |
-| Tests | IMPLEMENTED BASELINE | 51 Vitest、25 Playwright/axe（另 2 個 hosted-only與1個跨 project skip）、10 Python unittest、5 Deno runtime tests、65 hosted pgTAP（RLS 25＋integration 40），另有 contract/build/boundary/bundle、protected staging health與production shell E2E |
+| Tests | IMPLEMENTED BASELINE | 54 Vitest、25 Playwright/axe（另 2 個 hosted-only與1個跨 project skip）、10 Python unittest、5 Deno runtime tests、65 hosted pgTAP（RLS 25＋integration 40），另有 contract/build/boundary/bundle、protected staging health與production shell E2E |
 
 ## 尚未取得的驗證證據
 

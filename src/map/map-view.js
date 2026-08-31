@@ -1,16 +1,15 @@
 import { el } from '../app/dom.js';
-import { DELIVERY_LOCATIONS, ROUTE_EDGES, ROUTE_NODES, shortestRoute } from './route-graph.js';
+import { DELIVERY_LOCATIONS, ROUTE_EDGES, ROUTE_NODES, edgePathD, pointAlongEdge, routePathD, shortestRoute } from './route-graph.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
-const edgeById = new Map(ROUTE_EDGES.map((edge) => [edge.id, edge]));
 const vehicleMotionStates = new Map();
 
 const STOP_LABELS = Object.freeze({
-  HSS2: { x: 225, y: 151, anchor: 'middle' },
-  HSS1: { x: 225, y: 482, anchor: 'middle' },
-  LIBRARY: { x: 735, y: 51, anchor: 'middle' },
-  ADMIN: { x: 835, y: 572, anchor: 'middle' }
+  LIBRARY: { x: 128, y: 370, anchor: 'middle' },
+  HSS2: { x: 382, y: 371, anchor: 'middle' },
+  HSS1: { x: 651, y: 266, anchor: 'middle' },
+  ADMIN: { x: 887, y: 109, anchor: 'middle' }
 });
 
 /** @param {string} name @param {Record<string, string|number>} attributes */
@@ -32,22 +31,13 @@ function appendMapFoundation(svg, id) {
 
 /** @param {{segmentId: string, progress: number}} position */
 export function markerPointForPosition(position) {
-  const edge = edgeById.get(position.segmentId);
-  if (!edge) return null;
-  const from = nodeById.get(edge.fromNodeId);
-  const to = nodeById.get(edge.toNodeId);
-  if (!from || !to) return null;
-  const progress = Math.max(0, Math.min(1, position.progress));
-  return { x: from.x + (to.x - from.x) * progress, y: from.y + (to.y - from.y) * progress };
+  const point = pointAlongEdge(position.segmentId, position.progress);
+  return point ? { x: point.x, y: point.y } : null;
 }
 
 /** @param {{segmentId: string, progress: number}} position */
 function markerHeading(position) {
-  const edge = edgeById.get(position.segmentId);
-  if (!edge) return 0;
-  const from = nodeById.get(edge.fromNodeId);
-  const to = nodeById.get(edge.toNodeId);
-  return from && to ? Math.atan2(to.y - from.y, to.x - from.x) * (180 / Math.PI) : 0;
+  return pointAlongEdge(position.segmentId, position.progress)?.headingDeg ?? 0;
 }
 
 /** @param {SVGSVGElement} svg @param {{segmentId:string,progress:number}} position */
@@ -78,9 +68,7 @@ function appendRouteNetwork(svg, activeEdges, id, showWholeNetwork = true) {
 
 /** @param {{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}} part */
 function orientedPartPath(part) {
-  const from = nodeById.get(part.fromNodeId);
-  const to = nodeById.get(part.toNodeId);
-  return from && to ? `M ${from.x} ${from.y} L ${to.x} ${to.y}` : '';
+  return edgePathD(part.edgeId, part.forward);
 }
 
 /** @param {SVGSVGElement} svg @param {string} id @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {{segmentId:string,progress:number}|null|undefined} position */
@@ -239,13 +227,7 @@ function appendVehicle(svg, id, position, parts, animateVehicle = true) {
 
 /** @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} route */
 function continuousRoutePath(route) {
-  if (!route.length) return '';
-  const start = nodeById.get(route[0].fromNodeId);
-  if (!start) return '';
-  return route.reduce((path, part) => {
-    const next = nodeById.get(part.toNodeId);
-    return next ? `${path} L ${next.x} ${next.y}` : path;
-  }, `M ${start.x} ${start.y}`);
+  return routePathD(route);
 }
 
 /** @returns {HTMLElement} */

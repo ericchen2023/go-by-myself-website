@@ -28,7 +28,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 | 真車移動、e-stop、disconnect、incident procedure | **未驗證** | 現場 safety owner |
 | 置物艙、門鎖、item sensor、custody | **不存在或未接入** | 後續 physical-delivery phase |
 
-本次網站端發布基線已通過51 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。Supabase Auth custom Gmail SMTP也已儲存並成功重載；這只用於網站magic-link登入，與車端連線無關，且新SMTP的實際收信仍待一次E2E。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
+本次網站端發布基線已通過54 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。Supabase Auth custom Gmail SMTP也已儲存並成功重載；這只用於網站magic-link登入，與車端連線無關，且新SMTP的實際收信仍待一次E2E。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
 
 真車第一階段只做 **supervised route validation**：單車、單段、空載、受控區域、現場人員持有實體 e-stop。這個流程不建立收件人、不發通知，也不會產生 `completed` delivery。
 
@@ -105,7 +105,7 @@ npm run docs:check
 預期重點：
 
 - `doctor` 的 Node、npm、Python、git、lockfile 與 command schema 都是 `✓`。
-- fixtures 顯示 command、telemetry、fault envelopes 已載入，並驗證 `ndhu-four-stop-route-v4`。
+- fixtures 顯示 command、telemetry、fault envelopes 已載入，並驗證 `ndhu-four-stop-route-v5`。
 - Python 顯示 5 tests、結果 `OK`。
 - 文件檢查確認所有本機連結可解析，且交接文件的 route version、checksum 與四個公開站點仍和 canonical graph 一致。
 
@@ -441,12 +441,12 @@ A / B / C / D = null
 
 ```text
 schemaVersion: 2
-routeGraphVersion: ndhu-four-stop-route-v4
-routeGraphChecksum: sha256:712c4b12e3932647eb0856699fe4ace4bd9a2434c325b97451e07abbd7120ef9
-visible stops: LIBRARY, ADMIN, HSS1, HSS2
+routeGraphVersion: ndhu-four-stop-route-v5
+routeGraphChecksum: sha256:903ad46062842c61458665472452f6f56bdeddd32c1f8bc6948214a5081ffd9e
+visible stops: LIBRARY, HSS2, HSS1, ADMIN
 ```
 
-Canonical source 是 [`route-graph.v4.json`](../contracts/route-graph.v4.json)。不要在 robot repo 手寫另一份站點或 checksum。
+Canonical source 是 [`route-graph.v5.json`](../contracts/route-graph.v5.json)。不要在 robot repo 手寫另一份站點或 checksum。
 
 ### 9.2 Endpoints
 
@@ -496,7 +496,7 @@ Staging default：最後可信 telemetry 超過 10 秒為 stale，超過 60 秒�
 
 | 檔案 | 權責 |
 |---|---|
-| [`contracts/route-graph.v4.json`](../contracts/route-graph.v4.json) | 四站 schematic graph 與權威 checksum |
+| [`contracts/route-graph.v5.json`](../contracts/route-graph.v5.json) | 四站 schematic graph 與權威 checksum |
 | [`contracts/physical-route-manifest.v1.json`](../contracts/physical-route-manifest.v1.json) | A–D、physical leg 與 capability gate |
 | [`contracts/delivery-command.schema.json`](../contracts/delivery-command.schema.json) | command v2 |
 | [`contracts/telemetry.schema.json`](../contracts/telemetry.schema.json) | telemetry v2 |

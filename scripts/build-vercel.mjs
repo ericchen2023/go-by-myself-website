@@ -1,6 +1,6 @@
 import { build } from 'vite';
 
-const routeGraphVersion = 'ndhu-four-stop-route-v4';
+const routeGraphVersion = 'ndhu-four-stop-route-v5';
 const mode = process.env.VITE_APP_MODE;
 const googleAuthFlag = process.env.VITE_GOOGLE_AUTH_ENABLED;
 

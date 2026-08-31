@@ -40,7 +40,7 @@ Production human code 是 8 位 Crockford Base32；QR 是 256 random bits 且 ca
 
 `route_jobs` 與 `route_job_legs` 將路線執行和投遞 lifecycle分離。`to_pickup`／`to_dropoff`可連回delivery；`validation`／`return`是獨立target。真車第一階段只允許`validation`，不建立recipient credential、notification或completed delivery。
 
-Robot command v2以`target.kind + target.id`定位工作，DISPATCH綁定physical leg、公開起終站、`ndhu-four-stop-route-v4`與SHA-256 checksum。Telemetry v2由gateway回報`segmentId + progress`；server產生`receivedAt`，browser不接收raw x/y。電池尚未校正前只保留voltage，percent為`null`。
+Robot command v2以`target.kind + target.id`定位工作，DISPATCH綁定physical leg、公開起終站、`ndhu-four-stop-route-v5`與SHA-256 checksum。Telemetry v2由gateway回報`segmentId + progress`；server產生`receivedAt`，browser不接收raw x/y。電池尚未校正前只保留voltage，percent為`null`。
 
 長時間DISPATCH在agent背景執行，poll loop持續接收CANCEL。CANCEL不含vehicle-state precondition，因安全停止不能被競態中的狀態字串拒絕。`accepted`仍不代表physical completion。
 
