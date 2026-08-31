@@ -1,3 +1,5 @@
+import { describeRemaining } from './arrival.js';
+
 const stepByStatus = Object.freeze({
   draft: 4,
   confirmed: 5,
@@ -35,7 +37,7 @@ export function stepForStatus(status) {
 
 /**
  * @param {string} status
- * @param {{connectivity?: string, positionQuality?: string, commandState?: string}} [overlay]
+ * @param {{connectivity?: string, positionQuality?: string, commandState?: string, position?: {segmentId: string, progress: number}|null, etaSeconds?: number|null}} [overlay]
  */
 export function deliveryStatusCopy(status, overlay = {}) {
   if (overlay.positionQuality === 'off_route' || overlay.positionQuality === 'invalid') {
@@ -60,6 +62,34 @@ export function deliveryStatusCopy(status, overlay = {}) {
       title: overlay.connectivity === 'offline' ? '車輛目前離線' : '車輛位置暫停更新',
       detail: '畫面保留最後一筆可信位置；投遞狀態並未因此改變。',
       tone: 'warning'
+    };
+  }
+
+  // Dispatching and transit each cover two very different waits. The vehicle
+  // first loads the map for the leg and relocalises against it, which reports no
+  // route at all and takes minutes; only then does it drive. Showing one spinner
+  // for both leaves the reader unable to tell a vehicle preparing from a vehicle
+  // stuck. The projection already separates them: a route appears only once the
+  // leg is being driven.
+  const driving = Boolean(overlay.position);
+  if (status === 'dispatching' || status === 'in_transit') {
+    const heading = status === 'dispatching' ? '車輛前往放件點' : '運送中';
+    const destination = status === 'dispatching' ? '放件地點' : '收件地點';
+    if (!driving) {
+      return {
+        eyebrow: heading,
+        title: '車輛準備出發',
+        detail: `車輛已接受派車，正在載入該路段地圖並確認自身位置。這段期間不會顯示車輛位置，完成後才會開始行駛前往${destination}。`,
+        tone: 'info'
+      };
+    }
+    const travelled = Math.round(Math.max(0, Math.min(1, overlay.position.progress)) * 100);
+    const eta = typeof overlay.etaSeconds === 'number' ? describeRemaining(overlay.etaSeconds) : null;
+    return {
+      eyebrow: heading,
+      title: '車輛行駛中',
+      detail: `本段已行進約 ${travelled}%。${eta ? eta + '（依觀察到的行進速度估算）。' : '抵達時間需要再觀察一段行進才能估算。'}抵達前請留在安全區域。`,
+      tone: 'info'
     };
   }
 
