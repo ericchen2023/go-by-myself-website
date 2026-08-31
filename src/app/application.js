@@ -11,7 +11,7 @@ import {
   summaryItem
 } from './components.js';
 import { createRouteSelector } from '../map/map-view.js';
-import { locationByCode, shortestRoute } from '../map/route-graph.js';
+import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
 import { notificationCopy, stepForStatus } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
@@ -415,7 +415,7 @@ export class Application {
     const activeRouteParts = projectedFrom && projectedTo
       ? shortestRoute(projectedFrom.routeNodeId, projectedTo.routeNodeId)
       : currentStep <= 6
-        ? shortestRoute('TRUNK_HSS', pickup?.routeNodeId ?? '')
+        ? shortestRoute(stagingOriginFor(pickup?.routeNodeId ?? ''), pickup?.routeNodeId ?? '')
         : shortestRoute(pickup?.routeNodeId ?? '', dropoff?.routeNodeId ?? '');
     const changingLeg = ['preparing', 'localizing'].includes(telemetry.vehicleState);
     const route = createRouteSelector({

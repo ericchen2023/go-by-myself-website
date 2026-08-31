@@ -16,29 +16,46 @@ Browser會呼叫`delivery-intent`與`pickup`，因此Edge secrets必須設定`AP
 
 Gateway 必須設定 `GATEWAY_DEPLOY_ENV` 與 `GATEWAY_HARDWARE_ADAPTER`。目前 repository 只提供 staging/local simulator；`production` 會 fail closed，直到核准的 hardware/ROS bridge 實作並通過 physical gates。
 
-## 目前部署狀態（2026-08-31）
+## 目前部署狀態（2026-09-01）
 
-GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；14 個 migration 已套用到獨立 hosted staging，所有 physical capability 仍為 disabled。
+GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；hosted staging已套用全部16個immutable migrations，route graph v5與public Google OAuth assurance均已生效，所有physical capability仍為disabled。
 
 | Resource | Hosted staging value | Verified state |
 |---|---|---|
 | Vercel frontend | <https://go-by-myself-website-git-staging-hsuanisgay.vercel.app> | `staging` branch Preview；production-shaped build、獨立 branch env |
-| Supabase project | `go-by-myself-staging` / `aiuajbflpwdzkaeeocab` / Tokyo | ACTIVE_HEALTHY；v4 route active、4 stops、0 approved physical legs |
+| Supabase project | `go-by-myself-staging` / `aiuajbflpwdzkaeeocab` / Tokyo | ACTIVE_HEALTHY；16 migrations、v5 route active、4 stops、0 approved physical legs |
 | Control-plane URL | `https://aiuajbflpwdzkaeeocab.supabase.co` | Browser publishable config只存在 staging Preview scope |
-| Edge Functions | `delivery-intent`、`pickup`、`robot-api` | version 1 ACTIVE；JWT/custom-auth 邊界已以 hosted HTTP 正反測試 |
-| Auth URL | staging frontend origin | Site URL與redirect allow-list已設定；Email enabled、Google disabled |
-| Synthetic vehicle | `GBM-01` | active/available；telemetry v2 enabled；route validation disabled |
+| Edge Functions | `delivery-intent`、`pickup`、`robot-api` | version 2 ACTIVE；JWT/custom-auth 邊界已以 hosted HTTP 正反測試 |
+| Auth | staging frontend origin / Supabase Google provider | Google Web client已建立；External app已發布；provider、Site URL、redirect allow-list、auth migration與staging-only CTA flag均已設定 |
+| Synthetic vehicle | `GBM-01` | active/available；handoff token已輪替並通過read-only state preflight；telemetry v2 enabled；route validation disabled |
 
-已驗證：65 個 hosted pgTAP、錯／對 robot token、wrong-vehicle scope、v2 idle telemetry、schema rejection、pickup generic failure、exact-origin CORS 與 sender JWT gate。尚未驗證：authenticated Realtime WebSocket、magic-link實際收信、sender/recipient多context E2E。因此目前是 **hosted control-plane ready**，仍不是完整 integration-ready GO。Secret 值只保存在 Supabase encrypted secrets，不寫入本文、GitHub、Vercel或車端 image。
+Staging Preview 保留 Vercel Standard Protection，不公開關閉登入保護。已建立用途限定為 CI／E2E 的 Protection Bypass for Automation，值只保存於 GitHub Actions repository secret `VERCEL_AUTOMATION_BYPASS_SECRET`；固定網址保存在 Actions variable `STAGING_BASE_URL`。測試只透過 `x-vercel-protection-bypass` request header 使用，不放在 URL、文件、browser bundle、log 或車端環境。車端直接連 Supabase robot control plane，不需要也不得取得這組 Vercel secret。
 
-Google CTA 由 browser-safe `VITE_GOOGLE_AUTH_ENABLED` 控制；staging 未設定時預設為 `false`。只有在 Supabase Google provider、校方 OAuth 授權與 signed hosted-domain 實測都完成後，才可在對應 deployment 設為 `true`。
+已驗證：65 個既有hosted pgTAP、GitHub database job的67-test migration基線，以及hosted auth migration後的Google identity、provider-verified email、匿名拒絕與authenticated grant定向檢查；另有錯／對robot token、wrong-vehicle scope、v2 idle telemetry、schema rejection、pickup generic failure、exact-origin CORS與sender JWT gate。尚未驗證：public Google OAuth完整live flow、authenticated Realtime WebSocket與sender/recipient多context E2E。因此目前是 **hosted control-plane ready**，仍不是完整 integration-ready GO。既有custom Gmail SMTP保留在Supabase，但目前Google-only公開流程不使用登入信；它也不能當作投遞通知provider已完成的證據。
+
+Google CTA 由 browser-safe `VITE_GOOGLE_AUTH_ENABLED` 控制；未設定時預設為 `false`。Staging已在Vercel Preview中以`staging` Git branch範圍設為`true`，其他Preview、demo與production不會繼承。OAuth client secret只放Supabase provider設定，不可放Vercel、browser環境、GitHub或repository。
+
+## Public Google OAuth staging 設定
+
+目前產品決策是「任何Google帳號可註冊／登入」，不限制`gms.ndhu.edu.tw`。網站不另設密碼；Supabase會在首次Google登入時建立user，之後同一Google身分直接登入。第1–7項已於2026-09-01完成，第8項仍是live E2E gate：
+
+1. 在Google Auth Platform建立staging用的OAuth client，Application type選`Web application`，Audience選可供外部Google帳號使用的`External`。Scopes只保留`openid`、email與profile。
+2. Authorized JavaScript origins加入`https://go-by-myself-website-git-staging-hsuanisgay.vercel.app`。
+3. Authorized redirect URIs加入`https://aiuajbflpwdzkaeeocab.supabase.co/auth/v1/callback`。這是Google回到Supabase的callback，不是Vercel網址。
+4. 在Supabase Dashboard的Authentication → Providers → Google填入client ID與client secret並啟用provider。此項已完成；secret只存在provider設定，不可貼到Vercel變數。
+5. 在Supabase Authentication → URL Configuration確認Site URL為staging frontend，Redirect URLs包含`https://go-by-myself-website-git-staging-hsuanisgay.vercel.app/`。
+6. 套用`20260831233000_allow_verified_google_accounts.sql`並驗證migration history與auth grant／函式條件。Migration會讓非Google舊登入信帳號回到`pending`；Google provider且`email_verified=true`才可啟用投遞。此項已完成，hosted共16筆migration。
+7. 只在Vercel `staging` branch的Preview環境設定`VITE_GOOGLE_AUTH_ENABLED=true`，重新部署；`main` demo不需要此值。此項已完成設定，branch同步會觸發新的Preview deployment。
+8. 分別用一個非東華Google帳號與一個既有Google帳號測試：首次登入會建立帳號、重新登入會回到同一user、未驗證或非Google身分無法取得投遞權限。
+
+正式domain啟用時應建立獨立production OAuth client，並以正式origin／callback替換staging值；不要共用staging secret。
 
 ## Release sequence
 
-1. `npm ci && npm run check && npm run test:e2e`。
+1. `npm ci && npm run check && npm run test:e2e`。Hosted staging 另由 GitHub Actions 的 `Staging verification` workflow 執行 `npm run smoke:staging` 與 `npm run test:e2e:staging`；本機執行時需以安全環境變數提供同名 URL／secret，不能寫進 `.env.example` 的值或 shell history。
 2. 從空 local/test database 套用所有 immutable migrations與 pgTAP。
 3. Hosted migration成功後，以[`supabase/snippets/provision_staging_simulator.sql`](../supabase/snippets/provision_staging_simulator.sql)啟用synthetic vehicle；此步已完成，且任何physical mapping已核准時仍會fail closed。
-4. 在 staging 執行 Auth/RLS/simulator/recipient/headers/health smoke；DB、Edge HTTP與headers已完成，magic-link、Realtime與完整sender/recipient flow仍待補齊。
+4. 在 staging 執行 Auth/RLS/simulator/recipient/headers/health smoke；Google client/provider/migration與CTA gate、DB、Edge HTTP及headers已完成，Google帳號live journey、Realtime與完整sender/recipient flow仍待補齊。
 5. 以錯 token、舊 boot、倒退 sequence、expired command、late ACK 與 CANCEL 做故障注入；確認 raw telemetry 可稽核，但 current projection 不倒退。
 6. 驗證 private `delivery:{id}`／`route-validation:{id}` topic 的正反 RLS，並觀察 10 秒 stale、60 秒 offline staging default。
 7. 驗證 backup/restore，先 expand migration，再 deploy相容 backend。

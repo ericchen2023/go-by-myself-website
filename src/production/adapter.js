@@ -4,6 +4,39 @@ import { assertValidDeliveryInput } from '../domain/validation.js';
 import { runtimeConfig, assertProductionBrowserConfig } from '../config/runtime.js';
 
 /** @returns {any} */
+/**
+ * Recovers the Edge Function's own error envelope from a supabase-js
+ * FunctionsHttpError, whose `context` is the unread Response.
+ * @param {unknown} error
+ */
+export async function edgeErrorEnvelope(error) {
+  const context = error && typeof error === 'object' ? Reflect.get(error, 'context') : null;
+  if (!context || typeof context.json !== 'function') return null;
+  try {
+    const source = typeof context.clone === 'function' ? context.clone() : context;
+    const body = await source.json();
+    return body && typeof body === 'object' ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reports the cause the Edge Function actually returned. Collapsing every
+ * failure into one code makes VEHICLE_UNAVAILABLE, DELIVERY_INVALID_TRANSITION
+ * and an expired session indistinguishable to whoever has to act on them.
+ * @param {Record<string, any> | null} body
+ * @param {{code: string, message: string, retryable: boolean}} fallback
+ */
+export function domainErrorFrom(body, fallback) {
+  const detail = body?.error;
+  const code = typeof detail?.code === 'string' && detail.code ? detail.code : fallback.code;
+  const message = typeof detail?.message === 'string' && detail.message ? detail.message : fallback.message;
+  const reference = typeof body?.requestId === 'string' && body.requestId ? body.requestId : '';
+  const retryable = typeof detail?.retryable === 'boolean' ? detail.retryable : fallback.retryable;
+  return new DomainError(code, reference ? `${message}（request reference: ${reference}）` : message, { retryable });
+}
+
 function initialState() {
   return {
     mode: 'production',
@@ -133,7 +166,7 @@ export class ProductionAdapter {
     this.#patch({
       session: {
         id: session.user.id,
-        displayName: String(session.user.user_metadata?.full_name ?? '東華使用者'),
+        displayName: String(session.user.user_metadata?.full_name ?? 'Google 使用者'),
         email: session.user.email ?? '',
         assurance,
         roles: isOperator ? ['operator'] : []
@@ -141,13 +174,13 @@ export class ProductionAdapter {
       ...(isOperator ? { routeValidation: { ...this.state.routeValidation, ...workspaceResult.data } } : {}),
       wizardStep: 2,
       actionError: assurance === 'pending'
-        ? { code: 'AUTH_DOMAIN_NOT_ALLOWED', message: '帳號仍待 trusted hosted-domain gate 驗證。', retryable: false }
+        ? { code: 'AUTH_EMAIL_UNVERIFIED', message: 'Google 尚未確認此帳號的 Email，無法啟用投遞功能。', retryable: false }
         : null
     });
     if (assurance !== 'pending') await this.#loadActiveDelivery();
   }
 
-  async signInWithGoogle(intent = 'login') {
+  async signInWithGoogle() {
     if (!runtimeConfig.googleAuthEnabled) {
       throw new DomainError('AUTH_PROVIDER_UNAVAILABLE', 'Google 登入尚未在此環境啟用。');
     }
@@ -156,24 +189,10 @@ export class ProductionAdapter {
       provider: 'google',
       options: {
         redirectTo: new URL('/', window.location.origin).toString(),
-        queryParams: { hd: 'gms.ndhu.edu.tw', prompt: intent === 'signup' ? 'select_account' : 'select_account' }
+        queryParams: { prompt: 'select_account' }
       }
     });
     if (error) throw new DomainError('AUTH_PROVIDER_ERROR', '無法啟動 Google 登入。', { retryable: true });
-  }
-
-  /** @param {string} email */
-  async signInWithMagicLink(email) {
-    const normalized = email.trim().toLowerCase();
-    if (!normalized.endsWith('@gms.ndhu.edu.tw')) {
-      throw new DomainError('AUTH_DOMAIN_NOT_ALLOWED', 'Magic link 僅接受 gms.ndhu.edu.tw 帳號。');
-    }
-    const client = this.#requireClient();
-    const { error } = await client.auth.signInWithOtp({
-      email: normalized,
-      options: { emailRedirectTo: new URL('/', window.location.origin).toString(), shouldCreateUser: true }
-    });
-    if (error) throw new DomainError('AUTH_PROVIDER_ERROR', '無法寄送專題登入連結。', { retryable: true });
   }
 
   async signOut() {
@@ -305,7 +324,13 @@ export class ProductionAdapter {
     const { data, error } = await client.functions.invoke('delivery-intent', {
       body: { schemaVersion: 1, intent, expectedVersion, idempotencyKey, ...payload }
     });
-    if (error) throw new DomainError('DELIVERY_INTENT_FAILED', '投遞操作未完成，請依 request reference 安全重試。', { retryable: true });
+    if (error) {
+      throw domainErrorFrom(await edgeErrorEnvelope(error), {
+        code: 'DELIVERY_INTENT_FAILED',
+        message: '投遞操作未完成，請依 request reference 安全重試。',
+        retryable: true
+      });
+    }
     return data.data;
   }
 
@@ -314,6 +339,8 @@ export class ProductionAdapter {
     const { data, error } = await client.functions.invoke('pickup', {
       body: { schemaVersion: 1, intent, ...payload }
     });
+    // Deliberately generic: the pickup endpoint is unauthenticated and already
+    // collapses its own failures into one code so a credential cannot be probed.
     if (error) throw new DomainError('PICKUP_CREDENTIAL_INVALID', '取件資訊無效或已失效。');
     return data.data;
   }

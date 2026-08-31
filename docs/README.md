@@ -5,7 +5,7 @@
 ## 接手與目前狀態
 
 - [目前完成度與 NO-GO](IMPLEMENTATION_STATUS.md)：已落地、已由 CI 證明與仍待外部證據的範圍。
-- [車端電腦 AI 技術交接](VEHICLE_PC_AI_HANDOFF.md)：另一台可連車輛電腦的第一份必讀文件。
+- [車端電腦 AI 技術交接](VEHICLE_PC_AI_HANDOFF.md)：另一台可連車輛電腦的第一份必讀文件，含從零clone、scoped token輪替、read-only Supabase連線預檢與可直接交給當地AI的prompt。
 - [Robot integration questionnaire](ROBOT_QUESTIONNAIRE.md)：實機前 30 題盤點與證據清單。
 - Hosted staging入口：<https://go-by-myself-website-git-staging-hsuanisgay.vercel.app>；目前為control-plane驗證環境，不代表真車或正式營運GO。
 

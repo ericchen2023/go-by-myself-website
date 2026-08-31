@@ -1,17 +1,61 @@
 import { el } from '../app/dom.js';
-import { DELIVERY_LOCATIONS, ROUTE_EDGES, ROUTE_NODES, shortestRoute } from './route-graph.js';
+import { DELIVERY_LOCATIONS, ROUTE_EDGES, ROUTE_NODES, edgePathD, pointAlongEdge, routePathD, shortestRoute } from './route-graph.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
-const edgeById = new Map(ROUTE_EDGES.map((edge) => [edge.id, edge]));
 const vehicleMotionStates = new Map();
 
-const STOP_LABELS = Object.freeze({
-  HSS2: { x: 225, y: 151, anchor: 'middle' },
-  HSS1: { x: 225, y: 482, anchor: 'middle' },
-  LIBRARY: { x: 735, y: 51, anchor: 'middle' },
-  ADMIN: { x: 835, y: 572, anchor: 'middle' }
+/**
+ * How far a stop's symbol sits off the road it is served from, and where its
+ * label goes. The road itself is one corridor with all four stops on it — that
+ * is what was surveyed and what the vehicle drives — so these offsets move only
+ * the symbol, never the route. A short approach line joins the two, which is
+ * also the truer picture: the HSS buildings stand back from the road and the
+ * vehicle stops at the kerb.
+ *
+ * Moving a stop into the graph as a spur would put a car driving LIBRARY to
+ * ADMIN on segments it never travels. That was the v4 mistake.
+ */
+const STOP_APPROACHES = Object.freeze({
+  LIBRARY: { dx: 0, dy: 0 },
+  HSS2: { dx: 44, dy: 88 },
+  HSS1: { dx: 44, dy: 88 },
+  ADMIN: { dx: 0, dy: 0 }
 });
+
+const STOP_LABELS = Object.freeze({
+  LIBRARY: { x: 128, y: 370, anchor: 'middle' },
+  HSS2: { x: 426, y: 547, anchor: 'middle' },
+  HSS1: { x: 695, y: 442, anchor: 'middle' },
+  ADMIN: { x: 887, y: 109, anchor: 'middle' }
+});
+
+/** @param {string} code */
+function stopApproach(code) {
+  return STOP_APPROACHES[code] ?? { dx: 0, dy: 0 };
+}
+
+/** @param {string} code */
+function stopPoint(code) {
+  const node = nodeById.get(code);
+  const offset = stopApproach(code);
+  return node ? { x: node.x + offset.dx, y: node.y + offset.dy } : null;
+}
+
+/** The short way in from the corridor to a stop that stands back from it. */
+function appendStopApproaches(svg) {
+  const layer = svgElement('g', { class: 'approach-layer', 'aria-hidden': 'true' });
+  for (const location of DELIVERY_LOCATIONS) {
+    const node = nodeById.get(location.routeNodeId);
+    const offset = stopApproach(location.code);
+    if (!node || (!offset.dx && !offset.dy)) continue;
+    layer.append(svgElement('line', {
+      class: 'stop-approach',
+      x1: node.x, y1: node.y, x2: node.x + offset.dx, y2: node.y + offset.dy
+    }));
+  }
+  svg.append(layer);
+}
 
 /** @param {string} name @param {Record<string, string|number>} attributes */
 function svgElement(name, attributes = {}) {
@@ -32,22 +76,13 @@ function appendMapFoundation(svg, id) {
 
 /** @param {{segmentId: string, progress: number}} position */
 export function markerPointForPosition(position) {
-  const edge = edgeById.get(position.segmentId);
-  if (!edge) return null;
-  const from = nodeById.get(edge.fromNodeId);
-  const to = nodeById.get(edge.toNodeId);
-  if (!from || !to) return null;
-  const progress = Math.max(0, Math.min(1, position.progress));
-  return { x: from.x + (to.x - from.x) * progress, y: from.y + (to.y - from.y) * progress };
+  const point = pointAlongEdge(position.segmentId, position.progress);
+  return point ? { x: point.x, y: point.y } : null;
 }
 
 /** @param {{segmentId: string, progress: number}} position */
 function markerHeading(position) {
-  const edge = edgeById.get(position.segmentId);
-  if (!edge) return 0;
-  const from = nodeById.get(edge.fromNodeId);
-  const to = nodeById.get(edge.toNodeId);
-  return from && to ? Math.atan2(to.y - from.y, to.x - from.x) * (180 / Math.PI) : 0;
+  return pointAlongEdge(position.segmentId, position.progress)?.headingDeg ?? 0;
 }
 
 /** @param {SVGSVGElement} svg @param {{segmentId:string,progress:number}} position */
@@ -78,9 +113,7 @@ function appendRouteNetwork(svg, activeEdges, id, showWholeNetwork = true) {
 
 /** @param {{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}} part */
 function orientedPartPath(part) {
-  const from = nodeById.get(part.fromNodeId);
-  const to = nodeById.get(part.toNodeId);
-  return from && to ? `M ${from.x} ${from.y} L ${to.x} ${to.y}` : '';
+  return edgePathD(part.edgeId, part.forward);
 }
 
 /** @param {SVGSVGElement} svg @param {string} id @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {{segmentId:string,progress:number}|null|undefined} position */
@@ -239,13 +272,7 @@ function appendVehicle(svg, id, position, parts, animateVehicle = true) {
 
 /** @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} route */
 function continuousRoutePath(route) {
-  if (!route.length) return '';
-  const start = nodeById.get(route[0].fromNodeId);
-  if (!start) return '';
-  return route.reduce((path, part) => {
-    const next = nodeById.get(part.toNodeId);
-    return next ? `${path} L ${next.x} ${next.y}` : path;
-  }, `M ${start.x} ${start.y}`);
+  return routePathD(route);
 }
 
 /** @returns {HTMLElement} */
@@ -259,13 +286,14 @@ export function createRoutePreview() {
   }));
   appendMapFoundation(svg, 'home-preview');
   appendRouteNetwork(svg, new Set(), 'home-preview');
+  appendStopApproaches(svg);
   const route = shortestRoute('HSS1', 'LIBRARY');
   appendJourneyRoute(svg, 'home-preview', route, null);
   appendStationLabels(svg);
   for (const location of DELIVERY_LOCATIONS) {
-    const node = nodeById.get(location.routeNodeId);
-    if (!node) continue;
-    svg.append(svgElement('circle', { class: 'preview-stop', cx: node.x, cy: node.y, r: 12, 'aria-hidden': 'true' }));
+    const point = stopPoint(location.routeNodeId);
+    if (!point) continue;
+    svg.append(svgElement('circle', { class: 'preview-stop', cx: point.x, cy: point.y, r: 12, 'aria-hidden': 'true' }));
   }
   const motionPath = continuousRoutePath(route);
   const vehicle = svgElement('g', { class: 'preview-vehicle', 'aria-hidden': 'true' });
@@ -309,6 +337,8 @@ export function createRouteSelector(options) {
   appendJourneyRoute(svg, options.id, journeyParts, options.vehiclePosition);
   appendStationLabels(svg);
 
+  appendStopApproaches(svg);
+
   const stopLayer = svgElement('g', { class: 'stop-layer' });
   const enabledLocations = DELIVERY_LOCATIONS.filter((location) => !disabled.has(location.code));
   let rovingIndex = Math.max(0, enabledLocations.findIndex((location) => location.code === options.selectedCode));
@@ -323,7 +353,7 @@ export function createRouteSelector(options) {
     const isSelected = location.code === options.selectedCode;
     const group = /** @type {SVGGElement} */ (svgElement('g', {
       class: ['map-stop', isPickup ? 'is-pickup' : '', isDropoff ? 'is-dropoff' : '', isSelected ? 'is-selected' : '', isDisabled ? 'is-disabled' : ''].filter(Boolean).join(' '),
-      transform: `translate(${node.x} ${node.y})`, role: interactive ? 'button' : 'img',
+      transform: `translate(${node.x + stopApproach(location.code).dx} ${node.y + stopApproach(location.code).dy})`, role: interactive ? 'button' : 'img',
       tabindex: interactive && !isDisabled && enabledLocations[rovingIndex]?.code === location.code ? '0' : '-1',
       'aria-label': `${location.name}，${location.detail}${isDisabled ? '，不可選，與放件地點相同' : ''}`,
       'aria-disabled': isDisabled ? 'true' : 'false', 'data-location-code': location.code

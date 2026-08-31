@@ -21,7 +21,7 @@ npm run demo
 - Frontend：<https://go-by-myself-website-git-staging-hsuanisgay.vercel.app>
 - Supabase project ref：`aiuajbflpwdzkaeeocab`（Tokyo）
 - Maturity：hosted control-plane ready；不是 supervised robot 或 production GO。
-- Google OAuth 尚未核准／設定，畫面會停用Google CTA；Email magic-link fallback已啟用但仍待實際收信E2E。
+- Google OAuth 已改為接受任何經 Google 驗證 Email 的帳號；首次登入即建立專題帳號。Staging 的 Google client、Supabase provider、16 筆 migration 與 branch-scoped Vercel capability flag 均已完成；仍需以一般 Google 帳號完成首次登入／再次登入／session resume 的 live E2E，才能升級成熟度。
 - `GBM-01`只允許scoped robot API；token不在repository或文件。A–D mapping與physical route validation維持disabled。
 
 `main`與`staging`均為protected branch，禁止force-push/deletion並要求`quality`、`browser`、`database`、`edge-contract` checks。部署、rollback與剩餘驗證請見[Deployment](docs/DEPLOYMENT.md)及[Implementation status](docs/IMPLEMENTATION_STATUS.md)。
@@ -32,6 +32,8 @@ npm run demo
 - `npm run build:demo`／`npm run build:production`：建立隔離的兩種 artifact。
 - `npm run check`：lint、checked JavaScript、unit、Python agent、contract、文件連結、build、boundary 與 bundle 檢查。
 - `npm run test:e2e`：執行 Chromium desktop/mobile E2E 與 accessibility baseline。
+- `npm run smoke:staging`：以 `STAGING_BASE_URL` 檢查 hosted health；受 Vercel 保護時由 `VERCEL_AUTOMATION_BYPASS_SECRET` 自動加入官方 bypass header。
+- `npm run test:e2e:staging`：對 production-shaped staging 執行 health 與前端 shell E2E，不啟動本機 demo server。
 - `npm run test:python-agent`：以可用的 `python3`／`python` 執行車端 contract／restart／CANCEL harness。
 - `npm run env:init`／`npm run env:check`：建立與檢查本機環境設定。
 - `npm run local:up`／`local:reset`／`local:down`：Supabase CLI local stack。

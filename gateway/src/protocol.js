@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { assertCommandSchema } from './contract-validator.js';
 
-const routeGraph = JSON.parse(readFileSync(resolve('contracts/route-graph.v4.json'), 'utf8'));
+const routeGraph = JSON.parse(readFileSync(resolve('contracts/route-graph.v5.json'), 'utf8'));
 const physicalManifest = JSON.parse(readFileSync(resolve('contracts/physical-route-manifest.v1.json'), 'utf8'));
 
 export class CommandRejection extends Error {

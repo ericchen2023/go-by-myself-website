@@ -47,7 +47,7 @@
             "segmentId": { "type": "string", "pattern": "^edge-[a-z0-9-]+$" },
             "progress": { "type": "number", "minimum": 0, "maximum": 1 },
             "lateralM": { "type": "number", "minimum": 0 },
-            "routeGraphVersion": { "type": "string", "const": "ndhu-four-stop-route-v4" },
+            "routeGraphVersion": { "type": "string", "const": "ndhu-four-stop-route-v5" },
             "routeGraphChecksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
           }
         }

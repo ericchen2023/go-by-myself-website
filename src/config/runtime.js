@@ -1,3 +1,5 @@
+import { ROUTE_GRAPH_VERSION } from '../map/route-graph.js';
+
 const allowedModes = new Set(['demo', 'production']);
 const appMode = __APP_MODE__;
 const googleAuthFlag = import.meta.env.VITE_GOOGLE_AUTH_ENABLED;
@@ -16,7 +18,9 @@ export const runtimeConfig = Object.freeze({
   supabasePublishableKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
   googleAuthEnabled: googleAuthFlag === 'true',
   releaseSha: import.meta.env.VITE_RELEASE_SHA || 'local',
-  routeGraphVersion: import.meta.env.VITE_ROUTE_GRAPH_VERSION || 'ndhu-four-stop-route-v4',
+  // Derived from the pinned graph, never from deployment config: a build cannot
+  // advertise a version different from the one its code actually draws.
+  routeGraphVersion: ROUTE_GRAPH_VERSION,
   supportUrl: import.meta.env.VITE_SUPPORT_URL || '/support'
 });
 

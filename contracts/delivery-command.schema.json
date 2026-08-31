@@ -41,7 +41,7 @@
         "legCount": { "type": "integer", "minimum": 1 },
         "fromStopCode": { "$ref": "#/$defs/stopCode" },
         "toStopCode": { "$ref": "#/$defs/stopCode" },
-        "routeGraphVersion": { "type": "string", "const": "ndhu-four-stop-route-v4" },
+        "routeGraphVersion": { "type": "string", "const": "ndhu-four-stop-route-v5" },
         "routeGraphChecksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "actor": { "type": "string", "enum": ["sender", "recipient", "operator", "system"] }
       },

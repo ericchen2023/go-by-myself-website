@@ -1,0 +1,125 @@
+{
+  "version": "ndhu-four-stop-route-v5",
+  "checksum": "sha256:903ad46062842c61458665472452f6f56bdeddd32c1f8bc6948214a5081ffd9e",
+  "viewBox": [
+    0,
+    0,
+    1000,
+    650
+  ],
+  "nodes": [
+    {
+      "id": "LIBRARY",
+      "x": 128.1,
+      "y": 408.2
+    },
+    {
+      "id": "HSS2",
+      "x": 382,
+      "y": 409.7
+    },
+    {
+      "id": "HSS1",
+      "x": 651.1,
+      "y": 305
+    },
+    {
+      "id": "ADMIN",
+      "x": 887.1,
+      "y": 147.6
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-library-hss2",
+      "fromNodeId": "LIBRARY",
+      "toNodeId": "HSS2",
+      "points": [
+        [
+          110,
+          415.4
+        ],
+        [
+          145.6,
+          502.4
+        ],
+        [
+          186.6,
+          486.4
+        ],
+        [
+          214.6,
+          472.4
+        ],
+        [
+          258.7,
+          458.7
+        ]
+      ]
+    },
+    {
+      "id": "edge-hss2-hss1",
+      "fromNodeId": "HSS2",
+      "toNodeId": "HSS1",
+      "points": [
+        [
+          520,
+          356.4
+        ],
+        [
+          577.6,
+          332.3
+        ]
+      ]
+    },
+    {
+      "id": "edge-hss1-admin",
+      "fromNodeId": "HSS1",
+      "toNodeId": "ADMIN",
+      "points": [
+        [
+          801.8,
+          246.9
+        ],
+        [
+          782.2,
+          196.7
+        ],
+        [
+          890,
+          154.6
+        ]
+      ]
+    }
+  ],
+  "locations": [
+    {
+      "code": "LIBRARY",
+      "name": "圖資中心",
+      "detail": "圖資大樓正門・公車站前",
+      "routeNodeId": "LIBRARY",
+      "active": true
+    },
+    {
+      "code": "HSS2",
+      "name": "人社二館",
+      "detail": "人社院北側取放點",
+      "routeNodeId": "HSS2",
+      "active": true
+    },
+    {
+      "code": "HSS1",
+      "name": "人社一館",
+      "detail": "人社院南側取放點",
+      "routeNodeId": "HSS1",
+      "active": true
+    },
+    {
+      "code": "ADMIN",
+      "name": "行政大樓",
+      "detail": "郵局旁",
+      "routeNodeId": "ADMIN",
+      "active": true
+    }
+  ]
+}
