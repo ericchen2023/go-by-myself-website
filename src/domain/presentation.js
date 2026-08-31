@@ -127,3 +127,35 @@ export function notificationCopy(state) {
   };
   return copies[state] ?? '尚未建立通知';
 }
+
+const COMPARTMENT_REFUSALS = {
+  COMMAND_TYPE_UNSUPPORTED: '這台車沒有可遙控的置物艙，無法遠端開艙 —— 再按幾次也不會開。這筆投遞在目前的車輛上無法繼續，請取消。',
+  ROBOT_STATE_INVALID: '車輛尚未停妥在可開艙的狀態。請確認車輛已到站停穩，再試一次。',
+  BRIDGE_BACKEND_FAILED: '車輛的控制程式沒有回應開艙指令。請稍候再試，或取消這筆投遞。'
+};
+
+const COMPARTMENT_PENDING = ['queued', 'accepted'];
+const COMPARTMENT_REFUSED = ['rejected', 'failed', 'expired'];
+
+/**
+ * 車輛對「開啟置物艙」的回應。畫面必須說出拒絕的理由：靜靜地把按鈕重新打開，
+ * 只會讓寄件人一直重按（正式環境紀錄過 1.5 秒內按四次，全部被拒絕）。
+ * @param {{type?: string, state?: string, errorCode?: string|null}|null} [command]
+ * @returns {{phase: 'idle'|'waiting'|'refused', reason: string|null, message: string}}
+ */
+export function compartmentRequest(command) {
+  if (!command || command.type !== 'OPEN_COMPARTMENT') return { phase: 'idle', reason: null, message: '' };
+  const state = command.state ?? '';
+  if (COMPARTMENT_PENDING.includes(state)) return { phase: 'waiting', reason: null, message: '' };
+  if (!COMPARTMENT_REFUSED.includes(state)) return { phase: 'idle', reason: null, message: '' };
+  const reason = command.errorCode ?? null;
+  const known = reason ? COMPARTMENT_REFUSALS[reason] : null;
+  return {
+    phase: 'refused',
+    reason,
+    // 沒有對應文案時仍然把代碼說出來，總比讓人對著沒反應的按鈕好。
+    message: known ?? (state === 'expired'
+      ? '開艙指令逾時，車輛沒有在時限內執行。請再試一次，或取消這筆投遞。'
+      : `車輛拒絕了開艙指令${reason ? `（${reason}）` : ''}。請稍候再試，或取消這筆投遞。`)
+  };
+}
