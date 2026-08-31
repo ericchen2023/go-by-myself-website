@@ -97,6 +97,7 @@ export class ProductionAdapter {
     this.channel = null;
     this.routeValidationChannel = null;
     this.connectivityTimer = null;
+    this.deliveryRefreshTimer = null;
   }
 
   snapshot() {
@@ -367,10 +368,11 @@ export class ProductionAdapter {
     });
     await this.channel.subscribe((status) => {
       if (status !== 'SUBSCRIBED') return;
-      if (subscribedOnce) void this.#refreshActiveDeliverySnapshot();
+      if (subscribedOnce) void this.refreshActiveDeliverySnapshot();
       subscribedOnce = true;
     });
     this.#startConnectivityClock();
+    this.#startDeliveryRefreshClock();
   }
 
   async #subscribeToRouteValidation(routeJobId) {
@@ -391,12 +393,22 @@ export class ProductionAdapter {
     });
   }
 
-  async #refreshActiveDeliverySnapshot() {
+  /** Re-reads the sender's delivery from the server. Public so the recovery path can be tested. */
+  async refreshActiveDeliverySnapshot() {
     try {
       const projection = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
+      if (!projection?.delivery) {
+        // The server has no delivery in flight for this sender, so the one on
+        // screen has reached a terminal state. Comparing versions here left the
+        // page showing it for ever — nothing is newer than a delivery that no
+        // longer exists — and with no way back to the form the reader could not
+        // start another one.
+        if (this.state.delivery && await this.#confirmNoDelivery()) await this.#returnToNewDelivery();
+        return;
+      }
       const currentVersion = this.state.delivery?.version ?? -1;
       const currentProjection = this.state.telemetry?.projectionVersion ?? -1;
-      if ((projection?.delivery?.version ?? -1) > currentVersion || (projection?.telemetry?.projectionVersion ?? -1) > currentProjection) {
+      if ((projection.delivery.version ?? -1) > currentVersion || (projection?.telemetry?.projectionVersion ?? -1) > currentProjection) {
         this.#patch(this.#withLocalTelemetryReceipt(projection));
       }
     } catch {
@@ -413,6 +425,53 @@ export class ProductionAdapter {
     } catch {
       this.#patch({ actionError: { code: 'REALTIME_RESYNC_FAILED', message: '重新連線後無法取得最新路線驗證狀態。', retryable: true } });
     }
+  }
+
+  /**
+   * One empty read can be a blip; the screen is only cleared when a second read
+   * agrees, so a delivery still in flight is never taken away from its sender.
+   * A throw here leaves the delivery on screen, which is the safe direction.
+   */
+  async #confirmNoDelivery() {
+    const confirmation = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
+    return !confirmation?.delivery;
+  }
+
+  /** Back to a blank form, with the finished delivery's channel let go. */
+  async #returnToNewDelivery() {
+    const client = this.supabase;
+    if (this.channel && client) {
+      const channel = this.channel;
+      this.channel = null;
+      await client.removeChannel(channel);
+    }
+    this.#stopConnectivityClock();
+    this.#stopDeliveryRefreshClock();
+    const fresh = initialState();
+    this.#patch({
+      delivery: fresh.delivery,
+      draft: fresh.draft,
+      telemetry: fresh.telemetry,
+      commandState: fresh.commandState,
+      wizardStep: 1,
+      actionError: null
+    });
+  }
+
+  /**
+   * Realtime is the fast path, not the only one. When a broadcast is missed the
+   * page has no other way to learn its delivery ended, and it strands there.
+   */
+  #startDeliveryRefreshClock() {
+    this.#stopDeliveryRefreshClock();
+    this.deliveryRefreshTimer = window.setInterval(() => {
+      void this.refreshActiveDeliverySnapshot();
+    }, 15_000);
+  }
+
+  #stopDeliveryRefreshClock() {
+    if (this.deliveryRefreshTimer) window.clearInterval(this.deliveryRefreshTimer);
+    this.deliveryRefreshTimer = null;
   }
 
   #startConnectivityClock() {
