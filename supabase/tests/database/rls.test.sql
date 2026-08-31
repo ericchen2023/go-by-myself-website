@@ -19,14 +19,16 @@ select ok(
   not has_function_privilege('anon', 'public.finalize_auth_assurance()', 'EXECUTE'),
   'anonymous callers cannot finalize auth assurance'
 );
-select like(
-  pg_get_functiondef('public.finalize_auth_assurance()'::regprocedure),
-  '%identity.provider = ''google''%',
+select ok(
+  position(
+    'identity.provider = ''google''' in pg_get_functiondef('public.finalize_auth_assurance()'::regprocedure)
+  ) > 0,
   'auth assurance requires a Google identity'
 );
-select like(
-  pg_get_functiondef('public.finalize_auth_assurance()'::regprocedure),
-  '%email_verified%',
+select ok(
+  position(
+    'email_verified' in pg_get_functiondef('public.finalize_auth_assurance()'::regprocedure)
+  ) > 0,
   'auth assurance requires a provider-verified email'
 );
 select ok(
