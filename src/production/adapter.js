@@ -69,6 +69,10 @@ function initialState() {
       legCount: null
     },
     commandState: null,
+    /** @type {{type: string, state: string, errorCode: string|null}|null} 車輛對最近一筆指令的回應 */
+    command: null,
+    /** @type {{hasCompartment: boolean}|null} 車輛能力；沒有艙門時流程改由當事人確認 */
+    vehicle: null,
     notificationState: null,
     recipientAttempt: { attempts: 0, verified: false, phase: 'idle', error: '' },
     routeValidation: {
@@ -453,6 +457,8 @@ export class ProductionAdapter {
       draft: fresh.draft,
       telemetry: fresh.telemetry,
       commandState: fresh.commandState,
+      command: fresh.command,
+      vehicle: fresh.vehicle,
       wizardStep: 1,
       actionError: null
     });
