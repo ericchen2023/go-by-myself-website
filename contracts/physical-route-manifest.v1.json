@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "routeGraphVersion": "ndhu-four-stop-route-v4",
-  "routeGraphChecksum": "sha256:712c4b12e3932647eb0856699fe4ace4bd9a2434c325b97451e07abbd7120ef9",
+  "routeGraphVersion": "ndhu-four-stop-route-v5",
+  "routeGraphChecksum": "sha256:903ad46062842c61458665472452f6f56bdeddd32c1f8bc6948214a5081ffd9e",
   "capabilityEnabled": false,
   "mappingStatus": "unapproved",
   "stopMappings": {

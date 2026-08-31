@@ -2,7 +2,7 @@ import { DomainError } from '../domain/errors.js';
 import { applyDeliveryEvent, allowedEvents } from '../domain/state-machine.js';
 import { assertValidDeliveryInput } from '../domain/validation.js';
 import { DEMO_SCENARIO_IDS } from '../domain/scenarios.js';
-import { locationByCode, positionAlongRoute, shortestRoute } from '../map/route-graph.js';
+import { locationByCode, positionAlongRoute, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { DeterministicClock } from './fake-clock.js';
 
 const STORAGE_KEY = 'go-by-myself:demo:v1';
@@ -218,8 +218,7 @@ export class DemoAdapter {
     this.#patch({ commandState: 'accepted' });
     const pickup = locationByCode(this.state.delivery?.pickupCode ?? '');
     if (!pickup) return;
-    const route = shortestRoute('TRUNK_HSS', pickup.routeNodeId);
-    this.#animateRoute(route, 'pickup');
+    this.#animateRoute(shortestRoute(stagingOriginFor(pickup.routeNodeId), pickup.routeNodeId), 'pickup');
   }
 
   /** @param {ReturnType<typeof shortestRoute>} route @param {'pickup'|'dropoff'} destination */

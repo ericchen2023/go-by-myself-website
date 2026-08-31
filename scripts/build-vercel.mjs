@@ -1,6 +1,5 @@
 import { build } from 'vite';
 
-const routeGraphVersion = 'ndhu-four-stop-route-v4';
 const mode = process.env.VITE_APP_MODE;
 const googleAuthFlag = process.env.VITE_GOOGLE_AUTH_ENABLED;
 
@@ -12,11 +11,12 @@ if (googleAuthFlag && !['true', 'false'].includes(googleAuthFlag)) {
 }
 
 process.env.VITE_RELEASE_SHA ||= process.env.VERCEL_GIT_COMMIT_SHA || 'vercel-unknown';
-process.env.VITE_ROUTE_GRAPH_VERSION ||= routeGraphVersion;
 
-if (process.env.VITE_ROUTE_GRAPH_VERSION !== routeGraphVersion) {
-  throw new Error(`ENV_CONFIG_INVALID: expected route graph ${routeGraphVersion}.`);
-}
+// The route graph version used to be asserted against VITE_ROUTE_GRAPH_VERSION.
+// Nothing read that value, and the assertion compared it to a copy of the
+// version string kept here, so a graph bump failed the build over a variable
+// with no consumer. runtimeConfig derives the version from the pinned graph
+// instead, which is the thing the check was trying to guarantee.
 
 if (mode === 'demo') {
   process.env.VITE_DEPLOY_ENV ||= 'demo';

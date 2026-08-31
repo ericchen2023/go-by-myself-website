@@ -3,7 +3,14 @@ export function routePairs(graph) {
   const edges = graph.edges.map((edge) => {
     const from = nodes.get(edge.fromNodeId);
     const to = nodes.get(edge.toNodeId);
-    return { ...edge, length: Math.hypot(to.x - from.x, to.y - from.y) };
+    // Measure along the surveyed polyline, not end to end: a bent edge is
+    // longer than its chord, and shortest-path must rank real distances.
+    const vertices = [[from.x, from.y], ...(edge.points ?? []), [to.x, to.y]];
+    let length = 0;
+    for (let index = 1; index < vertices.length; index += 1) {
+      length += Math.hypot(vertices[index][0] - vertices[index - 1][0], vertices[index][1] - vertices[index - 1][1]);
+    }
+    return { ...edge, length };
   });
   const adjacency = new Map(graph.nodes.map((node) => [node.id, []]));
   for (const edge of edges) {

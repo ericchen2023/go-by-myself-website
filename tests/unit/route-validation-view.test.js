@@ -14,7 +14,7 @@ function workspace() {
       vehicle: {
         state: 'moving', connectivity: 'online', quality: 'valid', battery: { voltageV: 23.7, percent: null }
       },
-      route: { legId: 'A_B', segmentId: 'edge-trunk-north', progress: 0.42, lateralM: 0.03 },
+      route: { legId: 'A_B', segmentId: 'edge-hss2-hss1', progress: 0.42, lateralM: 0.03 },
       diagnostics: { frameId: 'site-v1', x: -5.5, y: -2.4, heading: 30, bootId: 'boot', sequence: 10 }
     }
   };
