@@ -28,6 +28,7 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:staging": "node scripts/run-remote-e2e.mjs staging",
     "test:a11y": "playwright test tests/e2e/accessibility.spec.js",
     "contract:check": "node scripts/contract-check.mjs --fixtures",
     "contract:fixtures": "node scripts/contract-check.mjs --fixtures",

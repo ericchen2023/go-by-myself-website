@@ -28,7 +28,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 | 真車移動、e-stop、disconnect、incident procedure | **未驗證** | 現場 safety owner |
 | 置物艙、門鎖、item sensor、custody | **不存在或未接入** | 後續 physical-delivery phase |
 
-本次網站端發布基線已通過43 Vitest、25 Playwright/axe（另1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。Supabase Auth custom Gmail SMTP也已儲存並成功重載；這只用於網站magic-link登入，與車端連線無關，且新SMTP的實際收信仍待一次E2E。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
+本次網站端發布基線已通過45 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests與65個hosted pgTAP。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。Supabase Auth custom Gmail SMTP也已儲存並成功重載；這只用於網站magic-link登入，與車端連線無關，且新SMTP的實際收信仍待一次E2E。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
 
 真車第一階段只做 **supervised route validation**：單車、單段、空載、受控區域、現場人員持有實體 e-stop。這個流程不建立收件人、不發通知，也不會產生 `completed` delivery。
 
@@ -41,6 +41,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 - `delivery-intent`、`pickup`、`robot-api`三個Edge Functions均為version 2 ACTIVE，robot API已完成錯token、正確scope、跨車scope、v2 telemetry與錯schema的hosted正反測試。
 - `GBM-01` synthetic vehicle與UUID已建立，但`route_validation_enabled=false`；這是刻意的安全鎖，不是漏設定。
 - Vercel demo與production-shaped staging已分離；公開sender map只收`segmentId + progress`，不收raw SLAM座標。
+- Vercel staging保留Deployment Protection；網站CI使用獨立Automation Bypass secret。該secret不屬於robot contract，車端不得要求、保存或傳送它；車端只連下方Supabase control plane並使用per-vehicle scoped robot token。
 - Node simulator與Python contract harness已實作；新增`connection_check.py`讓車端在不讀command、不呼叫hardware的情況下先確認Supabase scoped identity。
 - Auth custom Gmail SMTP已載入；SMTP帳號與app password沒有進GitHub、Vercel或車端設定。投遞通知provider仍未完成。
 

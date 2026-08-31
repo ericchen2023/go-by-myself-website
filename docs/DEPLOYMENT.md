@@ -29,13 +29,15 @@ GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `qual
 | Auth URL / SMTP | staging frontend origin / custom Gmail SMTP | Site URL與redirect allow-list已設定；Auth config重載成功、email rate limit已由2/h更新為30/h；Google disabled |
 | Synthetic vehicle | `GBM-01` | active/available；telemetry v2 enabled；route validation disabled |
 
+Staging Preview 保留 Vercel Standard Protection，不公開關閉登入保護。已建立用途限定為 CI／E2E 的 Protection Bypass for Automation，值只保存於 GitHub Actions repository secret `VERCEL_AUTOMATION_BYPASS_SECRET`；固定網址保存在 Actions variable `STAGING_BASE_URL`。測試只透過 `x-vercel-protection-bypass` request header 使用，不放在 URL、文件、browser bundle、log 或車端環境。車端直接連 Supabase robot control plane，不需要也不得取得這組 Vercel secret。
+
 已驗證：65 個 hosted pgTAP、錯／對 robot token、wrong-vehicle scope、v2 idle telemetry、schema rejection、pickup generic failure、exact-origin CORS、sender JWT gate，以及custom Gmail SMTP設定重載。尚未驗證：authenticated Realtime WebSocket、改用新SMTP後的magic-link實際收信、sender/recipient多context E2E。因此目前是 **hosted control-plane ready**，仍不是完整 integration-ready GO。SMTP app password與其他secret只保存在Supabase加密設定，不寫入本文、GitHub、Vercel或車端image。Auth SMTP只負責登入連結，不能當作投遞通知provider已完成的證據。
 
 Google CTA 由 browser-safe `VITE_GOOGLE_AUTH_ENABLED` 控制；staging 未設定時預設為 `false`。只有在 Supabase Google provider、校方 OAuth 授權與 signed hosted-domain 實測都完成後，才可在對應 deployment 設為 `true`。
 
 ## Release sequence
 
-1. `npm ci && npm run check && npm run test:e2e`。
+1. `npm ci && npm run check && npm run test:e2e`。Hosted staging 另由 GitHub Actions 的 `Staging verification` workflow 執行 `npm run smoke:staging` 與 `npm run test:e2e:staging`；本機執行時需以安全環境變數提供同名 URL／secret，不能寫進 `.env.example` 的值或 shell history。
 2. 從空 local/test database 套用所有 immutable migrations與 pgTAP。
 3. Hosted migration成功後，以[`supabase/snippets/provision_staging_simulator.sql`](../supabase/snippets/provision_staging_simulator.sql)啟用synthetic vehicle；此步已完成，且任何physical mapping已核准時仍會fail closed。
 4. 在 staging 執行 Auth/RLS/simulator/recipient/headers/health smoke；DB、Edge HTTP、headers與custom Auth SMTP config reload已完成，新SMTP實際收信、Realtime與完整sender/recipient flow仍待補齊。

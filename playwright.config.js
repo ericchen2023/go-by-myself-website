@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { vercelProtectionHeaders } from './scripts/vercel-protection.mjs';
+
+const remoteBaseURL = process.env.E2E_BASE_URL?.trim();
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -9,7 +12,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['github']] : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: remoteBaseURL || 'http://127.0.0.1:4173',
+    extraHTTPHeaders: remoteBaseURL ? vercelProtectionHeaders() : {},
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -19,7 +23,7 @@ export default defineConfig({
     { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'chromium-mobile', use: { ...devices['Pixel 5'] } }
   ],
-  webServer: {
+  webServer: remoteBaseURL ? undefined : {
     command: 'npm run demo',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
