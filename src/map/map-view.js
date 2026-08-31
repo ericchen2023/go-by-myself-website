@@ -1,5 +1,5 @@
 import { el } from '../app/dom.js';
-import { DELIVERY_LOCATIONS, ROUTE_EDGES, ROUTE_NODES, edgePathD, pointAlongEdge, routePathD, shortestRoute } from './route-graph.js';
+import { DELIVERY_LOCATIONS, ROUTE_EDGES, ROUTE_NODES, pointAlongEdge, shortestRoute } from './route-graph.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
@@ -74,6 +74,44 @@ function appendMapFoundation(svg, id) {
   svg.append(defs, svgElement('rect', { width: 1000, height: 650, class: 'map-paper', 'aria-hidden': 'true' }));
 }
 
+const edgeById = new Map(ROUTE_EDGES.map((edge) => [edge.id, edge]));
+
+/** @param {ReadonlyArray<readonly number[]>} vertices */
+function toPath(vertices) {
+  const [head, ...rest] = vertices;
+  return head ? rest.reduce((path, point) => `${path} L ${point[0]} ${point[1]}`, `M ${head[0]} ${head[1]}`) : '';
+}
+
+/** @param {{edgeId: string, forward: boolean}} part */
+function partVertices(part) {
+  const edge = edgeById.get(part.edgeId);
+  if (!edge) return /** @type {number[][]} */ ([]);
+  const ordered = edge.vertices.map((point) => [point[0], point[1]]);
+  return part.forward ? ordered : ordered.reverse();
+}
+
+/**
+ * A journey starts and ends at the stop, not at the kerb, so the drawn route
+ * runs up the approach at each end. The vehicle is sampled along this same
+ * path, which is how it comes to finish on the stop rather than beside it.
+ * @param {Array<{edgeId: string, fromNodeId: string, toNodeId: string, forward: boolean}>} parts
+ */
+function journeyVertices(parts) {
+  if (!parts?.length) return [];
+  const corridor = [];
+  for (const part of parts) {
+    const ordered = partVertices(part);
+    corridor.push(...(corridor.length ? ordered.slice(1) : ordered));
+  }
+  if (!corridor.length) return [];
+  const origin = stopPoint(parts[0].fromNodeId);
+  const destination = stopPoint(parts[parts.length - 1].toNodeId);
+  const lead = origin && (origin.x !== corridor[0][0] || origin.y !== corridor[0][1]) ? [[origin.x, origin.y]] : [];
+  const last = corridor[corridor.length - 1];
+  const tail = destination && (destination.x !== last[0] || destination.y !== last[1]) ? [[destination.x, destination.y]] : [];
+  return [...lead, ...corridor, ...tail];
+}
+
 /** @param {{segmentId: string, progress: number}} position */
 export function markerPointForPosition(position) {
   const point = pointAlongEdge(position.segmentId, position.progress);
@@ -111,9 +149,21 @@ function appendRouteNetwork(svg, activeEdges, id, showWholeNetwork = true) {
   svg.append(routeLayer);
 }
 
-/** @param {{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}} part */
-function orientedPartPath(part) {
-  return edgePathD(part.edgeId, part.forward);
+/** @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {number} index */
+function orientedPartPath(parts, index) {
+  const part = parts[index];
+  const vertices = partVertices(part);
+  if (!vertices.length) return '';
+  if (index === 0) {
+    const origin = stopPoint(part.fromNodeId);
+    if (origin && (origin.x !== vertices[0][0] || origin.y !== vertices[0][1])) vertices.unshift([origin.x, origin.y]);
+  }
+  if (index === parts.length - 1) {
+    const destination = stopPoint(part.toNodeId);
+    const last = vertices[vertices.length - 1];
+    if (destination && (destination.x !== last[0] || destination.y !== last[1])) vertices.push([destination.x, destination.y]);
+  }
+  return toPath(vertices);
 }
 
 /** @param {SVGSVGElement} svg @param {string} id @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {{segmentId:string,progress:number}|null|undefined} position */
@@ -124,7 +174,7 @@ function appendJourneyRoute(svg, id, parts, position) {
   if (motionPath) layer.append(svgElement('path', { d: motionPath, class: 'journey-motion-path', 'data-route-signature': routeSignature(parts) }));
   const currentIndex = position ? parts.findIndex((part) => part.edgeId === position.segmentId) : -1;
   parts.forEach((part, index) => {
-    const d = orientedPartPath(part);
+    const d = orientedPartPath(parts, index);
     if (!d) return;
     let traveled = 0;
     if (currentIndex >= 0) {
@@ -272,7 +322,7 @@ function appendVehicle(svg, id, position, parts, animateVehicle = true) {
 
 /** @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} route */
 function continuousRoutePath(route) {
-  return routePathD(route);
+  return toPath(journeyVertices(route));
 }
 
 /** @returns {HTMLElement} */
@@ -333,7 +383,9 @@ export function createRouteSelector(options) {
   appendMapFoundation(svg, options.id);
   const journeyParts = options.activeRouteParts ?? [];
   const journeyEdges = new Set([...activeEdges, ...journeyParts.map((part) => part.edgeId)]);
-  appendRouteNetwork(svg, journeyEdges, options.id, interactive);
+  // 永遠畫完整路網。只畫行程用到的邊會讓其他道路整條消失，
+  // 地圖看起來像壞掉；未使用的邊本來就有較淡的樣式。
+  appendRouteNetwork(svg, journeyEdges, options.id, true);
   appendJourneyRoute(svg, options.id, journeyParts, options.vehiclePosition);
   appendStationLabels(svg);
 
