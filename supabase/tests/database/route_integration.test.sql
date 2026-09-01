@@ -1,5 +1,5 @@
 begin;
-select plan(93);
+select plan(96);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -1183,6 +1183,79 @@ select throws_ok(
   'P0001',
   'ROUTE_SEGMENT_NOT_ALLOWED',
   'an edge that is not in the graph is still refused, job or no job'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 派車指令要用車上認得的 legId，而且去接件那一段也得示教過。
+-- ---------------------------------------------------------------------------
+-- 把車放回圖資中心並釋放，才能再派一次。
+update public.vehicles
+set operational_status = 'available', current_stop_code = 'LIBRARY', updated_at = now()
+where id = (select vehicle_id from route_test_context);
+update public.vehicle_reservations set state = 'released', ended_at = now()
+where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
+
+alter table route_test_context add column delivery_six uuid;
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+
+with created as (
+  select public.create_and_confirm_delivery(
+    'LIBRARY', 'HSS2', '實體路段收件人', '+886912345678', 'legid@example.com', true,
+    'document', 'physical leg id', 'physical-leg-create'
+  ) as payload
+)
+update route_test_context set delivery_six = (created.payload #>> '{delivery,id}')::uuid from created;
+
+do $$
+declare target uuid;
+begin
+  select delivery_six into target from route_test_context;
+  perform public.execute_delivery_intent(target, 'REQUEST_DISPATCH', 2, 'physical-leg-dispatch');
+end $$;
+
+select is(
+  (select leg.leg_id from public.route_job_legs leg
+   join public.route_jobs job on job.id = leg.route_job_id
+   where job.delivery_id = (select delivery_six from route_test_context)
+   order by leg.leg_index limit 1),
+  'A_B',
+  'the dispatch carries the leg id the vehicle actually knows'
+);
+select isnt(
+  (select leg.leg_id from public.route_job_legs leg
+   join public.route_jobs job on job.id = leg.route_job_id
+   where job.delivery_id = (select delivery_six from route_test_context)
+   order by leg.leg_index limit 1),
+  'SIM_LIBRARY_HSS2',
+  'and not a synthetic id the real bridge refuses outright'
+);
+
+-- 車子停在一個到不了放件站的地方：派車必須當場拒絕，而不是派出去讓車端擋。
+update public.vehicles
+set operational_status = 'available', current_stop_code = 'HSS1', updated_at = now()
+where id = (select vehicle_id from route_test_context);
+update public.vehicle_reservations set state = 'released', ended_at = now()
+where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
+
+alter table route_test_context add column delivery_seven uuid;
+with created as (
+  select public.create_and_confirm_delivery(
+    'LIBRARY', 'HSS2', '接不到的收件人', '+886912345678', 'noroute@example.com', true,
+    'document', 'no taught route to pickup', 'no-route-create'
+  ) as payload
+)
+update route_test_context set delivery_seven = (created.payload #>> '{delivery,id}')::uuid from created;
+
+select throws_ok(
+  $$ select public.execute_delivery_intent(
+    (select delivery_seven from route_test_context), 'REQUEST_DISPATCH', 2, 'no-route-dispatch'
+  ) $$,
+  'P0001',
+  'NO_TAUGHT_ROUTE_TO_PICKUP',
+  'a vehicle that cannot reach the pickup on a taught leg is not sent'
 );
 
 select * from finish();
