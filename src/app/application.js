@@ -14,7 +14,7 @@ import { createRouteSelector } from '../map/map-view.js';
 import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
 import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
-import { compartmentRequest, notificationCopy, recipientNotice, stepForStatus } from '../domain/presentation.js';
+import { compartmentRequest, notificationCopy, pickupPhase, recipientNotice, stepForStatus } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
 import {
   authAlternative,
@@ -675,7 +675,7 @@ export class Application {
       void this.#run(() => this.adapter.redeemCredential(code));
     });
 
-    const phase = status === 'completed' ? 'confirmed' : attempt.phase;
+    const phase = pickupPhase(status, attempt.phase);
     return el('div', { className: 'recipient-shell' },
       header,
       el('main', { id: 'main-content', className: 'recipient-main' },
