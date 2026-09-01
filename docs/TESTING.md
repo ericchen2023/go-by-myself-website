@@ -11,7 +11,7 @@ npm run check
 
 Python agent目前共10個unittest，其中五個專門驗證read-only connection preflight不輸出token、Authorization header或raw pose、能把hosted 401轉成穩定的`ROBOT_IDENTITY_INVALID`、對缺少vehicle ID的malformed state fail closed、損壞回應不顯示traceback，且`agent.py`啟動時不能繞過preflight。
 
-2026-08-28本機Edge benchmark：LCP 624 ms、FCP 192 ms、24 requests；demo 23.3 KiB JS / 7.2 KiB CSS gzip，production 78.7 KiB JS / 7.2 KiB CSS gzip，全部通過既定budget。這是local regression evidence，不取代部署後真實裝置/網路的p75 Web Vitals。
+2026-09-02 UI 改版後的 bundle：demo 24.2 KiB JS / 7.8 KiB CSS gzip，production 79.7 KiB JS / 7.8 KiB CSS gzip，全部低於 150 KiB JS／30 KiB CSS budget。本機 Edge 首次冷啟動曾量到一次 LCP 3.7 秒，隨後三次為 1.296／1.416／0.932 秒；這組資料只作本機 regression evidence，部署後仍要以真實裝置與網路的 p75 Web Vitals 判定。
 
 Robot v2需要針對單一層除錯時，可個別執行：
 
@@ -30,7 +30,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-目前 Playwright涵蓋 deterministic完整旅程、arrival semantic、keyboard map、靜態與動態sender/recipient axe、320–768 overflow、640px／320px等效reflow、reduced-motion與真實 SVG geometry。2026-08-28另以實際Chromium在1440×1000與390×844逐頁走完sender、recipient與completion，共留存13張畫面，console/page/network error皆為0；並新增step transition的scroll/focus regression與公開UI不得顯示內部狀態版本的斷言。人工仍需涵蓋：NVDA/VoiceOver、實際瀏覽器200%/400% zoom、large text、真實觸控、virtual keyboard、landscape與低高度。
+目前 Playwright 涵蓋 deterministic 完整旅程、arrival semantic、keyboard map、靜態與動態 sender/recipient axe、320–768 overflow、640px／320px 等效 reflow、reduced-motion 與真實 SVG geometry。`chromium-motion` 專案刻意關閉 reduced motion，驗證首頁示意只跑一次、車輛會沿本次 SVG 路線前進、互動不使用 `transition: all`。2026-09-02 全套結果為 26 passed、3 skipped、0 failed；另以實際 Chromium 檢查 desktop 與 390px 的首頁、Step 2、Step 3、Step 5，console/page error 均為 0。人工仍需涵蓋：NVDA/VoiceOver、實際瀏覽器 200%/400% zoom、large text、真實觸控、virtual keyboard、landscape 與低高度。
 
 ## Database
 
