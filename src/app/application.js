@@ -163,8 +163,10 @@ export class Application {
     if (this.route === '/privacy') content = this.#privacyPage();
     else if (this.route === '/support') content = this.#supportPage();
     else if (this.route === '/operator/route-validation') content = this.#routeValidationPage();
-    else if (!this.state.session || this.route === '/') content = this.#homePage();
+    // 取件不需要帳號，所以這一條必須排在 session 檢查前面 —— 否則沒登入的
+    // 收件人一按「我要取件」就被彈回首頁，而那正是他唯一該走的入口。
     else if (this.route === '/pickup') content = this.#pickupEntryPage();
+    else if (!this.state.session || this.route === '/') content = this.#homePage();
     else if (this.route.startsWith('/delivery')) content = this.#deliveryPage();
     else content = this.#notFound();
 
@@ -300,8 +302,9 @@ export class Application {
     const fields = el('div', { className: 'form-grid' });
     fields.append(
       this.#textField('recipientName', '收件人姓名', draft.recipientName, { autocomplete: 'name', maxlength: '50', required: true }),
-      this.#textField('recipientPhone', '台灣手機號碼', draft.recipientPhone, { autocomplete: 'tel', inputmode: 'tel', placeholder: '0912345678', required: true, help: '手機號碼用來傳送取件資訊，也會在現場需要協助時聯絡收件人。' }),
-      this.#textField('recipientEmail', 'Email（選填）', draft.recipientEmail, { autocomplete: 'email', type: 'email', maxlength: '254', help: '若主要通知未送達，系統才會改用你同意提供的 Email。' }),
+      this.#textField('recipientPhone', '台灣手機號碼', draft.recipientPhone, { autocomplete: 'tel', inputmode: 'tel', placeholder: '0912345678', required: true, help: '現場需要協助時聯絡收件人。' }),
+      // 取件碼是寄到這個信箱的 —— 沒有它，收件人就沒有辦法取件。
+      this.#textField('recipientEmail', 'Email', draft.recipientEmail, { autocomplete: 'email', type: 'email', maxlength: '254', required: true, help: '取件代號與取件碼會寄到這個信箱。' }),
       this.#selectField('itemType', '物品類型', draft.itemType, ITEM_TYPES),
       this.#textArea('note', '備註（選填）', draft.note, { maxlength: '300', help: '請勿填入不必要的個人資料。最多 300 字。' })
     );

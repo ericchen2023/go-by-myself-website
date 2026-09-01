@@ -26,6 +26,16 @@ describe('shared input validation', () => {
     expect(result.value.note).toBe('測試文件');
   });
 
+  it('requires an email, because that is where the pickup code goes', () => {
+    const result = validateDeliveryInput({ ...valid, recipientEmail: '' });
+    expect(result.errors.recipientEmail).toContain('取件碼會寄到這裡');
+  });
+
+  it('still refuses an address that could not receive anything', () => {
+    const result = validateDeliveryInput({ ...valid, recipientEmail: 'not-an-address' });
+    expect(result.errors.recipientEmail).toBeTruthy();
+  });
+
   it('rejects identical stops and invalid contact data', () => {
     const result = validateDeliveryInput({ ...valid, dropoffCode: 'LIBRARY', recipientPhone: '123', recipientName: '' });
     expect(result.errors.dropoffCode).toMatch(/不能/);
@@ -39,4 +49,3 @@ describe('shared input validation', () => {
     expect(result.errors.note).toMatch(/300/);
   });
 });
-
