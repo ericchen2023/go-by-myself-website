@@ -162,6 +162,7 @@ export class Application {
     else if (this.route === '/support') content = this.#supportPage();
     else if (this.route === '/operator/route-validation') content = this.#routeValidationPage();
     else if (!this.state.session || this.route === '/') content = this.#homePage();
+    else if (this.route === '/pickup') content = this.#pickupEntryPage();
     else if (this.route.startsWith('/delivery')) content = this.#deliveryPage();
     else content = this.#notFound();
 
@@ -185,6 +186,7 @@ export class Application {
       googleDisabled,
       googleHelp,
       recoveryText,
+      goToPickup: () => this.navigate('/pickup'),
       setAuthTab: (tab) => {
         this.authTab = tab;
         this.authNotice = '';
@@ -700,6 +702,42 @@ export class Application {
         )
       ),
       modeToolbar(this.state, this.adapter, (path) => this.navigate(path)),
+      siteFooter(),
+      liveRegion(this.#liveMessage())
+    );
+  }
+
+  /** 沒有連結的收件人從這裡進來：輸入信上的取件代號。 */
+  #pickupEntryPage() {
+    const form = el('form', { className: 'pickup-ref-form', novalidate: true },
+      el('h1', {}, '輸入取件代號'),
+      el('p', {}, '取件代號寫在通知信裡，六個英數字。不必登入。'),
+      errorBanner(this.uiError, () => { this.uiError = null; this.render(); }),
+      el('div', { className: 'field pickup-ref-field' },
+        el('label', { for: 'pickup-ref' }, '取件代號'),
+        el('input', {
+          id: 'pickup-ref',
+          name: 'pickupRef',
+          type: 'text',
+          autocomplete: 'off',
+          spellcheck: 'false',
+          maxlength: '12',
+          'aria-describedby': 'pickup-ref-help'
+        }),
+        el('p', { id: 'pickup-ref-help', className: 'field-help' }, '可直接貼上；系統會忽略空白與連字號。')
+      ),
+      el('button', { className: 'button button--primary button--full', type: 'submit', disabled: this.busy }, '前往取件')
+    );
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const value = String(new FormData(form).get('pickupRef') ?? '');
+      void this.#run(async () => {
+        const publicRef = await this.adapter.resolvePickupRef(value);
+        if (publicRef) this.navigate(`/pickup/${encodeURIComponent(publicRef)}`);
+      });
+    });
+    return el('div', { className: 'recipient-shell' },
+      el('main', { id: 'main-content', className: 'recipient-main' }, form),
       siteFooter(),
       liveRegion(this.#liveMessage())
     );
