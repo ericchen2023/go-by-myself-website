@@ -202,3 +202,21 @@ export function recipientNotice(notification, status) {
   }
   return { sent: false, canReveal: false, message: '車輛已到站，正在把取件碼寄給收件人。' };
 }
+
+const PHASE_BY_STATUS = {
+  compartment_open_for_recipient: 'open',
+  picked_up: 'confirming',
+  completed: 'confirmed'
+};
+
+/**
+ * 取件頁該顯示哪一步。attempt.phase 只活在這一次瀏覽裡 —— 重新整理、換一台
+ * 裝置、從信裡重新點進來，它都會回到 idle，於是畫面又去要一組早就用掉的取件
+ * 碼，而「確認已取出」因為階段不對而不出現。伺服器的狀態才是權威；它說得出
+ * 來的階段就以它為準，說不出來的（還在等驗證、被鎖定）才交回給本地。
+ * @param {string} status
+ * @param {string} [attemptPhase]
+ */
+export function pickupPhase(status, attemptPhase) {
+  return PHASE_BY_STATUS[status] ?? attemptPhase ?? 'idle';
+}
