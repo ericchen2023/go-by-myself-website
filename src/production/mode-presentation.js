@@ -49,3 +49,16 @@ export function pickupOpenAction() {
     el('p', {}, '系統會等待車輛回報取物與關門結果；網頁不能自行把投遞標示為完成。')
   );
 }
+
+/**
+ * 取件是收件人的事：寄件人手上不該有一條直接進取件頁的路。那正是「取件碼不
+ * 經過寄件人」要擋掉的同一件事 —— 有捷徑就等於沒擋。
+ * @param {string} _publicRef
+ * @param {{compact?: boolean}} [options]
+ */
+export function recipientHandoff(_publicRef, options = {}) {
+  void _publicRef;
+  return options.compact
+    ? null
+    : el('p', { className: 'field-help' }, '收件人會用信裡的取件代號和取件碼進入取件頁。');
+}
