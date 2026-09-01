@@ -47,6 +47,9 @@ Deno.serve(async (request) => {
         p_note: input.note ?? '',
         p_idempotency_key: body.idempotencyKey
       });
+    } else if (body.intent === 'GET_DELIVERY') {
+      // 用來把已經結束的那一筆抓回來看結局；get_active 依定義看不到終態。
+      result = await client.rpc('get_delivery_projection', { p_delivery_id: body.deliveryId });
     } else if (body.intent === 'ISSUE_PICKUP_CODE') {
       // 明碼只在這裡存在一次：資料庫只收 HMAC digest，所以取件碼不落地，
       // 重發就是換一組新的，舊的當場失效。
