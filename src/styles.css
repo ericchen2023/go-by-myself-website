@@ -681,3 +681,18 @@ input:focus, select:focus, textarea:focus { border-color: var(--route); outline:
 @media (forced-colors: active) {
   .route-edge, .journey-segment, .stop-dot, .vehicle-body { forced-color-adjust: auto; }
 }
+
+/* 取件碼只顯示一次，所以它必須一眼就能抄下來。 */
+.pickup-code-reveal {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line, #d9d9d9);
+  border-radius: 10px;
+  background: var(--surface-raised, #f6f6f4);
+}
+.pickup-code-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.22em;
+}

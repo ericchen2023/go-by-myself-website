@@ -1,5 +1,5 @@
 begin;
-select plan(54);
+select plan(63);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -731,6 +731,112 @@ select is(
   (select status::text from public.deliveries where id = (select delivery_four from route_test_context)),
   'arrived_pickup',
   'a vehicle that has a compartment still waits for the command before the sender loads'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 收件端：沒有艙門的車由收件人自己確認取件，有艙門的車不得走這條路。
+-- ---------------------------------------------------------------------------
+-- delivery_three 已經在路上（in_transit）。把它推到目的地，模擬車輛抵達。
+update public.deliveries set status = 'arrived_dropoff', version = version + 1, updated_at = now()
+where id = (select delivery_three from route_test_context);
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+
+select throws_ok(
+  $$ select public.confirm_recipient_pickup(
+    (select public_ref from public.deliveries where id = (select delivery_three from route_test_context)),
+    gen_random_uuid()
+  ) $$,
+  -- RLS_DENIED 是用 errcode 42501 丟的，不是預設的 P0001。
+  '42501',
+  'RLS_DENIED',
+  'a signed-in visitor cannot confirm a pickup; only the pickup endpoint may'
+);
+
+do $$
+declare target uuid;
+begin
+  select delivery_three into target from route_test_context;
+  perform public.issue_recipient_pickup_code(target, '\x01'::bytea, 1::smallint, now() + interval '30 minutes');
+end $$;
+
+select is(
+  (select status::text from public.deliveries where id = (select delivery_three from route_test_context)),
+  'awaiting_recipient',
+  'issuing the code opens the delivery for the recipient'
+);
+select is(
+  (select count(*) from private.pickup_credentials
+   where delivery_id = (select delivery_three from route_test_context) and state = 'active'),
+  1::bigint,
+  'exactly one pickup credential is active'
+);
+
+-- 重發：舊碼必須當場失效，不能兩組同時有效。
+do $$
+declare target uuid;
+begin
+  select delivery_three into target from route_test_context;
+  perform public.issue_recipient_pickup_code(target, '\x02'::bytea, 1::smallint, now() + interval '30 minutes');
+end $$;
+
+select is(
+  (select count(*) from private.pickup_credentials
+   where delivery_id = (select delivery_three from route_test_context) and state = 'active'),
+  1::bigint,
+  'reissuing a code leaves only the newest one active'
+);
+select is(
+  (select digest from private.pickup_credentials
+   where delivery_id = (select delivery_three from route_test_context) and state = 'active'),
+  '\x02'::bytea,
+  'the active credential is the one just issued'
+);
+
+-- 收件人驗證通過（沒有艙門 → 直接開放取件），再自己確認完成。
+do $$
+declare target uuid; ref uuid;
+begin
+  select delivery_three into target from route_test_context;
+  select public_ref into ref from public.deliveries where id = target;
+  -- auth.role() 讀的是 request.jwt.claims，不是 role GUC。
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  perform public.redeem_pickup_credential(ref, '\x02'::bytea, gen_random_uuid(), '\xaa'::bytea);
+end $$;
+
+select is(
+  (select status::text from public.deliveries where id = (select delivery_three from route_test_context)),
+  'compartment_open_for_recipient',
+  'a verified code opens a doorless deck without waiting on a command'
+);
+
+do $$
+declare ref uuid;
+begin
+  select public_ref into ref from public.deliveries where id = (select delivery_three from route_test_context);
+  -- auth.role() 讀的是 request.jwt.claims，不是 role GUC。
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  perform public.confirm_recipient_pickup(ref, gen_random_uuid());
+end $$;
+
+select is(
+  (select status::text from public.deliveries where id = (select delivery_three from route_test_context)),
+  'completed',
+  'the recipient confirming the pickup completes the delivery'
+);
+select is(
+  (select safe_metadata ->> 'assertedBy' from public.delivery_status_history
+   where delivery_id = (select delivery_three from route_test_context) and to_status = 'completed'),
+  'recipient',
+  'completion is recorded as a recipient assertion rather than a sensor reading'
+);
+select is(
+  (select operational_status::text from public.vehicles where id = (select vehicle_id from route_test_context)),
+  'available',
+  'completing the delivery frees the vehicle it was holding'
 );
 
 select * from finish();
