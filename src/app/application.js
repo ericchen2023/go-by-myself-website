@@ -575,7 +575,12 @@ export class Application {
         action.append(el('a', { className: 'button button--primary', href: `/pickup/${delivery.publicRef}` }, '前往收件人取件頁'));
       }
     } else if (status === 'compartment_open_for_recipient') {
-      action.append(el('p', {}, '收件艙已開啟，正在等待收件人取出物品並關好艙門。這時投遞尚未完成。'));
+      action.append(
+        el('p', {}, '收件艙已開啟，正在等待收件人取出物品並關好艙門。這時投遞尚未完成。'),
+        // 交件還沒完成，交接的路就不該收起來 —— 上一個狀態有這個連結，這裡沒有，
+        // 對同時扮演兩個角色的人來說就是一條斷掉的路。
+        el('a', { className: 'button button--secondary', href: `/pickup/${delivery.publicRef}` }, '前往收件人取件頁')
+      );
     } else if (status === 'picked_up') {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '已收到取物與關門資訊，正在完成最後確認。'));
     } else if (status === 'completed') {
