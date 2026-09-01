@@ -1,5 +1,5 @@
 begin;
-select plan(81);
+select plan(84);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -1028,6 +1028,31 @@ select is(
     #>> '{pickupContext,hasCompartment}',
   'false',
   'the pickup page is told the vehicle has no door to wait on'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 投遞結束之後仍然看得到它。get_active 依定義看不到終態，畫面因此學不到結局。
+-- ---------------------------------------------------------------------------
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+
+select is(
+  public.get_delivery_projection((select delivery_three from route_test_context)) #>> '{delivery,status}',
+  'completed',
+  'a sender can still see how their own finished delivery ended'
+);
+select is(
+  public.get_active_delivery_projection() #>> '{delivery,id}',
+  null,
+  'the active lookup still refuses to call a finished delivery active'
+);
+select throws_ok(
+  $$ select public.get_delivery_projection((select delivery_four from route_test_context)) $$,
+  '42501',
+  'RLS_DENIED',
+  'one sender cannot read another sender delivery by id'
 );
 
 select * from finish();
