@@ -997,10 +997,16 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- 車輛的連線狀態來自車輛本身，不是某一段路的快照。
 -- ---------------------------------------------------------------------------
--- 讓 progress 停在 offline（路跑完就是這樣），車輛本身則剛回報過。
-update public.delivery_progress_current
-set connectivity = 'offline', observed_at = now() - interval '10 minutes'
-where delivery_id = (select delivery_three from route_test_context);
+-- delivery_three 是用 UPDATE 直接推狀態的，沒走過遙測，所以沒有 progress 那一列。
+-- 這裡把情境明確建出來：一段跑完的路（凍結在 offline），配一台仍在回報的車。
+insert into public.delivery_progress_current(
+  delivery_id, version, segment_id, progress, connectivity, position_quality, observed_at)
+values (
+  (select delivery_three from route_test_context), 1, 'SEG_LIBRARY_HSS2', 1.0,
+  'offline', 'valid', now() - interval '10 minutes')
+on conflict (delivery_id) do update
+set connectivity = 'offline', position_quality = 'valid',
+    observed_at = now() - interval '10 minutes';
 update public.vehicle_state_current
 set connectivity = 'online', observed_at = now()
 where vehicle_id = (select vehicle_id from route_test_context);
