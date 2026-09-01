@@ -326,7 +326,8 @@ export class Application {
       this.fieldErrors = validation.errors;
       if (!Object.keys(validation.errors).length) this.#setWizardStep(4);
       else {
-        this.uiError = { code: 'DELIVERY_VALIDATION_FAILED', message: '請修正標示的欄位。', retryable: false };
+        // 帶上欄位錯誤，橫幅才知道這是可以自己修好的表單，而不是要回報的當機。
+        this.uiError = { code: 'DELIVERY_VALIDATION_FAILED', message: '請修正標示的欄位。', retryable: false, fieldErrors: validation.errors };
         this.render();
         requestAnimationFrame(() => /** @type {HTMLElement|null} */ (document.querySelector('.field--error input, .field--error textarea, .field--error select'))?.focus());
       }
@@ -593,7 +594,11 @@ export class Application {
     } else if (status === 'cancelled') {
       action.append(el('p', {}, cancelledCopy), this.#newDeliveryButton());
     } else if (status === 'delivery_failed') {
-      action.append(el('div', { className: 'alert alert--danger' }, '投遞無法繼續。請保持物品與艙門原狀，等待現場人員協助。'));
+      action.append(
+        el('div', { className: 'alert alert--danger' }, '投遞無法繼續。請保持物品與艙門原狀，等待現場人員協助。'),
+        // 這是終態：沒有按鈕的話，寄件人就停在一則公告前面，什麼都做不了。
+        this.#newDeliveryButton()
+      );
     }
 
     const cancelStatuses = ['confirmed', 'dispatching', 'arrived_pickup', 'compartment_open_for_sender', 'loaded', 'in_transit'];
