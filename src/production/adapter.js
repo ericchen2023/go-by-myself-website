@@ -281,6 +281,17 @@ export class ProductionAdapter {
     this.#patch({ ...this.#withLocalTelemetryReceipt(projection), pickupCode: pickupCode ?? null, actionError: null });
   }
 
+  /**
+   * 用信裡的取件代號換到取件頁。代號不是秘密，但伺服器對「查無此代號」和
+   * 「還不能取件」回同一種答案，所以這裡也只會得到一句話。
+   * @param {string} rawRef
+   */
+  async resolvePickupRef(rawRef) {
+    const pickupRef = String(rawRef).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const resolved = await this.#publicInvoke('RESOLVE_PICKUP_REF', { pickupRef });
+    return resolved?.publicRef ?? null;
+  }
+
   /** @param {string} publicRef */
   async loadPickupContext(publicRef) {
     const projection = await this.#publicInvoke('GET_PICKUP_CONTEXT', { publicRef });

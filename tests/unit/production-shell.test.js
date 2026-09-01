@@ -54,7 +54,8 @@ test('production home fails closed without showing a legacy email-login fallback
     setAuthTab: () => {},
     toggleRecovery: () => {},
     google: () => {},
-    dismissError: () => {}
+    dismissError: () => {},
+    goToPickup: () => {}
   });
 
   expect(screen.textContent).not.toContain('展示模式使用測試帳號與模擬車輛');

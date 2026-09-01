@@ -128,7 +128,8 @@ async function notifyRecipientOnArrival(client: any, deliveryId: string) {
     recipientName: handover.data?.recipientName ?? '',
     stopName: handover.data?.dropoffName ?? '收件站點',
     code,
-    link: `${origin}/pickup/${handover.data?.publicRef}`
+    link: `${origin}/pickup/${handover.data?.publicRef}`,
+    pickupRef: handover.data?.pickupRef ?? ''
   });
   const recorded = await client.rpc('record_delivery_notification', {
     p_delivery_id: deliveryId,
