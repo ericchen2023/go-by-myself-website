@@ -12,9 +12,9 @@ import {
 } from './components.js';
 import { createRouteSelector } from '../map/map-view.js';
 import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
-import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
+import { DELIVERY_LOCATIONS, locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
-import { compartmentRequest, notificationCopy, pickupPhase, recipientNotice, stepForStatus } from '../domain/presentation.js';
+import { compartmentRequest, notificationCopy, pickupPhase, recipientNotice, stepForStatus, unreachableFrom } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
 import {
   authAlternative,
@@ -311,13 +311,22 @@ export class Application {
         note: String(data.get('note') ?? '')
       };
     };
+    const unreachable = unreachableFrom(
+      draft.pickupCode, this.state.servicePairs, DELIVERY_LOCATIONS.map((location) => location.code));
+    if (unreachable.length) {
+      form.append(el('p', { className: 'field-help', role: 'note' },
+        `目前無法從${locationByCode(draft.pickupCode)?.name ?? '此站'}直達：${
+          unreachable.map((code) => locationByCode(code)?.name ?? code).join('、')
+        }。這兩段路線尚未示教，車輛沒有可用的地圖。`));
+    }
     form.append(createRouteSelector({
       id: 'dropoff-location',
       label: '選取收件地點',
       selectedCode: draft.dropoffCode,
       pickupCode: draft.pickupCode,
       dropoffCode: draft.dropoffCode,
-      disabledCodes: [draft.pickupCode],
+      // 沒有示教過的組合不給選：那不是偏好，是車上沒有那張圖也沒有那條路徑。
+      disabledCodes: [draft.pickupCode, ...unreachable],
       interactive: true,
       onSelect: (code) => this.adapter.saveDraft({ ...typedFields(), dropoffCode: code })
     }));
