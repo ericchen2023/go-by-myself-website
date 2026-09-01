@@ -25,6 +25,19 @@ Deno.serve(async (request) => {
       if (context.error || !context.data) return errorResponse(request, requestId, 404, 'PICKUP_CONTEXT_UNAVAILABLE', '取件資訊無效、未準備或已失效。');
       return json(request, 200, { requestId, data: context.data });
     }
+    if (body.intent === 'CONFIRM_PICKUP') {
+      // 這台車沒有艙門，沒有取物感測器可以等 —— 由收件人自己確認，
+      // 資料庫那邊會拒絕替有艙門的車做同樣的事。
+      const confirmed = await client.rpc('confirm_recipient_pickup', {
+        p_public_ref: body.publicRef,
+        p_attempt_id: body.idempotencyKey ?? crypto.randomUUID()
+      });
+      if (confirmed.error) {
+        const code = String(confirmed.error.message ?? 'DELIVERY_INVALID_TRANSITION').split(':')[0];
+        return errorResponse(request, requestId, 400, code, '取件確認未完成，請重新整理後再試。');
+      }
+      return json(request, 200, { requestId, data: confirmed.data });
+    }
     if (body.intent !== 'REDEEM_PICKUP_CREDENTIAL' || !body.code) {
       return errorResponse(request, requestId, 400, 'PICKUP_CREDENTIAL_INVALID', '取件資訊無效或已失效。');
     }
