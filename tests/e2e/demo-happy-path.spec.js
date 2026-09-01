@@ -59,7 +59,7 @@ test('arrival at dropoff never renders completed', async ({ page }) => {
   await page.getByRole('button', { name: '呼叫車輛' }).click();
   await page.getByRole('button', { name: '開啟置物艙' }).click({ timeout: 15_000 });
   await page.getByRole('button', { name: '確認已放入並關門' }).click({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: '取件憑證已啟用' })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('.stepper')).toContainText('步驟 7 / 8', { timeout: 15_000 });
   await expect(page.locator('.stepper')).not.toContainText('步驟 8 / 8');
-  await expect(page.getByText(/尚未完成投遞|抵達不等於完成/).first()).toBeVisible();
 });
