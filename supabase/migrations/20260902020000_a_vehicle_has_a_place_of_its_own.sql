@@ -73,10 +73,11 @@ begin
         raise exception 'ROUTE_VERSION_MISMATCH';
       end if;
       route_segment := route_payload ->> 'segmentId';
+      -- 存下來的圖是 edgeIds（字串陣列），不是 edges（物件陣列）。
       if not exists (
         select 1 from public.route_graph_versions graph,
-             lateral jsonb_array_elements(graph.graph -> 'edges') edge
-        where graph.id = graph_id and edge ->> 'id' = route_segment
+             lateral jsonb_array_elements_text(graph.graph -> 'edgeIds') edge_id
+        where graph.id = graph_id and edge_id = route_segment
       ) then
         raise exception 'ROUTE_SEGMENT_NOT_ALLOWED';
       end if;

@@ -1130,7 +1130,7 @@ begin
       'quality', 'valid',
       'route', jsonb_build_object(
         'legId', 'A_B',
-        'segmentId', (select graph.graph #>> '{edges,0,id}' from public.route_graph_versions graph where graph.status = 'active'),
+        'segmentId', (select graph.graph #>> '{edgeIds,0}' from public.route_graph_versions graph where graph.status = 'active'),
         'progress', 0.25,
         'lateralM', 0.4,
         'routeGraphVersion', (select version from public.route_graph_versions where status = 'active'),
