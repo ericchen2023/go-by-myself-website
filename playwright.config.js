@@ -20,8 +20,13 @@ export default defineConfig({
     reducedMotion: 'reduce'
   },
   projects: [
-    { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'] } },
-    { name: 'chromium-mobile', use: { ...devices['Pixel 5'] } }
+    { name: 'chromium-desktop', testIgnore: /motion\.spec\.js/, use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium-mobile', testIgnore: /motion\.spec\.js/, use: { ...devices['Pixel 5'] } },
+    {
+      name: 'chromium-motion',
+      testMatch: /motion\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], reducedMotion: 'no-preference' }
+    }
   ],
   webServer: remoteBaseURL ? undefined : {
     command: 'npm run demo',

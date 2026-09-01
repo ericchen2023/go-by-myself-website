@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('auth, crest, station rules, and validation recovery are complete', async ({ page }) => {
+test('auth, crest, station rules, and validation recovery are complete', async ({ page }, testInfo) => {
   await page.goto('/');
 
   const crest = page.getByRole('img', { name: '國立東華大學校徽' }).first();
@@ -22,11 +22,20 @@ test('auth, crest, station rules, and validation recovery are complete', async (
   }
 
   await page.locator('input[name="pickup-location"][value="LIBRARY"]').check();
+  if (testInfo.project.name === 'chromium-mobile') {
+    const continueBox = await page.getByRole('button', { name: '繼續填寫投遞資料' }).boundingBox();
+    const mapBox = await page.locator('.map-panel').boundingBox();
+    expect(continueBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(mapBox?.y ?? Number.NEGATIVE_INFINITY);
+  }
   await page.getByRole('button', { name: '繼續填寫投遞資料' }).click();
   await expect(page.getByRole('heading', { name: '填寫投遞資料' })).toBeFocused();
   await expect(page.locator('.skip-link')).not.toBeFocused();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await expect(page.locator('input[name="dropoff-location"][value="LIBRARY"]')).toBeDisabled();
+  await expect(page.locator('.route-overview')).not.toHaveAttribute('open', '');
+  await expect(page.locator('.route-overview .route-map')).toBeHidden();
+  const firstFieldBox = await page.getByLabel('收件人姓名').boundingBox();
+  expect(firstFieldBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(await page.evaluate(() => innerHeight));
   await page.locator('input[name="dropoff-location"][value="ADMIN"]').check();
   await page.getByRole('button', { name: '檢查並前往確認' }).click();
 

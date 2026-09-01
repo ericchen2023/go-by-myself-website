@@ -14,6 +14,25 @@ test('canonical SVG geometry supports path length and point projection', async (
   expect(geometry.flat().every((point) => point.finite)).toBe(true);
   await expect(page.locator('.map-stop')).toHaveCount(4);
   await expect(page.locator('.origin-capsule')).toHaveCount(0);
+  await expect(page.locator('.stop-approach')).toHaveCount(0);
+  const stopDistances = await page.locator('.route-map').evaluate((svg) => {
+    const paths = [...svg.querySelectorAll('.route-edge')];
+    return [...svg.querySelectorAll('.map-stop')].map((stop) => {
+      const matrix = /** @type {SVGGElement} */ (stop).transform.baseVal.consolidate()?.matrix;
+      const location = { x: matrix?.e ?? Number.NaN, y: matrix?.f ?? Number.NaN };
+      let closest = Number.POSITIVE_INFINITY;
+      for (const path of paths) {
+        const route = /** @type {SVGPathElement} */ (path);
+        const length = route.getTotalLength();
+        for (let index = 0; index <= 1000; index += 1) {
+          const point = route.getPointAtLength(length * index / 1000);
+          closest = Math.min(closest, Math.hypot(location.x - point.x, location.y - point.y));
+        }
+      }
+      return closest;
+    });
+  });
+  expect(stopDistances.every((distance) => distance <= 1.5)).toBe(true);
   const visibleMapText = await page.locator('.route-map text').allTextContents();
   expect(visibleMapText).not.toContain('P');
   expect(visibleMapText).not.toContain('HSS');

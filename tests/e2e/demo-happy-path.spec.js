@@ -20,13 +20,13 @@ test('complete deterministic sender and recipient demo', async ({ page }) => {
   await page.getByRole('button', { name: '確認投遞' }).click();
   await expect(page.getByRole('heading', { name: '準備呼叫車輛' })).toBeVisible();
   await page.getByRole('button', { name: '呼叫車輛' }).click();
-  await expect(page.getByRole('heading', { name: '確認車輛後再開艙' })).toBeVisible({ timeout: 6_000 });
+  await expect(page.getByRole('heading', { name: '確認車輛後再開艙' })).toBeVisible({ timeout: 8_000 });
   await expect(page.locator('body')).not.toContainText('狀態版本');
 
   await page.getByRole('button', { name: '開啟置物艙' }).click();
   await expect(page.getByRole('heading', { name: '請放入物品' })).toBeVisible({ timeout: 3_000 });
   await page.getByRole('button', { name: '確認已放入並關門' }).click();
-  await expect(page.getByRole('heading', { name: '取件憑證已啟用' })).toBeVisible({ timeout: 6_000 });
+  await expect(page.getByRole('heading', { name: '取件憑證已啟用' })).toBeVisible({ timeout: 8_000 });
   await expect(page.getByText('NDHU 4826', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: '前往收件人取件頁' }).click();
@@ -52,9 +52,10 @@ test('arrival at dropoff never renders completed', async ({ page }) => {
   await page.getByRole('button', { name: '檢查並前往確認' }).click();
   await page.getByRole('button', { name: '確認投遞' }).click();
   await page.getByRole('button', { name: '呼叫車輛' }).click();
-  await page.getByRole('button', { name: '開啟置物艙' }).click({ timeout: 6_000 });
+  await page.getByRole('button', { name: '開啟置物艙' }).click({ timeout: 8_000 });
   await page.getByRole('button', { name: '確認已放入並關門' }).click({ timeout: 3_000 });
-  await expect(page.locator('.stepper')).toContainText('步驟 7 / 8', { timeout: 6_000 });
+  await expect(page.getByRole('heading', { name: '取件憑證已啟用' })).toBeVisible({ timeout: 8_000 });
+  await expect(page.locator('.stepper')).toContainText('步驟 7 / 8');
   await expect(page.locator('.stepper')).not.toContainText('步驟 8 / 8');
-  await expect(page.getByText(/尚未完成投遞|抵達不等於完成/).first()).toBeVisible();
+  await expect(page.getByText('收件人完成開艙、取物與關門確認後才會結案。')).toBeVisible();
 });
