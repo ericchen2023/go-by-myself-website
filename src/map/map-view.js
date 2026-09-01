@@ -5,56 +5,17 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
 const vehicleMotionStates = new Map();
 
-/**
- * How far a stop's symbol sits off the road it is served from, and where its
- * label goes. The road itself is one corridor with all four stops on it — that
- * is what was surveyed and what the vehicle drives — so these offsets move only
- * the symbol, never the route. A short approach line joins the two, which is
- * also the truer picture: the HSS buildings stand back from the road and the
- * vehicle stops at the kerb.
- *
- * Moving a stop into the graph as a spur would put a car driving LIBRARY to
- * ADMIN on segments it never travels. That was the v4 mistake.
- */
-const STOP_APPROACHES = Object.freeze({
-  LIBRARY: { dx: 0, dy: 0 },
-  HSS2: { dx: 44, dy: 88 },
-  HSS1: { dx: 44, dy: 88 },
-  ADMIN: { dx: 0, dy: 0 }
-});
-
 const STOP_LABELS = Object.freeze({
-  LIBRARY: { x: 128, y: 370, anchor: 'middle' },
-  HSS2: { x: 426, y: 547, anchor: 'middle' },
-  HSS1: { x: 695, y: 442, anchor: 'middle' },
-  ADMIN: { x: 887, y: 109, anchor: 'middle' }
+  LIBRARY: { x: 128, y: 354, anchor: 'middle' },
+  HSS2: { x: 382, y: 472, anchor: 'middle' },
+  HSS1: { x: 651, y: 369, anchor: 'middle' },
+  ADMIN: { x: 887, y: 94, anchor: 'middle' }
 });
-
-/** @param {string} code */
-function stopApproach(code) {
-  return STOP_APPROACHES[code] ?? { dx: 0, dy: 0 };
-}
 
 /** @param {string} code */
 function stopPoint(code) {
   const node = nodeById.get(code);
-  const offset = stopApproach(code);
-  return node ? { x: node.x + offset.dx, y: node.y + offset.dy } : null;
-}
-
-/** The short way in from the corridor to a stop that stands back from it. */
-function appendStopApproaches(svg) {
-  const layer = svgElement('g', { class: 'approach-layer', 'aria-hidden': 'true' });
-  for (const location of DELIVERY_LOCATIONS) {
-    const node = nodeById.get(location.routeNodeId);
-    const offset = stopApproach(location.code);
-    if (!node || (!offset.dx && !offset.dy)) continue;
-    layer.append(svgElement('line', {
-      class: 'stop-approach',
-      x1: node.x, y1: node.y, x2: node.x + offset.dx, y2: node.y + offset.dy
-    }));
-  }
-  svg.append(layer);
+  return node ? { x: node.x, y: node.y } : null;
 }
 
 /** @param {string} name @param {Record<string, string|number>} attributes */
@@ -192,9 +153,22 @@ function pointAndHeadingOnPath(path, progress) {
   const length = path.getTotalLength();
   const distance = length * Math.max(0, Math.min(1, progress));
   const point = path.getPointAtLength(distance);
-  const before = path.getPointAtLength(Math.max(0, distance - 1.5));
-  const after = path.getPointAtLength(Math.min(length, distance + 1.5));
+  const before = path.getPointAtLength(Math.max(0, distance - 8));
+  const after = path.getPointAtLength(Math.min(length, distance + 8));
   return { x: point.x, y: point.y, heading: Math.atan2(after.y - before.y, after.x - before.x) * (180 / Math.PI) };
+}
+
+/** @param {number} from @param {number} to */
+function nearestHeading(from, to) {
+  let result = to;
+  while (result - from > 180) result -= 360;
+  while (result - from < -180) result += 360;
+  return result;
+}
+
+/** @param {number} heading */
+function vehicleTransform(heading) {
+  return `rotate(${heading}) scale(.74)`;
 }
 
 /** @param {SVGSVGElement} svg @param {string} id @param {{segmentId:string,progress:number}|null|undefined} position @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {boolean} animateVehicle */
@@ -229,7 +203,7 @@ function appendVehicle(svg, id, position, parts, animateVehicle = true) {
     role: 'img',
     'aria-label': '車輛在固定路線上的動態示意位置'
   });
-  const vehicle = svgElement('g', { class: 'vehicle-marker__body', transform: `rotate(${initial.heading})`, 'aria-hidden': 'true' });
+  const vehicle = svgElement('g', { class: 'vehicle-marker__body', transform: vehicleTransform(initial.heading), 'aria-hidden': 'true' });
   vehicle.append(
     svgElement('circle', { class: 'vehicle-halo', r: 32 }),
     svgElement('rect', { class: 'vehicle-wheel', x: -21, y: -23, width: 12, height: 7, rx: 3 }),
@@ -247,12 +221,13 @@ function appendVehicle(svg, id, position, parts, animateVehicle = true) {
   const distance = targetProgress === null ? 0 : Math.abs(targetProgress - startProgress) * routeLength;
   const duration = Math.max(240, Math.min(620, 220 + distance * 2.4));
   const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-  const state = { startProgress, targetProgress: targetProgress ?? startProgress, signature, startedAt: now, duration, frameId: 0, marker, vehicle };
+  const state = { startProgress, targetProgress: targetProgress ?? startProgress, signature, startedAt: now, duration, frameId: 0, marker, vehicle, lastHeading: initial.heading };
   vehicleMotionStates.set(id, state);
   if (!animateVehicle || !canSampleJourney || reduced || distance < 0.25 || typeof globalThis.requestAnimationFrame !== 'function') {
     const target = canSampleJourney ? pointAndHeadingOnPath(path, state.targetProgress) : initial;
     marker.setAttribute('transform', `translate(${target.x} ${target.y})`);
-    vehicle.setAttribute('transform', `rotate(${target.heading})`);
+    state.lastHeading = nearestHeading(state.lastHeading, target.heading);
+    vehicle.setAttribute('transform', vehicleTransform(state.lastHeading));
     state.startProgress = state.targetProgress;
     return;
   }
@@ -262,8 +237,9 @@ function appendVehicle(svg, id, position, parts, animateVehicle = true) {
     const eased = easeInOut(ratio);
     const visualProgress = state.startProgress + (state.targetProgress - state.startProgress) * eased;
     const sample = pointAndHeadingOnPath(path, visualProgress);
+    state.lastHeading = nearestHeading(state.lastHeading, sample.heading);
     state.marker.setAttribute('transform', `translate(${sample.x} ${sample.y})`);
-    state.vehicle.setAttribute('transform', `rotate(${sample.heading})`);
+    state.vehicle.setAttribute('transform', vehicleTransform(state.lastHeading));
     if (ratio < 1) state.frameId = requestAnimationFrame(animate);
     else state.startProgress = state.targetProgress;
   };
@@ -286,7 +262,6 @@ export function createRoutePreview() {
   }));
   appendMapFoundation(svg, 'home-preview');
   appendRouteNetwork(svg, new Set(), 'home-preview');
-  appendStopApproaches(svg);
   const route = shortestRoute('HSS1', 'LIBRARY');
   appendJourneyRoute(svg, 'home-preview', route, null);
   appendStationLabels(svg);
@@ -306,7 +281,7 @@ export function createRoutePreview() {
     svgElement('rect', { class: 'preview-vehicle__window', x: -11, y: -8, width: 19, height: 16, rx: 5 })
   );
   const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-  if (!reduced && motionPath) vehicle.append(svgElement('animateMotion', { dur: '9s', repeatCount: 'indefinite', path: motionPath, rotate: 'auto' }));
+  if (!reduced && motionPath) vehicle.append(svgElement('animateMotion', { dur: '4.6s', repeatCount: '1', fill: 'freeze', path: motionPath, rotate: 'auto' }));
   else {
     const start = nodeById.get('HSS1');
     vehicle.setAttribute('transform', `translate(${start?.x ?? 0} ${start?.y ?? 0})`);
@@ -316,7 +291,7 @@ export function createRoutePreview() {
   return wrapper;
 }
 
-/** @param {{id:string,label:string,selectedCode?:string,pickupCode?:string,dropoffCode?:string,disabledCodes?:string[],interactive?:boolean,activeEdgeIds?:string[],activeRouteParts?:Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>,vehiclePosition?:{segmentId:string,progress:number}|null,animateVehicle?:boolean,onSelect?:(code:string)=>void}} options */
+/** @param {{id:string,label:string,selectedCode?:string,pickupCode?:string,dropoffCode?:string,disabledCodes?:string[],interactive?:boolean,compact?:boolean,showLocationList?:boolean,footer?:Node|null,activeEdgeIds?:string[],activeRouteParts?:Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>,vehiclePosition?:{segmentId:string,progress:number}|null,animateVehicle?:boolean,onSelect?:(code:string)=>void}} options */
 export function createRouteSelector(options) {
   const disabled = new Set(options.disabledCodes ?? []);
   const activeEdges = new Set(options.activeEdgeIds ?? []);
@@ -337,8 +312,6 @@ export function createRouteSelector(options) {
   appendJourneyRoute(svg, options.id, journeyParts, options.vehiclePosition);
   appendStationLabels(svg);
 
-  appendStopApproaches(svg);
-
   const stopLayer = svgElement('g', { class: 'stop-layer' });
   const enabledLocations = DELIVERY_LOCATIONS.filter((location) => !disabled.has(location.code));
   let rovingIndex = Math.max(0, enabledLocations.findIndex((location) => location.code === options.selectedCode));
@@ -353,7 +326,7 @@ export function createRouteSelector(options) {
     const isSelected = location.code === options.selectedCode;
     const group = /** @type {SVGGElement} */ (svgElement('g', {
       class: ['map-stop', isPickup ? 'is-pickup' : '', isDropoff ? 'is-dropoff' : '', isSelected ? 'is-selected' : '', isDisabled ? 'is-disabled' : ''].filter(Boolean).join(' '),
-      transform: `translate(${node.x + stopApproach(location.code).dx} ${node.y + stopApproach(location.code).dy})`, role: interactive ? 'button' : 'img',
+      transform: `translate(${node.x} ${node.y})`, role: interactive ? 'button' : 'img',
       tabindex: interactive && !isDisabled && enabledLocations[rovingIndex]?.code === location.code ? '0' : '-1',
       'aria-label': `${location.name}，${location.detail}${isDisabled ? '，不可選，與放件地點相同' : ''}`,
       'aria-disabled': isDisabled ? 'true' : 'false', 'data-location-code': location.code
@@ -388,12 +361,12 @@ export function createRouteSelector(options) {
 
   const list = el('fieldset', { className: `location-list${interactive ? '' : ' location-list--legend'}` },
     el('legend', { className: 'sr-only' }, options.label),
-    ...DELIVERY_LOCATIONS.map((location) => {
+    ...DELIVERY_LOCATIONS.map((location, index) => {
       const inputId = `${options.id}-${location.code}`;
       const input = el('input', { type: 'radio', id: inputId, name: options.id, value: location.code, checked: options.selectedCode === location.code, disabled: !interactive || disabled.has(location.code), onchange: () => options.onSelect?.(location.code) });
       return el('label', { className: `location-option${options.selectedCode === location.code ? ' is-selected' : ''}${disabled.has(location.code) ? ' is-disabled' : ''}`, htmlFor: inputId },
         input,
-        el('span', { className: 'location-symbol', 'aria-hidden': 'true' }, options.pickupCode === location.code ? '放' : options.dropoffCode === location.code ? '收' : '站'),
+        el('span', { className: 'location-symbol', 'aria-hidden': 'true' }, options.pickupCode === location.code ? '放' : options.dropoffCode === location.code ? '收' : String(index + 1).padStart(2, '0')),
         el('span', { className: 'location-copy' },
           el('strong', {}, location.name),
           el('span', {}, location.detail),
@@ -402,8 +375,29 @@ export function createRouteSelector(options) {
       );
     })
   );
-  return el('section', { className: 'route-selector', 'aria-labelledby': headingId },
+  const mapPanel = el('div', { className: 'map-panel' }, svg);
+  const listPanel = el('div', { className: 'list-panel' }, list);
+  let content;
+  if (options.compact) {
+    content = el('div', { className: 'compact-destination-layout' },
+      listPanel,
+      el('details', { className: 'route-overview' },
+        el('summary', {}, '查看四站路線'),
+        mapPanel
+      )
+    );
+  } else {
+    const showLocationList = options.showLocationList ?? true;
+    content = el('div', {
+      className: [
+        'map-list-layout',
+        options.footer ? 'map-list-layout--with-footer' : '',
+        !showLocationList ? 'map-list-layout--map-only' : ''
+      ].filter(Boolean).join(' ')
+    }, mapPanel, showLocationList ? listPanel : null, options.footer ?? null);
+  }
+  return el('section', { className: `route-selector${options.compact ? ' route-selector--compact' : ''}`, 'aria-labelledby': headingId },
     el('div', { className: 'route-selector__heading' }, heading, mapHint, keyboardHint),
-    el('div', { className: 'map-list-layout' }, el('div', { className: 'map-panel' }, svg), el('div', { className: 'list-panel' }, list))
+    content
   );
 }

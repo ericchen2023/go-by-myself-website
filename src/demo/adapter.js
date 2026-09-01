@@ -30,6 +30,7 @@ function initialState(scenario = 'happy-path') {
       observedAt: null,
       connectivity: 'online',
       positionQuality: 'pending',
+      vehicleState: 'idle',
       activeEdgeIds: []
     },
     commandState: null,
@@ -229,6 +230,7 @@ export class DemoAdapter {
         ...this.state.telemetry,
         connectivity: 'online',
         positionQuality: 'valid',
+        vehicleState: 'moving',
         activeEdgeIds: edgeIds,
         position: positionAlongRoute(route, 0),
         observedAt: this.clock.now()
@@ -237,7 +239,7 @@ export class DemoAdapter {
 
     // A dense deterministic frame sequence makes the schematic vehicle visibly
     // travel the route while preserving the same final state and fake clock.
-    const frames = Array.from({ length: 24 }, (_, index) => (index + 1) / 24);
+    const frames = Array.from({ length: 28 }, (_, index) => (index + 1) / 28);
     frames.forEach((progress, index) => {
       this.#later(() => {
         if (this.state.scenario === 'telemetry-stale' && progress >= 0.48) {
@@ -260,11 +262,14 @@ export class DemoAdapter {
           }
         });
         if (progress === 1) {
-          this.#patch({ commandState: 'completed' });
+          this.#patch({
+            commandState: 'completed',
+            telemetry: { ...this.state.telemetry, vehicleState: 'at_stop' }
+          });
           if (destination === 'pickup') this.#transition('VEHICLE_ARRIVED_PICKUP', 'gateway');
           else this.#arriveDropoff();
         }
-      }, 160 * (index + 1));
+      }, 180 * (index + 1));
     });
   }
 

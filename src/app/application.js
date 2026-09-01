@@ -233,12 +233,25 @@ export class Application {
 
   #pickupStep() {
     const selected = this.state.draft.pickupCode;
+    const continueAction = el('div', { className: 'map-list-footer' },
+      el('div', { className: 'selection-status', role: 'status' },
+        selected
+          ? `已選擇：${locationByCode(selected)?.name ?? '核准站點'}`
+          : '請先選擇一個放件站點'),
+      el('button', {
+        className: 'button button--primary',
+        type: 'button',
+        disabled: !selected,
+        onclick: () => this.#setWizardStep(3)
+      }, '繼續填寫投遞資料')
+    );
     const routeSelector = createRouteSelector({
       id: 'pickup-location',
       label: '選取放置物品地點',
       selectedCode: selected,
       pickupCode: selected,
       interactive: true,
+      footer: continueAction,
       onSelect: (code) => this.adapter.saveDraft({ pickupCode: code, dropoffCode: this.state.draft.dropoffCode === code ? '' : this.state.draft.dropoffCode })
     });
     return this.#flowMain(2, el('div', { className: 'flow-card' },
@@ -246,21 +259,25 @@ export class Application {
         el('h1', {}, '你要在哪裡放入物品？'),
         el('p', {}, '以下站點目前僅供專題展示；實際停靠位置仍需校方與車輛團隊確認。')
       ),
-      routeSelector,
-      el('div', { className: 'action-row action-row--end' },
-        el('button', {
-          className: 'button button--primary',
-          type: 'button',
-          disabled: !selected,
-          onclick: () => this.#setWizardStep(3)
-        }, '繼續填寫投遞資料')
-      )
+      routeSelector
     ));
   }
 
   #detailsStep() {
     const draft = this.state.draft;
+    const pickup = locationByCode(draft.pickupCode);
+    const dropoff = locationByCode(draft.dropoffCode);
     const form = el('form', { className: 'delivery-form', novalidate: true });
+    form.append(el('section', { className: 'route-choice-summary', 'aria-label': '目前投遞路線' },
+      el('div', { className: 'route-choice-summary__path' },
+        el('span', {}, '放件'),
+        el('strong', {}, pickup?.name ?? '尚未選擇'),
+        el('span', { className: 'route-choice-summary__arrow', 'aria-hidden': 'true' }, '→'),
+        el('span', {}, '收件'),
+        el('strong', {}, dropoff?.name ?? '請選擇')
+      ),
+      el('button', { className: 'text-button', type: 'button', onclick: () => this.#setWizardStep(2) }, '修改放件地點')
+    ));
     form.append(createRouteSelector({
       id: 'dropoff-location',
       label: '選取收件地點',
@@ -269,6 +286,7 @@ export class Application {
       dropoffCode: draft.dropoffCode,
       disabledCodes: [draft.pickupCode],
       interactive: true,
+      compact: true,
       onSelect: (code) => this.adapter.saveDraft({ dropoffCode: code })
     }));
 
@@ -307,7 +325,7 @@ export class Application {
       }
     });
     return this.#flowMain(3, el('div', { className: 'flow-card' },
-      el('div', { className: 'flow-heading' },
+      el('div', { className: 'flow-heading flow-heading--compact' },
         el('h1', {}, '填寫投遞資料'),
         el('p', {}, '請填寫收件資訊。送出前仍可返回修改。')
       ),
@@ -426,18 +444,25 @@ export class Application {
       interactive: false,
       activeEdgeIds: telemetry.activeEdgeIds,
       activeRouteParts,
+      showLocationList: false,
       vehiclePosition: ['off_route', 'invalid'].includes(telemetry.positionQuality) ? null : telemetry.position,
       animateVehicle: telemetry.positionQuality === 'valid' && telemetry.connectivity === 'online' && telemetry.vehicleState === 'moving'
     });
+    const routeFirst = ['dispatching', 'loaded', 'in_transit', 'arrived_dropoff', 'awaiting_recipient', 'compartment_open_for_recipient', 'picked_up'].includes(delivery.status);
+    const showRoute = !['completed', 'cancelled', 'delivery_failed'].includes(delivery.status);
+    const transitionNotice = changingLeg ? el('div', { className: 'route-transition-notice', role: 'status' },
+      el('strong', {}, '車輛正在準備下一段路線'),
+      el('span', {}, '重新定位完成前，地圖保留最後一筆可信位置。')) : null;
+    const primary = el('div', { className: `status-primary${routeFirst ? ' status-primary--route-first' : ''}` },
+      statusHero({ status: delivery.status, telemetry })
+    );
+    if (transitionNotice) primary.append(transitionNotice);
+    if (routeFirst && showRoute) primary.append(route);
+    primary.append(this.#statusActions(delivery));
+    if (!routeFirst && showRoute) primary.append(route);
+
     const body = el('div', { className: 'status-layout' },
-      el('div', { className: 'status-primary' },
-        statusHero({ status: delivery.status, telemetry }),
-        this.#statusActions(delivery),
-        changingLeg ? el('div', { className: 'route-transition-notice', role: 'status' },
-          el('strong', {}, '車輛正在準備下一段路線'),
-          el('span', {}, '重新定位完成前，地圖保留最後一筆可信位置。')) : null,
-        route
-      ),
+      primary,
       el('aside', { className: 'status-aside', 'aria-label': '投遞摘要' },
         el('section', { className: 'aside-section' },
           el('h2', {}, '本次投遞'),
