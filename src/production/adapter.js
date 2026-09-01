@@ -318,6 +318,7 @@ export class ProductionAdapter {
       this.routeValidationChannel = null;
     }
     this.#stopConnectivityClock();
+    this.#stopDeliveryRefreshClock();
     const session = this.state.session;
     this.#patch({ ...initialState(), session, wizardStep: session ? 2 : 1 });
   }
@@ -444,7 +445,7 @@ export class ProductionAdapter {
         // page showing it for ever — nothing is newer than a delivery that no
         // longer exists — and with no way back to the form the reader could not
         // start another one.
-        if (this.state.delivery && await this.#confirmNoDelivery()) await this.#returnToNewDelivery();
+        if (this.state.delivery && await this.#confirmNoDelivery()) await this.#settleFinishedDelivery();
         return;
       }
       const currentVersion = this.state.delivery?.version ?? -1;
@@ -478,29 +479,22 @@ export class ProductionAdapter {
     return !confirmation?.delivery;
   }
 
-  /** Back to a blank form, with the finished delivery's channel let go. */
-  async #returnToNewDelivery() {
-    const client = this.supabase;
-    if (this.channel && client) {
-      const channel = this.channel;
-      this.channel = null;
-      await client.removeChannel(channel);
-    }
+  /**
+   * 投遞結束了。不要把畫面清掉：寄件人還沒看到結果，而收件人的取件頁也是靠這
+   * 筆資料才認得自己在看哪一筆 —— 清掉的話那頁會變成「找不到取件資訊」。
+   * 改成把最後的狀態抓回來、停掉時鐘，下一步交給人自己按。
+   */
+  async #settleFinishedDelivery() {
+    const deliveryId = this.state.delivery?.id;
     this.#stopConnectivityClock();
     this.#stopDeliveryRefreshClock();
-    const fresh = initialState();
-    this.#patch({
-      delivery: fresh.delivery,
-      draft: fresh.draft,
-      telemetry: fresh.telemetry,
-      commandState: fresh.commandState,
-      command: fresh.command,
-      vehicle: fresh.vehicle,
-      pickupCode: fresh.pickupCode,
-      notification: fresh.notification,
-      wizardStep: 1,
-      actionError: null
-    });
+    if (!deliveryId) return;
+    try {
+      const final = await this.#invoke('GET_DELIVERY', { deliveryId }, 0);
+      if (final?.delivery) this.#patch(this.#withLocalTelemetryReceipt(final));
+    } catch {
+      // 抓不到結局就維持畫面上最後看到的狀態 —— 那仍然比把它清掉好。
+    }
   }
 
   /**
