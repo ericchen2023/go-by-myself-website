@@ -1192,14 +1192,16 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- 派車指令要用車上認得的 legId，而且去接件那一段也得示教過。
 -- ---------------------------------------------------------------------------
--- 把車放回圖資中心並釋放，才能再派一次。
+-- 車停在行政大樓：到放件站（圖資中心）的那一段是示教過的 D_A，所以會產生
+-- 一筆接件工作 —— 車子如果已經停在放件站，根本不會有工作可以檢查。
 update public.vehicles
-set operational_status = 'available', current_stop_code = 'LIBRARY', updated_at = now()
+set operational_status = 'available', current_stop_code = 'ADMIN', updated_at = now()
 where id = (select vehicle_id from route_test_context);
 update public.vehicle_reservations set state = 'released', ended_at = now()
 where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
 
 alter table route_test_context add column delivery_six uuid;
+alter table route_test_context add column delivery_seven uuid;
 do $$ begin
   perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 end $$;
@@ -1224,7 +1226,7 @@ select is(
    join public.route_jobs job on job.id = leg.route_job_id
    where job.delivery_id = (select delivery_six from route_test_context)
    order by leg.leg_index limit 1),
-  'A_B',
+  'D_A',
   'the dispatch carries the leg id the vehicle actually knows'
 );
 select isnt(
@@ -1232,18 +1234,22 @@ select isnt(
    join public.route_jobs job on job.id = leg.route_job_id
    where job.delivery_id = (select delivery_six from route_test_context)
    order by leg.leg_index limit 1),
-  'SIM_LIBRARY_HSS2',
+  'SIM_ADMIN_LIBRARY',
   'and not a synthetic id the real bridge refuses outright'
 );
+
+-- 收掉這一筆才能再開下一筆：同一位寄件人不能同時有兩筆進行中的投遞。
+update public.deliveries set status = 'cancelled', version = version + 1,
+  terminal_reason = 'cancelled_before_reservation', completed_at = now(), updated_at = now()
+where id = (select delivery_six from route_test_context);
+update public.vehicle_reservations set state = 'released', ended_at = now()
+where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
 
 -- 車子停在一個到不了放件站的地方：派車必須當場拒絕，而不是派出去讓車端擋。
 update public.vehicles
 set operational_status = 'available', current_stop_code = 'HSS1', updated_at = now()
 where id = (select vehicle_id from route_test_context);
-update public.vehicle_reservations set state = 'released', ended_at = now()
-where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
 
-alter table route_test_context add column delivery_seven uuid;
 with created as (
   select public.create_and_confirm_delivery(
     'LIBRARY', 'HSS2', '接不到的收件人', '+886912345678', 'noroute@example.com', true,
