@@ -48,6 +48,7 @@ function initialState(scenario = 'happy-path') {
     command: null,
     vehicle: null,
     pickupCode: null,
+    notification: null,
     manualLoadEvidence: false
   };
 }
@@ -319,8 +320,15 @@ export class DemoAdapter {
   #arriveDropoff() {
     if (this.state.delivery?.status !== 'in_transit') return;
     this.#transition('VEHICLE_ARRIVED_DROPOFF', 'gateway');
+    const unconfigured = this.state.scenario === 'notification-provider-unconfigured';
     this.#patch({
-      notificationState: this.state.scenario === 'notification-provider-unconfigured' ? 'unconfigured' : 'queued'
+      notificationState: unconfigured ? 'unconfigured' : 'queued',
+      // 形狀與正式環境 projection 的 notification 相同，寄件人畫面才會照同一套規則走。
+      notification: {
+        state: unconfigured ? 'unconfigured' : 'queued',
+        channel: 'email',
+        maskedDestination: unconfigured ? '' : 'n***@example.com'
+      }
     });
     this.#later(() => {
       if (this.state.delivery?.status !== 'arrived_dropoff') return;

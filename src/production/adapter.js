@@ -75,6 +75,8 @@ function initialState() {
     vehicle: null,
     /** @type {string|null} 剛產生的取件碼。只活在這一輪畫面裡，伺服器只存 digest */
     pickupCode: null,
+    /** @type {{state: string, channel: string, maskedDestination: string}|null} 取件碼通知的結果 */
+    notification: null,
     notificationState: null,
     recipientAttempt: { attempts: 0, verified: false, phase: 'idle', error: '' },
     routeValidation: {
@@ -478,6 +480,7 @@ export class ProductionAdapter {
       command: fresh.command,
       vehicle: fresh.vehicle,
       pickupCode: fresh.pickupCode,
+      notification: fresh.notification,
       wizardStep: 1,
       actionError: null
     });
