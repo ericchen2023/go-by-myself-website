@@ -73,8 +73,10 @@ export function validateDeliveryInput(input) {
     errors.recipientName = '收件人姓名需為 1–50 個字。';
   }
   if (!phone) errors.recipientPhone = '請輸入有效的台灣手機號碼，例如 0912345678。';
-  if (recipientEmail && (recipientEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail))) {
-    errors.recipientEmail = '請輸入有效的 email，或留空。';
+  // 取件碼寄到這個信箱，沒有它收件人就取不了件 —— 所以它是必填，不是備援。
+  if (!recipientEmail) errors.recipientEmail = '請輸入收件人 email，取件碼會寄到這裡。';
+  else if (recipientEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+    errors.recipientEmail = '請輸入有效的 email。';
   }
   if (!itemTypeValues.has(itemType)) errors.itemType = '請選擇物品類型。';
   if (characterLength(note) > 300) errors.note = '備註最多 300 個字。';

@@ -16,6 +16,8 @@ test('complete deterministic sender and recipient demo', async ({ page }) => {
   await page.locator('input[name="dropoff-location"][value="ADMIN"]').check();
   await page.getByLabel('收件人姓名').fill('展示收件人');
   await page.getByLabel('台灣手機號碼').fill('0912345678');
+  // 取件碼寄到這個信箱，所以它現在是必填。
+  await page.getByLabel('Email', { exact: true }).fill('recipient@example.com');
   await page.getByLabel('物品類型').selectOption('document');
   await page.getByRole('button', { name: '檢查並前往確認' }).click();
 
@@ -54,6 +56,8 @@ test('arrival at dropoff never renders completed', async ({ page }) => {
   await page.locator('input[name="dropoff-location"][value="ADMIN"]').check();
   await page.getByLabel('收件人姓名').fill('展示收件人');
   await page.getByLabel('台灣手機號碼').fill('0912345678');
+  // 取件碼寄到這個信箱，所以它現在是必填。
+  await page.getByLabel('Email', { exact: true }).fill('recipient@example.com');
   await page.getByRole('button', { name: '檢查並前往確認' }).click();
   await page.getByRole('button', { name: '確認投遞' }).click();
   await page.getByRole('button', { name: '呼叫車輛' }).click();
