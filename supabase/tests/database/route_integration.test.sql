@@ -1,5 +1,5 @@
 begin;
-select plan(69);
+select plan(70);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -918,6 +918,10 @@ select throws_ok(
 -- 有艙門的車不得由網頁宣告取件完成 —— 那是感測器的工作。
 update public.deliveries set status = 'compartment_open_for_recipient', version = version + 1, updated_at = now()
 where id = (select delivery_four from route_test_context);
+do $$ begin
+  -- 要驗的是「有艙門」這道閘門，所以得先過 service_role 那道，否則只會撞到前者。
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+end $$;
 select throws_ok(
   $$ select public.confirm_recipient_pickup(
     (select public_ref from public.deliveries where id = (select delivery_four from route_test_context)),
