@@ -22,7 +22,7 @@ export function maskEmail(address: string) {
   return `${head}${'*'.repeat(Math.max(name.length - 1, 1))}@${domain}`;
 }
 
-function pickupEmail(recipientName: string, stopName: string, code: string, link: string) {
+function pickupEmail(recipientName: string, stopName: string, code: string, link: string, pickupRef: string) {
   const safeName = recipientName || '您好';
   return {
     subject: `取件碼 ${code}｜物品已送達${stopName}`,
@@ -31,10 +31,12 @@ function pickupEmail(recipientName: string, stopName: string, code: string, link
       '',
       `您的物品已由自走車送達「${stopName}」。`,
       '',
+      `取件代號：${pickupRef}`,
       `取件碼：${code}`,
       `取件連結：${link}`,
       '',
       '請在取件頁輸入取件碼，取出物品後按下確認。',
+      '連結打不開的話，到網站首頁按「我要取件」，輸入上面的取件代號也可以。',
       '取件碼 45 分鐘後失效；連續輸入錯誤 5 次會鎖定。',
       '',
       '如果這不是您預期的信件，請忽略它 —— 沒有取件碼就無法取件。'
@@ -72,11 +74,12 @@ export async function sendPickupCode(options: {
   stopName: string;
   code: string;
   link: string;
+  pickupRef: string;
 }): Promise<NotifyResult> {
   // 收件人沒有留信箱、或沒有同意 email 通知，就沒有管道可用。
   if (!options.to) return { state: 'unconfigured', maskedDestination: '(未提供信箱)', providerMessageId: null };
   const masked = maskEmail(options.to);
-  const { subject, text } = pickupEmail(options.recipientName, options.stopName, options.code, options.link);
+  const { subject, text } = pickupEmail(options.recipientName, options.stopName, options.code, options.link, options.pickupRef);
   try {
     const sent = await sendViaBrevo(options.to, options.recipientName, subject, text);
     return { ...sent, maskedDestination: masked };

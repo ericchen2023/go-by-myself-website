@@ -155,6 +155,11 @@ export class DemoAdapter {
     throw new DomainError('AUTH_DEMO_NO_PASSWORD', '展示模式不使用密碼或 magic link。');
   }
 
+  /** demo 沒有真的代號簿，直接交回這一輪那筆的 publicRef。 */
+  async resolvePickupRef() {
+    return this.state.delivery?.publicRef ?? 'DEMO-PICKUP-0001';
+  }
+
   /** @param {string} _publicRef */
   async loadPickupContext(_publicRef) {
     void _publicRef;

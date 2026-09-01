@@ -1,5 +1,5 @@
 begin;
-select plan(70);
+select plan(78);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -930,6 +930,67 @@ select throws_ok(
   'P0001',
   'DELIVERY_INVALID_TRANSITION',
   'a vehicle that has a compartment still needs its own evidence, not a web click'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 取件代號：人打得出來的入口。代號是識別碼，取件碼才是秘密。
+-- ---------------------------------------------------------------------------
+select isnt(
+  (select pickup_ref from public.deliveries where id = (select delivery_one from route_test_context)),
+  null,
+  'every delivery is given a reference someone can type'
+);
+select is(
+  (select count(distinct pickup_ref) from public.deliveries),
+  (select count(*) from public.deliveries),
+  'no two deliveries share a reference'
+);
+select is(
+  (select length(pickup_ref) from public.deliveries where id = (select delivery_one from route_test_context)),
+  6,
+  'the reference is six characters, short enough to copy from an email'
+);
+select ok(
+  (select pickup_ref !~ '[01OI]' from public.deliveries where id = (select delivery_one from route_test_context)),
+  'the reference avoids characters that are read wrong'
+);
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+end $$;
+select is(
+  public.resolve_pickup_ref(
+    (select lower(pickup_ref) from public.deliveries where id = (select delivery_four from route_test_context)),
+    '\xb1'::bytea
+  ) ->> 'publicRef',
+  (select public_ref::text from public.deliveries where id = (select delivery_four from route_test_context)),
+  'a reference resolves however it was typed, in any case'
+);
+select throws_ok(
+  $$ select public.resolve_pickup_ref('ZZZZZZ', '\xb2'::bytea) $$,
+  'P0001',
+  'PICKUP_REF_INVALID',
+  'a reference that matches nothing says only that it is invalid'
+);
+select throws_ok(
+  $$ select public.resolve_pickup_ref(
+    (select pickup_ref from public.deliveries where id = (select delivery_one from route_test_context)),
+    '\xb3'::bytea
+  ) $$,
+  'P0001',
+  'PICKUP_REF_INVALID',
+  'a delivery not yet ready for pickup is indistinguishable from one that does not exist'
+);
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+select throws_ok(
+  $$ select public.resolve_pickup_ref('ZZZZZZ', '\xb4'::bytea) $$,
+  '42501',
+  'RLS_DENIED',
+  'only the pickup endpoint may resolve a reference'
 );
 
 select * from finish();

@@ -2,13 +2,13 @@ import { el, ndhuEmblem } from './dom.js';
 import { errorBanner } from './components.js';
 import { createRoutePreview } from '../map/map-view.js';
 
-/** @param {{homeModeCopy:{divider:string,cta:string,tag:string,intro:string}, authTab: 'login'|'signup', recoveryOpen: boolean, authNotice:string, error: {code:string,message:string,retryable?:boolean}|null, googleDisabled:boolean, googleHelp:string, authAlternative:Node|null, recoveryText:string, setAuthTab: (tab:'login'|'signup')=>void, toggleRecovery:()=>void, google:()=>void, dismissError:()=>void}} options */
+/** @param {{homeModeCopy:{divider:string,cta:string,tag:string,intro:string}, authTab: 'login'|'signup', recoveryOpen: boolean, authNotice:string, error: {code:string,message:string,retryable?:boolean}|null, googleDisabled:boolean, googleHelp:string, authAlternative:Node|null, recoveryText:string, setAuthTab: (tab:'login'|'signup')=>void, toggleRecovery:()=>void, google:()=>void, dismissError:()=>void, goToPickup:()=>void}} options */
 export function homeScreen(options) {
   const modeCopy = options.homeModeCopy;
   const authTitle = options.authTab === 'login' ? '登入後開始投遞' : '第一次使用';
   const googleLabel = options.authTab === 'login' ? '使用 Google 帳號登入' : '使用 Google 帳號建立帳號';
   const authPanel = el('section', { className: 'auth-panel', 'aria-labelledby': 'auth-title' },
-    el('div', { className: 'auth-panel__index', 'aria-hidden': 'true' }, '開始投遞'),
+    el('div', { className: 'auth-panel__index', 'aria-hidden': 'true' }, '我要寄件'),
     el('div', { className: 'segmented-tabs', role: 'tablist', 'aria-label': '帳號操作' },
       el('button', {
         role: 'tab',
@@ -81,10 +81,20 @@ export function homeScreen(options) {
         )
       )
     ),
-    el('section', { id: 'home-access', className: 'home-access', 'aria-label': '開始投遞' },
+    el('section', { id: 'home-access', className: 'home-access', 'aria-label': '選擇你要做的事' },
       el('div', { className: 'access-intro' },
-        el('h2', {}, '登入後，直接選擇放件站。'),
+        el('h2', {}, '你要寄件，還是取件？'),
         el('p', {}, modeCopy.intro),
+        // 寄件人要登入，收件人不用 —— 這是兩件事，不該擠在同一個入口。
+        el('section', { className: 'role-choice', 'aria-label': '取件入口' },
+          el('h3', {}, '我要取件'),
+          el('p', {}, '收到通知信的人請走這裡。不必登入，也不必註冊。'),
+          el('button', {
+            className: 'button button--secondary button--full',
+            type: 'button',
+            onclick: options.goToPickup
+          }, '輸入取件代號')
+        ),
         el('div', { className: 'access-safety-note' },
           el('span', { 'aria-hidden': 'true' }, 'i'),
           el('p', {}, '校徽為識別校園情境之用；本網站仍是學生專題，不代表校方已核准實際營運。')
