@@ -14,7 +14,7 @@ import { createRouteSelector } from '../map/map-view.js';
 import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
 import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
-import { compartmentRequest, notificationCopy, stepForStatus } from '../domain/presentation.js';
+import { compartmentRequest, notificationCopy, recipientNotice, stepForStatus } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
 import {
   authAlternative,
@@ -548,34 +548,30 @@ export class Application {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '已取得放件證據，正在確認艙門與移動條件。'));
     } else if (status === 'in_transit') {
       action.append(el('p', {}, '車輛正在前往收件站。收到可靠位置後，地圖會自動更新。'));
-    } else if (status === 'arrived_dropoff') {
-      action.append(
-        el('p', {}, '車輛已到站。產生取件碼並交給收件人，他們才能開始取件。'),
-        el('button', {
-          className: 'button button--primary',
-          type: 'button',
-          disabled: this.busy,
-          onclick: () => void this.#run(() => this.adapter.issuePickupCode())
-        }, '產生取件碼')
-      );
-    } else if (status === 'awaiting_recipient') {
-      action.append(
-        el('p', {}, '收件人不必登入。請將取件連結和取件碼交給收件人。'),
-        // 明碼只在剛產生的那一次回來過；重整之後它就不在了，因為伺服器只留 digest。
-        this.state.pickupCode
-          ? el('div', { className: 'pickup-code-reveal', role: 'status' },
-            el('span', {}, '取件碼'),
-            el('strong', { className: 'pickup-code-value' }, this.state.pickupCode),
-            el('small', {}, '只顯示這一次，離開畫面就看不到了。忘記的話可以重新產生，舊碼會立刻失效。'))
-          : credentialCallout('sender'),
-        el('button', {
-          className: 'button button--secondary',
-          type: 'button',
-          disabled: this.busy,
-          onclick: () => void this.#run(() => this.adapter.issuePickupCode())
-        }, this.state.pickupCode ? '重新產生取件碼' : '產生取件碼'),
-        el('a', { className: 'button button--primary', href: `/pickup/${delivery.publicRef}` }, '前往收件人取件頁')
-      );
+    } else if (['arrived_dropoff', 'awaiting_recipient'].includes(status)) {
+      // 取件碼是收件人的鑰匙，寄件人只看得到它寄出去了沒。
+      const notice = recipientNotice(this.state.notification);
+      action.append(el('p', { role: 'status' }, notice.message));
+      if (notice.canReveal) {
+        // 明碼只在剛產生的那一次回來過；重整之後就不在了，伺服器只留 digest。
+        action.append(
+          this.state.pickupCode
+            ? el('div', { className: 'pickup-code-reveal', role: 'status' },
+              el('span', {}, '取件碼'),
+              el('strong', { className: 'pickup-code-value' }, this.state.pickupCode),
+              el('small', {}, '只顯示這一次，離開畫面就看不到了。重新產生會讓舊碼立刻失效。'))
+            : credentialCallout('sender'),
+          el('button', {
+            className: 'button button--secondary',
+            type: 'button',
+            disabled: this.busy,
+            onclick: () => void this.#run(() => this.adapter.issuePickupCode())
+          }, this.state.pickupCode ? '重新產生取件碼' : '改用人工轉交')
+        );
+      }
+      if (status === 'awaiting_recipient') {
+        action.append(el('a', { className: 'button button--primary', href: `/pickup/${delivery.publicRef}` }, '前往收件人取件頁'));
+      }
     } else if (status === 'compartment_open_for_recipient') {
       action.append(el('p', {}, '收件艙已開啟，正在等待收件人取出物品並關好艙門。這時投遞尚未完成。'));
     } else if (status === 'picked_up') {

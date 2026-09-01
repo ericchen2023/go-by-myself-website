@@ -159,3 +159,35 @@ export function compartmentRequest(command) {
       : `車輛拒絕了開艙指令${reason ? `（${reason}）` : ''}。請稍候再試，或取消這筆投遞。`)
   };
 }
+
+const NOTIFICATION_SENT = ['queued', 'sending', 'retrying', 'accepted', 'delivered'];
+
+/**
+ * 取件碼寄出去了沒。寄件人只該看到這個 —— 碼本身是收件人的鑰匙，經過寄件人
+ * 就代表「誰取走的」不再可證明，所以只有在真的寄不出去時才退回人工轉交。
+ * @param {{state?: string, channel?: string, maskedDestination?: string}|null} [notification]
+ * @returns {{sent: boolean, canReveal: boolean, message: string}}
+ */
+export function recipientNotice(notification) {
+  const state = notification?.state ?? '';
+  if (NOTIFICATION_SENT.includes(state)) {
+    const where = notification?.maskedDestination ? `（${notification.maskedDestination}）` : '';
+    return { sent: true, canReveal: false, message: `取件碼已寄給收件人${where}。你不會看到取件碼本身。` };
+  }
+  if (state === 'failed') {
+    return { sent: false, canReveal: true, message: '取件碼寄不出去。你可以改用人工轉交 —— 產生一組碼再自己交給收件人，這個動作會留下紀錄。' };
+  }
+  if (state === 'unconfigured') {
+    // 兩種都寄不出去，但原因不同，能做的事也不同 —— 一個要去補收件人的信箱，
+    // 一個要去設定寄信服務。混成同一句話只會讓人不知道該修哪裡。
+    const noAddress = !notification?.maskedDestination || notification.maskedDestination.includes('未提供');
+    return {
+      sent: false,
+      canReveal: true,
+      message: noAddress
+        ? '收件人沒有可用的信箱（未填或未同意通知）。請產生取件碼並自行交給收件人，這個動作會留下紀錄。'
+        : '目前沒有設定寄信服務。請產生取件碼並自行交給收件人，這個動作會留下紀錄。'
+    };
+  }
+  return { sent: false, canReveal: false, message: '車輛已到站，正在把取件碼寄給收件人。' };
+}
