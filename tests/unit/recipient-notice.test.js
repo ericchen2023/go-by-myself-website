@@ -27,11 +27,20 @@ test('a mail still in flight is not a reason to hand the code over', () => {
 });
 
 test('waits quietly while the arrival has not produced a notification yet', () => {
-  const notice = recipientNotice(null);
+  const notice = recipientNotice(null, 'arrived_dropoff');
 
   expect(notice.sent).toBe(false);
   expect(notice.canReveal).toBe(false);
   expect(notice.message).toContain('正在把取件碼寄給收件人');
+});
+
+test('stops waiting once the handover happened with nothing recorded', () => {
+  // Waiting for a mail that was never attempted is another state with no exit —
+  // and a delivery already opened for the recipient has one recoverable path.
+  const notice = recipientNotice(null, 'awaiting_recipient');
+
+  expect(notice.canReveal).toBe(true);
+  expect(notice.message).toContain('沒有取件碼的通知紀錄');
 });
 
 test('separates "no mail service" from "recipient gave no address"', () => {
