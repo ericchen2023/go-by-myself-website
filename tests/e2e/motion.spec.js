@@ -8,6 +8,7 @@ async function beginDispatch(page) {
   await page.locator('input[name="dropoff-location"][value="ADMIN"]').check();
   await page.getByLabel('收件人姓名').fill('動畫測試收件人');
   await page.getByLabel('台灣手機號碼').fill('0912345678');
+  await page.getByLabel('Email').fill('motion.recipient@example.com');
   await page.getByLabel('物品類型').selectOption('document');
   await page.getByRole('button', { name: '檢查並前往確認' }).click();
   await expect(page.getByRole('heading', { name: '確認投遞內容' })).toBeVisible();
