@@ -29,6 +29,7 @@ import {
   modePrivacyLead,
   modeSupportSection,
   modeToolbar,
+  recipientHandoff,
   homeModeCopy,
   notificationDisclaimer,
   pickupOpenAction,
@@ -572,14 +573,15 @@ export class Application {
         );
       }
       if (status === 'awaiting_recipient') {
-        action.append(el('a', { className: 'button button--primary', href: `/pickup/${delivery.publicRef}` }, '前往收件人取件頁'));
+        // 取件是收件人的事，寄件人手上不該有一條直接進取件頁的路 —— 那正是
+        // 「取件碼不經過寄件人」要擋掉的同一件事。展示模式例外：那裡本來就是
+        // 一個人走完兩個角色，收起連結只會讓展示斷在半路。
+        action.append(recipientHandoff(delivery.publicRef));
       }
     } else if (status === 'compartment_open_for_recipient') {
       action.append(
         el('p', {}, '收件艙已開啟，正在等待收件人取出物品並關好艙門。這時投遞尚未完成。'),
-        // 交件還沒完成，交接的路就不該收起來 —— 上一個狀態有這個連結，這裡沒有，
-        // 對同時扮演兩個角色的人來說就是一條斷掉的路。
-        el('a', { className: 'button button--secondary', href: `/pickup/${delivery.publicRef}` }, '前往收件人取件頁')
+        recipientHandoff(delivery.publicRef, { compact: true })
       );
     } else if (status === 'picked_up') {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '已收到取物與關門資訊，正在完成最後確認。'));
