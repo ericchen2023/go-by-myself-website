@@ -1,5 +1,5 @@
 begin;
-select plan(84);
+select plan(89);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -481,7 +481,9 @@ do $$ begin
 end $$;
 with created as (
   select public.create_and_confirm_delivery(
-    'ADMIN', 'HSS2', '第二收件人', '+886923456789', '', false,
+    -- ADMIN↔HSS2 沒有示教過，現在會被擋下來。這條測的是指令逾時，
+    -- 站點組合只是隨手挑的，換成有路可走的那組。
+    'ADMIN', 'LIBRARY', '第二收件人', '+886923456789', '', false,
     'book', 'expiry test', 'route-test-create-two'
   ) as payload
 )
@@ -1053,6 +1055,49 @@ select throws_ok(
   '42501',
   'RLS_DENIED',
   'one sender cannot read another sender delivery by id'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 只開放示教過的站點組合。車上只有八段路線，剩兩組沒有地圖也沒有路徑。
+-- ---------------------------------------------------------------------------
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+
+select throws_ok(
+  $$ select public.create_and_confirm_delivery(
+    'LIBRARY', 'HSS1', '沒有路的收件人', '+886912345678', 'x@example.com', true,
+    'document', 'untaught pair', 'untaught-pair-1'
+  ) $$,
+  'P0001',
+  'STOP_PAIR_NOT_SERVICEABLE',
+  'a pair nobody ever drove cannot be booked'
+);
+select throws_ok(
+  $$ select public.create_and_confirm_delivery(
+    'HSS2', 'ADMIN', '沒有路的收件人', '+886912345678', 'x@example.com', true,
+    'document', 'untaught pair', 'untaught-pair-2'
+  ) $$,
+  'P0001',
+  'STOP_PAIR_NOT_SERVICEABLE',
+  'the other untaught pair is refused the same way'
+);
+select is(
+  (select count(*) from public.serviceable_stop_pairs),
+  8::bigint,
+  'the eight taught legs are the whole of what is on offer'
+);
+select is(
+  (select count(*) from public.serviceable_stop_pairs
+   where (from_stop_code, to_stop_code) in (('LIBRARY','HSS1'),('HSS1','LIBRARY'),('HSS2','ADMIN'),('ADMIN','HSS2'))),
+  0::bigint,
+  'neither untaught pair leaked into the offer'
+);
+select is(
+  jsonb_array_length(public.get_serviceable_stop_pairs()),
+  8,
+  'the screen is told the same eight the database enforces'
 );
 
 select * from finish();
