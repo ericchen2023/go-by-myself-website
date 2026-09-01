@@ -696,3 +696,20 @@ input:focus, select:focus, textarea:focus { border-color: var(--route); outline:
   font-size: 1.6rem;
   letter-spacing: 0.22em;
 }
+
+/* 取件入口跟登入面板並列，讓兩個角色一眼就看得到自己那條路。 */
+.role-choice {
+  margin: 1.1rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line, #d9d9d9);
+  border-radius: 12px;
+  background: var(--surface-raised, #f6f6f4);
+}
+.role-choice h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.role-choice p { margin: 0 0 0.75rem; }
+.pickup-ref-field input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.3rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
