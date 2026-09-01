@@ -1,5 +1,5 @@
 begin;
-select plan(62);
+select plan(63);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -750,7 +750,8 @@ select throws_ok(
     (select public_ref from public.deliveries where id = (select delivery_three from route_test_context)),
     gen_random_uuid()
   ) $$,
-  'P0001',
+  -- RLS_DENIED 是用 errcode 42501 丟的，不是預設的 P0001。
+  '42501',
   'RLS_DENIED',
   'a signed-in visitor cannot confirm a pickup; only the pickup endpoint may'
 );
