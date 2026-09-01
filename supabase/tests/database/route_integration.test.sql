@@ -1,5 +1,5 @@
 begin;
-select plan(89);
+select plan(92);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -1098,6 +1098,80 @@ select is(
   jsonb_array_length(public.get_serviceable_stop_pairs()),
   8,
   'the screen is told the same eight the database enforces'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 車輛自己也有位置：沒有進行中的工作時，遙測不該被整包拒絕。
+-- ---------------------------------------------------------------------------
+-- 先把那台車的工作收乾淨，製造「停著、沒有任務」的情況。
+update public.route_jobs set state = 'completed', completed_at = now()
+where vehicle_id = (select vehicle_id from route_test_context) and state in ('queued','running','safe_stop_requested');
+update public.vehicle_state_current set current_route_job_id = null
+where vehicle_id = (select vehicle_id from route_test_context);
+
+do $$
+declare result jsonb;
+begin
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  select public.ingest_robot_telemetry_v2(
+    (select vehicle_id from route_test_context),
+    jsonb_build_object(
+      'schemaVersion', 2,
+      'vehicleId', (select vehicle_id from route_test_context),
+      'bootId', '20000000-0000-4000-8000-000000000009',
+      'sequence', 900001,
+      'messageId', gen_random_uuid(),
+      'observedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+      'vehicleState', 'at_stop',
+      'pose', jsonb_build_object('frameId', 'aurora_map', 'x', 1.0, 'y', 2.0, 'heading', 0.0),
+      'speedMps', 0.0,
+      'battery', jsonb_build_object('percent', 88, 'voltageV', 24.6),
+      'quality', 'valid',
+      'route', jsonb_build_object(
+        'legId', 'A_B',
+        'segmentId', (select graph.graph #>> '{edges,0,id}' from public.route_graph_versions graph where graph.status = 'active'),
+        'progress', 0.25,
+        'lateralM', 0.4,
+        'routeGraphVersion', (select version from public.route_graph_versions where status = 'active'),
+        'routeGraphChecksum', (select checksum from public.route_graph_versions where status = 'active')
+      )
+    )
+  ) into result;
+end $$;
+
+select is(
+  (select segment_id is not null from public.vehicle_state_current
+   where vehicle_id = (select vehicle_id from route_test_context)),
+  true,
+  'a vehicle with no job still gets a place on the map'
+);
+select is(
+  (select segment_progress from public.vehicle_state_current
+   where vehicle_id = (select vehicle_id from route_test_context)),
+  0.25,
+  'and the position it reported is the one that was stored'
+);
+select throws_ok(
+  $$ select public.ingest_robot_telemetry_v2(
+    (select vehicle_id from route_test_context),
+    jsonb_build_object(
+      'schemaVersion', 2, 'vehicleId', (select vehicle_id from route_test_context),
+      'bootId', '20000000-0000-4000-8000-000000000009', 'sequence', 900002,
+      'messageId', gen_random_uuid(),
+      'observedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+      'vehicleState', 'at_stop',
+      'pose', jsonb_build_object('frameId','aurora_map','x',1.0,'y',2.0,'heading',0.0),
+      'speedMps', 0.0, 'battery', jsonb_build_object('percent',88,'voltageV',24.6),
+      'quality', 'valid',
+      'route', jsonb_build_object(
+        'legId','A_B','segmentId','edge-does-not-exist','progress',0.25,'lateralM',0.4,
+        'routeGraphVersion', (select version from public.route_graph_versions where status='active'),
+        'routeGraphChecksum', (select checksum from public.route_graph_versions where status='active'))
+    )) $$,
+  'P0001',
+  'ROUTE_SEGMENT_NOT_ALLOWED',
+  'an edge that is not in the graph is still refused, job or no job'
 );
 
 select * from finish();
