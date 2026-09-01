@@ -1,5 +1,5 @@
 begin;
-select plan(78);
+select plan(81);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -991,6 +991,43 @@ select throws_ok(
   '42501',
   'RLS_DENIED',
   'only the pickup endpoint may resolve a reference'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 車輛的連線狀態來自車輛本身，不是某一段路的快照。
+-- ---------------------------------------------------------------------------
+-- delivery_three 是用 UPDATE 直接推狀態的，沒走過遙測，所以沒有 progress 那一列。
+-- 這裡把情境明確建出來：一段跑完的路（凍結在 offline），配一台仍在回報的車。
+insert into public.delivery_progress_current(
+  delivery_id, version, segment_id, progress, connectivity, position_quality, observed_at)
+values (
+  (select delivery_three from route_test_context), 1, 'SEG_LIBRARY_HSS2', 1.0,
+  'offline', 'valid', now() - interval '10 minutes')
+on conflict (delivery_id) do update
+set connectivity = 'offline', position_quality = 'valid',
+    observed_at = now() - interval '10 minutes';
+update public.vehicle_state_current
+set connectivity = 'online', observed_at = now()
+where vehicle_id = (select vehicle_id from route_test_context);
+
+select is(
+  private.safe_delivery_projection((select delivery_three from route_test_context))
+    #>> '{telemetry,connectivity}',
+  'online',
+  'a finished leg does not make a vehicle that is still reporting look offline'
+);
+select is(
+  private.safe_delivery_projection((select delivery_three from route_test_context))
+    #>> '{telemetry,positionQuality}',
+  'valid',
+  'the position still comes from the leg, which is what knows where it went'
+);
+select is(
+  public.get_pickup_context((select public_ref from public.deliveries where id = (select delivery_three from route_test_context)))
+    #>> '{pickupContext,hasCompartment}',
+  'false',
+  'the pickup page is told the vehicle has no door to wait on'
 );
 
 select * from finish();
