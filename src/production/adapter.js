@@ -157,8 +157,15 @@ export class ProductionAdapter {
     if (error) throw new DomainError('AUTH_SESSION_EXPIRED', '無法取得登入狀態。', { retryable: true });
     if (data.session) await this.#applySession(data.session);
     this.supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) void this.#applySession(session);
-      else this.#patch({ session: null, delivery: null, wizardStep: 1 });
+      if (!session) {
+        void this.#forgetDeliveryState();
+        this.#patch({ session: null, wizardStep: 1 });
+        return;
+      }
+      // 同一個瀏覽器換帳號登入時，上一個人的投遞不能留在畫面上 —— 那是別人的
+      // 收件人姓名、站點與進度，還連著一條仍在收更新的即時頻道。
+      if (session.user.id !== this.state.session?.id) void this.#forgetDeliveryState();
+      void this.#applySession(session);
     });
   }
 
@@ -388,12 +395,52 @@ export class ProductionAdapter {
     return data.data;
   }
 
+  /** 測試用的入口：帳號切換的後果只有從這條路徑才驗得到。 */
+  loadActiveDeliveryForTest() {
+    return this.#loadActiveDelivery();
+  }
+
   async #loadActiveDelivery() {
     const projection = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
     if (projection?.delivery) {
       this.#patch({ ...this.#withLocalTelemetryReceipt(projection), wizardStep: 5 });
       await this.#subscribeToDelivery(projection.delivery.id);
+      return;
     }
+    // 「這個帳號沒有進行中的投遞」也是一個答案。只在有投遞時才更新，等於讓上
+    // 一個帳號的投遞留在畫面上給下一個人看。
+    await this.#forgetDeliveryState();
+  }
+
+  /** 放掉與某一筆投遞有關的一切：頻道、時鐘、畫面上的資料。 */
+  async #forgetDeliveryState() {
+    const client = this.supabase;
+    if (client && this.channel) {
+      const channel = this.channel;
+      this.channel = null;
+      await client.removeChannel(channel);
+    }
+    if (client && this.routeValidationChannel) {
+      const channel = this.routeValidationChannel;
+      this.routeValidationChannel = null;
+      await client.removeChannel(channel);
+    }
+    this.#stopConnectivityClock();
+    this.#stopDeliveryRefreshClock();
+    const fresh = initialState();
+    this.#patch({
+      delivery: fresh.delivery,
+      draft: fresh.draft,
+      telemetry: fresh.telemetry,
+      commandState: fresh.commandState,
+      command: fresh.command,
+      vehicle: fresh.vehicle,
+      pickupCode: fresh.pickupCode,
+      notification: fresh.notification,
+      notificationState: fresh.notificationState,
+      recipientAttempt: fresh.recipientAttempt,
+      routeValidation: fresh.routeValidation
+    });
   }
 
   async #subscribeToDelivery(deliveryId) {
