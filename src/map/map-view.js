@@ -308,7 +308,10 @@ export function createRouteSelector(options) {
   appendMapFoundation(svg, options.id);
   const journeyParts = options.activeRouteParts ?? [];
   const journeyEdges = new Set([...activeEdges, ...journeyParts.map((part) => part.edgeId)]);
-  appendRouteNetwork(svg, journeyEdges, options.id, interactive);
+  // Every public view keeps the one complete four-stop corridor visible.
+  // The current journey is a colored overlay; hiding unused corridor segments
+  // would leave public stops visually detached from the route.
+  appendRouteNetwork(svg, journeyEdges, options.id, true);
   appendJourneyRoute(svg, options.id, journeyParts, options.vehiclePosition);
   appendStationLabels(svg);
 
