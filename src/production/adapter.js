@@ -73,6 +73,8 @@ function initialState() {
     command: null,
     /** @type {{hasCompartment: boolean}|null} 車輛能力；沒有艙門時流程改由當事人確認 */
     vehicle: null,
+    /** @type {string|null} 剛產生的取件碼。只活在這一輪畫面裡，伺服器只存 digest */
+    pickupCode: null,
     notificationState: null,
     recipientAttempt: { attempts: 0, verified: false, phase: 'idle', error: '' },
     routeValidation: {
@@ -249,7 +251,8 @@ export class ProductionAdapter {
         code: rawCode,
         idempotencyKey: crypto.randomUUID()
       });
-      this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, verified: true, phase: 'opening', error: '' }, ...projection });
+      const opened = projection?.delivery?.status === 'compartment_open_for_recipient';
+      this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, verified: true, phase: opened ? 'open' : 'opening', error: '' }, ...projection });
       return true;
     } catch {
       this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, error: '取件資訊無效或已失效。' } });
@@ -258,7 +261,22 @@ export class ProductionAdapter {
   }
 
   async confirmPickup() {
-    throw new DomainError('DELIVERY_INVALID_TRANSITION', 'Production pickup completion 只能由 robot evidence 或受稽核 operator intent 建立。');
+    if (!this.state.delivery) return;
+    // 有艙門的車仍然只能由車輛回報取物與關門 —— 伺服器會拒絕這個呼叫，
+    // 這裡不自己判斷，讓那道檢查留在唯一有權威的地方。
+    const projection = await this.#publicInvoke('CONFIRM_PICKUP', {
+      publicRef: this.state.delivery.publicRef,
+      idempotencyKey: crypto.randomUUID()
+    });
+    this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, phase: 'confirmed' }, ...projection });
+  }
+
+  /** 產生一組交給收件人的取件碼。明碼只回來這一次，伺服器只留 HMAC digest。 */
+  async issuePickupCode() {
+    if (!this.state.delivery) return;
+    const response = await this.#invoke('ISSUE_PICKUP_CODE', { deliveryId: this.state.delivery.id }, 0);
+    const { pickupCode, ...projection } = response ?? {};
+    this.#patch({ ...this.#withLocalTelemetryReceipt(projection), pickupCode: pickupCode ?? null, actionError: null });
   }
 
   /** @param {string} publicRef */
@@ -459,6 +477,7 @@ export class ProductionAdapter {
       commandState: fresh.commandState,
       command: fresh.command,
       vehicle: fresh.vehicle,
+      pickupCode: fresh.pickupCode,
       wizardStep: 1,
       actionError: null
     });

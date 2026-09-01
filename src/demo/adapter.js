@@ -47,6 +47,7 @@ function initialState(scenario = 'happy-path') {
     actionError: null,
     command: null,
     vehicle: null,
+    pickupCode: null,
     manualLoadEvidence: false
   };
 }
