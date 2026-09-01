@@ -69,6 +69,14 @@ function initialState() {
       legCount: null
     },
     commandState: null,
+    /** @type {{type: string, state: string, errorCode: string|null}|null} 車輛對最近一筆指令的回應 */
+    command: null,
+    /** @type {{hasCompartment: boolean}|null} 車輛能力；沒有艙門時流程改由當事人確認 */
+    vehicle: null,
+    /** @type {string|null} 剛產生的取件碼。只活在這一輪畫面裡，伺服器只存 digest */
+    pickupCode: null,
+    /** @type {{state: string, channel: string, maskedDestination: string}|null} 取件碼通知的結果 */
+    notification: null,
     notificationState: null,
     recipientAttempt: { attempts: 0, verified: false, phase: 'idle', error: '' },
     routeValidation: {
@@ -97,6 +105,7 @@ export class ProductionAdapter {
     this.channel = null;
     this.routeValidationChannel = null;
     this.connectivityTimer = null;
+    this.deliveryRefreshTimer = null;
   }
 
   snapshot() {
@@ -244,7 +253,8 @@ export class ProductionAdapter {
         code: rawCode,
         idempotencyKey: crypto.randomUUID()
       });
-      this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, verified: true, phase: 'opening', error: '' }, ...projection });
+      const opened = projection?.delivery?.status === 'compartment_open_for_recipient';
+      this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, verified: true, phase: opened ? 'open' : 'opening', error: '' }, ...projection });
       return true;
     } catch {
       this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, error: '取件資訊無效或已失效。' } });
@@ -253,7 +263,22 @@ export class ProductionAdapter {
   }
 
   async confirmPickup() {
-    throw new DomainError('DELIVERY_INVALID_TRANSITION', 'Production pickup completion 只能由 robot evidence 或受稽核 operator intent 建立。');
+    if (!this.state.delivery) return;
+    // 有艙門的車仍然只能由車輛回報取物與關門 —— 伺服器會拒絕這個呼叫，
+    // 這裡不自己判斷，讓那道檢查留在唯一有權威的地方。
+    const projection = await this.#publicInvoke('CONFIRM_PICKUP', {
+      publicRef: this.state.delivery.publicRef,
+      idempotencyKey: crypto.randomUUID()
+    });
+    this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, phase: 'confirmed' }, ...projection });
+  }
+
+  /** 產生一組交給收件人的取件碼。明碼只回來這一次，伺服器只留 HMAC digest。 */
+  async issuePickupCode() {
+    if (!this.state.delivery) return;
+    const response = await this.#invoke('ISSUE_PICKUP_CODE', { deliveryId: this.state.delivery.id }, 0);
+    const { pickupCode, ...projection } = response ?? {};
+    this.#patch({ ...this.#withLocalTelemetryReceipt(projection), pickupCode: pickupCode ?? null, actionError: null });
   }
 
   /** @param {string} publicRef */
@@ -367,10 +392,11 @@ export class ProductionAdapter {
     });
     await this.channel.subscribe((status) => {
       if (status !== 'SUBSCRIBED') return;
-      if (subscribedOnce) void this.#refreshActiveDeliverySnapshot();
+      if (subscribedOnce) void this.refreshActiveDeliverySnapshot();
       subscribedOnce = true;
     });
     this.#startConnectivityClock();
+    this.#startDeliveryRefreshClock();
   }
 
   async #subscribeToRouteValidation(routeJobId) {
@@ -391,12 +417,22 @@ export class ProductionAdapter {
     });
   }
 
-  async #refreshActiveDeliverySnapshot() {
+  /** Re-reads the sender's delivery from the server. Public so the recovery path can be tested. */
+  async refreshActiveDeliverySnapshot() {
     try {
       const projection = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
+      if (!projection?.delivery) {
+        // The server has no delivery in flight for this sender, so the one on
+        // screen has reached a terminal state. Comparing versions here left the
+        // page showing it for ever — nothing is newer than a delivery that no
+        // longer exists — and with no way back to the form the reader could not
+        // start another one.
+        if (this.state.delivery && await this.#confirmNoDelivery()) await this.#returnToNewDelivery();
+        return;
+      }
       const currentVersion = this.state.delivery?.version ?? -1;
       const currentProjection = this.state.telemetry?.projectionVersion ?? -1;
-      if ((projection?.delivery?.version ?? -1) > currentVersion || (projection?.telemetry?.projectionVersion ?? -1) > currentProjection) {
+      if ((projection.delivery.version ?? -1) > currentVersion || (projection?.telemetry?.projectionVersion ?? -1) > currentProjection) {
         this.#patch(this.#withLocalTelemetryReceipt(projection));
       }
     } catch {
@@ -413,6 +449,57 @@ export class ProductionAdapter {
     } catch {
       this.#patch({ actionError: { code: 'REALTIME_RESYNC_FAILED', message: '重新連線後無法取得最新路線驗證狀態。', retryable: true } });
     }
+  }
+
+  /**
+   * One empty read can be a blip; the screen is only cleared when a second read
+   * agrees, so a delivery still in flight is never taken away from its sender.
+   * A throw here leaves the delivery on screen, which is the safe direction.
+   */
+  async #confirmNoDelivery() {
+    const confirmation = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
+    return !confirmation?.delivery;
+  }
+
+  /** Back to a blank form, with the finished delivery's channel let go. */
+  async #returnToNewDelivery() {
+    const client = this.supabase;
+    if (this.channel && client) {
+      const channel = this.channel;
+      this.channel = null;
+      await client.removeChannel(channel);
+    }
+    this.#stopConnectivityClock();
+    this.#stopDeliveryRefreshClock();
+    const fresh = initialState();
+    this.#patch({
+      delivery: fresh.delivery,
+      draft: fresh.draft,
+      telemetry: fresh.telemetry,
+      commandState: fresh.commandState,
+      command: fresh.command,
+      vehicle: fresh.vehicle,
+      pickupCode: fresh.pickupCode,
+      notification: fresh.notification,
+      wizardStep: 1,
+      actionError: null
+    });
+  }
+
+  /**
+   * Realtime is the fast path, not the only one. When a broadcast is missed the
+   * page has no other way to learn its delivery ended, and it strands there.
+   */
+  #startDeliveryRefreshClock() {
+    this.#stopDeliveryRefreshClock();
+    this.deliveryRefreshTimer = window.setInterval(() => {
+      void this.refreshActiveDeliverySnapshot();
+    }, 15_000);
+  }
+
+  #stopDeliveryRefreshClock() {
+    if (this.deliveryRefreshTimer) window.clearInterval(this.deliveryRefreshTimer);
+    this.deliveryRefreshTimer = null;
   }
 
   #startConnectivityClock() {

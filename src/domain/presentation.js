@@ -127,3 +127,78 @@ export function notificationCopy(state) {
   };
   return copies[state] ?? '尚未建立通知';
 }
+
+const COMPARTMENT_REFUSALS = {
+  COMMAND_TYPE_UNSUPPORTED: '這台車沒有可遙控的置物艙，無法遠端開艙 —— 再按幾次也不會開。這筆投遞在目前的車輛上無法繼續，請取消。',
+  ROBOT_STATE_INVALID: '車輛尚未停妥在可開艙的狀態。請確認車輛已到站停穩，再試一次。',
+  BRIDGE_BACKEND_FAILED: '車輛的控制程式沒有回應開艙指令。請稍候再試，或取消這筆投遞。'
+};
+
+const COMPARTMENT_PENDING = ['queued', 'accepted'];
+const COMPARTMENT_REFUSED = ['rejected', 'failed', 'expired'];
+
+/**
+ * 車輛對「開啟置物艙」的回應。畫面必須說出拒絕的理由：靜靜地把按鈕重新打開，
+ * 只會讓寄件人一直重按（正式環境紀錄過 1.5 秒內按四次，全部被拒絕）。
+ * @param {{type?: string, state?: string, errorCode?: string|null}|null} [command]
+ * @returns {{phase: 'idle'|'waiting'|'refused', reason: string|null, message: string}}
+ */
+export function compartmentRequest(command) {
+  if (!command || command.type !== 'OPEN_COMPARTMENT') return { phase: 'idle', reason: null, message: '' };
+  const state = command.state ?? '';
+  if (COMPARTMENT_PENDING.includes(state)) return { phase: 'waiting', reason: null, message: '' };
+  if (!COMPARTMENT_REFUSED.includes(state)) return { phase: 'idle', reason: null, message: '' };
+  const reason = command.errorCode ?? null;
+  const known = reason ? COMPARTMENT_REFUSALS[reason] : null;
+  return {
+    phase: 'refused',
+    reason,
+    // 沒有對應文案時仍然把代碼說出來，總比讓人對著沒反應的按鈕好。
+    message: known ?? (state === 'expired'
+      ? '開艙指令逾時，車輛沒有在時限內執行。請再試一次，或取消這筆投遞。'
+      : `車輛拒絕了開艙指令${reason ? `（${reason}）` : ''}。請稍候再試，或取消這筆投遞。`)
+  };
+}
+
+const NOTIFICATION_SENT = ['queued', 'sending', 'retrying', 'accepted', 'delivered'];
+
+/**
+ * 取件碼寄出去了沒。寄件人只該看到這個 —— 碼本身是收件人的鑰匙，經過寄件人
+ * 就代表「誰取走的」不再可證明，所以只有在真的寄不出去時才退回人工轉交。
+ * @param {{state?: string, channel?: string, maskedDestination?: string}|null} [notification]
+ * @param {string} [status] 投遞目前的狀態
+ * @returns {{sent: boolean, canReveal: boolean, message: string}}
+ */
+export function recipientNotice(notification, status) {
+  const state = notification?.state ?? '';
+  if (NOTIFICATION_SENT.includes(state)) {
+    const where = notification?.maskedDestination ? `（${notification.maskedDestination}）` : '';
+    return { sent: true, canReveal: false, message: `取件碼已寄給收件人${where}。你不會看到取件碼本身。` };
+  }
+  if (state === 'failed') {
+    return { sent: false, canReveal: true, message: '取件碼寄不出去。你可以改用人工轉交 —— 產生一組碼再自己交給收件人，這個動作會留下紀錄。' };
+  }
+  if (state === 'unconfigured') {
+    // 兩種都寄不出去，但原因不同，能做的事也不同 —— 一個要去補收件人的信箱，
+    // 一個要去設定寄信服務。混成同一句話只會讓人不知道該修哪裡。
+    const noAddress = !notification?.maskedDestination || notification.maskedDestination.includes('未提供');
+    return {
+      sent: false,
+      canReveal: true,
+      message: noAddress
+        ? '收件人沒有可用的信箱（未填或未同意通知）。請產生取件碼並自行交給收件人，這個動作會留下紀錄。'
+        : '目前沒有設定寄信服務。請產生取件碼並自行交給收件人，這個動作會留下紀錄。'
+    };
+  }
+  // 沒有通知紀錄有兩種意思。還在 arrived_dropoff 表示寄信正在進行；已經進到
+  // awaiting_recipient 卻沒有紀錄，就表示沒有東西在路上了 —— 那時再顯示「正在
+  // 寄送」，就是又造出一個出不去的狀態。
+  if (status === 'awaiting_recipient') {
+    return {
+      sent: false,
+      canReveal: true,
+      message: '沒有取件碼的通知紀錄。請產生取件碼並自行交給收件人，這個動作會留下紀錄。'
+    };
+  }
+  return { sent: false, canReveal: false, message: '車輛已到站，正在把取件碼寄給收件人。' };
+}

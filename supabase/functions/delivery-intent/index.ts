@@ -2,6 +2,18 @@ import { createClient } from 'npm:@supabase/supabase-js@2.112.4';
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 import { getSupabasePublishableKey, getSupabaseUrl } from '../_shared/supabase-env.ts';
 
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function hex(bytes: ArrayBuffer) {
+  return [...new Uint8Array(bytes)].map((value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+/** 去掉 0/O/1/I：這組碼要被人唸出來、抄下來。 */
+function newPickupCode() {
+  const draw = crypto.getRandomValues(new Uint8Array(8));
+  return [...draw].map((value) => CODE_ALPHABET[value % CODE_ALPHABET.length]).join('');
+}
+
 Deno.serve(async (request) => {
   const requestId = crypto.randomUUID();
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
@@ -35,6 +47,23 @@ Deno.serve(async (request) => {
         p_note: input.note ?? '',
         p_idempotency_key: body.idempotencyKey
       });
+    } else if (body.intent === 'ISSUE_PICKUP_CODE') {
+      // 明碼只在這裡存在一次：資料庫只收 HMAC digest，所以取件碼不落地，
+      // 重發就是換一組新的，舊的當場失效。
+      const pepper = Deno.env.get('CREDENTIAL_PEPPER_V1');
+      if (!pepper) return errorResponse(request, requestId, 503, 'ENV_CONFIG_INVALID', 'Pickup credential issuer is not configured.');
+      const code = newPickupCode();
+      const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pepper), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(code));
+      result = await client.rpc('issue_recipient_pickup_code', {
+        p_delivery_id: body.deliveryId,
+        p_digest: `\\x${hex(digest)}`,
+        p_pepper_version: 1,
+        p_expires_at: new Date(Date.now() + 45 * 60 * 1000).toISOString()
+      });
+      if (!result.error) {
+        return json(request, 200, { requestId, data: { ...(result.data ?? {}), pickupCode: code } });
+      }
     } else {
       result = await client.rpc('execute_delivery_intent', {
         p_delivery_id: body.deliveryId,
