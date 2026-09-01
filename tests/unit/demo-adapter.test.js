@@ -8,7 +8,7 @@ function configure(adapter) {
     dropoffCode: 'ADMIN',
     recipientName: '展示收件人',
     recipientPhone: '0912345678',
-    recipientEmail: '',
+    recipientEmail: 'recipient@example.com',
     itemType: 'document',
     note: ''
   });

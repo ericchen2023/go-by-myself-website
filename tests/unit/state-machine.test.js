@@ -11,7 +11,7 @@ function delivery(status = 'draft') {
     dropoffCode: 'ADMIN',
     recipientName: '測試收件人',
     recipientPhone: '+886912345678',
-    recipientEmail: '',
+    recipientEmail: 'recipient@example.com',
     itemType: 'document',
     note: '',
     createdAt: '2026-08-22T02:00:00.000Z',
