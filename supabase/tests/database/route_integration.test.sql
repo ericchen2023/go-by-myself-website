@@ -1,5 +1,5 @@
 begin;
-select plan(92);
+select plan(93);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -1110,10 +1110,13 @@ where vehicle_id = (select vehicle_id from route_test_context) and state in ('qu
 update public.vehicle_state_current set current_route_job_id = null
 where vehicle_id = (select vehicle_id from route_test_context);
 
+alter table route_test_context add column idle_result jsonb;
 do $$
 declare result jsonb;
 begin
   perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  -- 時間要明確晚於前面每一筆，否則會被 boot 變更那道 out-of-order 守衛靜靜擋掉
+  -- —— 而那正是這一版第一次寫時發生的事：位置沒進去，斷言卻讀到前面留下的值。
   select public.ingest_robot_telemetry_v2(
     (select vehicle_id from route_test_context),
     jsonb_build_object(
@@ -1122,7 +1125,7 @@ begin
       'bootId', '20000000-0000-4000-8000-000000000009',
       'sequence', 900001,
       'messageId', gen_random_uuid(),
-      'observedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+      'observedAt', to_char(now() + interval '10 minutes', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
       'vehicleState', 'at_stop',
       'pose', jsonb_build_object('frameId', 'aurora_map', 'x', 1.0, 'y', 2.0, 'heading', 0.0),
       'speedMps', 0.0,
@@ -1131,26 +1134,34 @@ begin
       'route', jsonb_build_object(
         'legId', 'A_B',
         'segmentId', (select graph.graph #>> '{edgeIds,0}' from public.route_graph_versions graph where graph.status = 'active'),
-        'progress', 0.25,
+        'progress', 0.42,
         'lateralM', 0.4,
         'routeGraphVersion', (select version from public.route_graph_versions where status = 'active'),
         'routeGraphChecksum', (select checksum from public.route_graph_versions where status = 'active')
       )
     )
   ) into result;
+  update route_test_context set idle_result = result;
 end $$;
 
+-- 先確認它真的被收下了。少了這一條，下面兩條會在「其實被拒絕、讀到的是前一筆」
+-- 的情況下照樣通過 —— 這一版第一次寫就是這樣過的。
 select is(
-  (select segment_id is not null from public.vehicle_state_current
-   where vehicle_id = (select vehicle_id from route_test_context)),
-  true,
-  'a vehicle with no job still gets a place on the map'
+  (select idle_result ->> 'accepted' from route_test_context),
+  'true',
+  'telemetry from a vehicle with no job is accepted, not refused whole'
 );
 select is(
   (select segment_progress from public.vehicle_state_current
    where vehicle_id = (select vehicle_id from route_test_context)),
-  0.25,
-  'and the position it reported is the one that was stored'
+  0.42,
+  'the position a vehicle with no job reported is the one that was stored'
+);
+select is(
+  (select segment_id is not null from public.vehicle_state_current
+   where vehicle_id = (select vehicle_id from route_test_context)),
+  true,
+  'a vehicle with no job still has a place on the map'
 );
 select throws_ok(
   $$ select public.ingest_robot_telemetry_v2(
