@@ -55,6 +55,8 @@ function initialState() {
     delivery: null,
     telemetry: {
       position: null,
+      /** @type {{segmentId: string, progress: number}|null} 車輛自己在哪，與投遞進度無關 */
+      vehiclePosition: null,
       observedAt: null,
       receivedAt: null,
       connectivity: 'offline',
