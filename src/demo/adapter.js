@@ -31,6 +31,7 @@ function initialState(scenario = 'happy-path') {
     delivery: null,
     telemetry: {
       position: null,
+      vehiclePosition: null,
       observedAt: null,
       connectivity: 'online',
       positionQuality: 'pending',

@@ -492,7 +492,11 @@ export class Application {
       interactive: false,
       activeEdgeIds: telemetry.activeEdgeIds,
       activeRouteParts,
-      vehiclePosition: ['off_route', 'invalid'].includes(telemetry.positionQuality) ? null : telemetry.position,
+      // 這筆投遞的進度優先；沒有進度時（還沒出發、已經送達、或根本沒在送件）
+      // 就畫車輛自己在哪 —— 車停著不代表它不在地圖上。
+      vehiclePosition: ['off_route', 'invalid'].includes(telemetry.positionQuality)
+        ? null
+        : (telemetry.position ?? telemetry.vehiclePosition ?? null),
       animateVehicle: telemetry.positionQuality === 'valid' && telemetry.connectivity === 'online' && telemetry.vehicleState === 'moving'
     });
     const body = el('div', { className: 'status-layout' },
