@@ -550,7 +550,7 @@ export class Application {
       action.append(el('p', {}, '車輛正在前往收件站。收到可靠位置後，地圖會自動更新。'));
     } else if (['arrived_dropoff', 'awaiting_recipient'].includes(status)) {
       // 取件碼是收件人的鑰匙，寄件人只看得到它寄出去了沒。
-      const notice = recipientNotice(this.state.notification);
+      const notice = recipientNotice(this.state.notification, status);
       action.append(el('p', { role: 'status' }, notice.message));
       if (notice.canReveal) {
         // 明碼只在剛產生的那一次回來過；重整之後就不在了，伺服器只留 digest。
