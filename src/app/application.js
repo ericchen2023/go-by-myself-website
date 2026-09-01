@@ -29,6 +29,7 @@ import {
   modePrivacyLead,
   modeSupportSection,
   modeToolbar,
+  pickupCompletionExit,
   recipientHandoff,
   homeModeCopy,
   notificationDisclaimer,
@@ -694,14 +695,14 @@ export class Application {
         phase === 'idle' || phase === 'locked' ? form : null,
         phase === 'opening' ? el('section', { className: 'pickup-phase', 'aria-busy': 'true' }, el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }), el('h2', {}, '正在確認艙門開啟'), el('p', {}, '已收到開艙要求。艙門確認打開後，畫面才會進到下一步。')) : null,
         phase === 'open' && status === 'compartment_open_for_recipient'
-          ? pickupOpenAction(() => void this.#run(() => this.adapter.confirmPickup()))
+          ? pickupOpenAction(() => void this.#run(() => this.adapter.confirmPickup()), this.state.vehicle ?? {})
           : null,
         phase === 'confirming' || status === 'picked_up' ? el('section', { className: 'pickup-phase', 'aria-busy': 'true' }, el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }), el('h2', {}, '正在確認取件完成'), el('p', {}, '已收到取物與關門資訊，正在完成最後確認。')) : null,
         phase === 'confirmed' || status === 'completed' ? el('section', { className: 'pickup-phase pickup-phase--complete' },
           el('div', { className: 'completion-check', 'aria-hidden': 'true' }, '✓'),
           el('h2', {}, '取件完成'),
           el('p', {}, '取件碼已失效，本次取件已完成。'),
-          el('a', { className: 'button button--secondary', href: '/delivery/current' }, '返回寄件進度')
+          pickupCompletionExit()
         ) : null,
         el('section', { className: 'recipient-safety' },
           el('h2', {}, '取件安全提醒'),

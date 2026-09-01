@@ -1,5 +1,5 @@
 begin;
-select plan(78);
+select plan(81);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -991,6 +991,37 @@ select throws_ok(
   '42501',
   'RLS_DENIED',
   'only the pickup endpoint may resolve a reference'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 車輛的連線狀態來自車輛本身，不是某一段路的快照。
+-- ---------------------------------------------------------------------------
+-- 讓 progress 停在 offline（路跑完就是這樣），車輛本身則剛回報過。
+update public.delivery_progress_current
+set connectivity = 'offline', observed_at = now() - interval '10 minutes'
+where delivery_id = (select delivery_three from route_test_context);
+update public.vehicle_state_current
+set connectivity = 'online', observed_at = now()
+where vehicle_id = (select vehicle_id from route_test_context);
+
+select is(
+  private.safe_delivery_projection((select delivery_three from route_test_context))
+    #>> '{telemetry,connectivity}',
+  'online',
+  'a finished leg does not make a vehicle that is still reporting look offline'
+);
+select is(
+  private.safe_delivery_projection((select delivery_three from route_test_context))
+    #>> '{telemetry,positionQuality}',
+  'valid',
+  'the position still comes from the leg, which is what knows where it went'
+);
+select is(
+  public.get_pickup_context((select public_ref from public.deliveries where id = (select delivery_three from route_test_context)))
+    #>> '{pickupContext,hasCompartment}',
+  'false',
+  'the pickup page is told the vehicle has no door to wait on'
 );
 
 select * from finish();

@@ -295,7 +295,13 @@ export class ProductionAdapter {
   /** @param {string} publicRef */
   async loadPickupContext(publicRef) {
     const projection = await this.#publicInvoke('GET_PICKUP_CONTEXT', { publicRef });
-    this.#patch({ ...this.#withLocalTelemetryReceipt(projection), actionError: null });
+    // 取件頁要知道這台車有沒有艙門才知道該顯示什麼；context 把它放在 pickupContext 裡。
+    const hasCompartment = projection?.pickupContext?.hasCompartment;
+    this.#patch({
+      ...this.#withLocalTelemetryReceipt(projection),
+      vehicle: hasCompartment === undefined ? this.state.vehicle : { hasCompartment },
+      actionError: null
+    });
   }
 
   clearError() {
