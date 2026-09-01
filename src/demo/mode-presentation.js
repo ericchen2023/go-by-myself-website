@@ -93,3 +93,16 @@ export function manualLoadNotice(scenario) {
 export function loadButtonLabel(scenario) {
   return scenario === 'compartment-sensor-missing' ? '人工確認已放入並關門' : '確認已放入並關門';
 }
+
+/**
+ * 展示模式是一個人走完寄件與收件兩個角色，所以這裡留一條路過去 —— 否則展示
+ * 會斷在「等待收件人」而沒有收件人可以等。
+ * @param {string} publicRef
+ * @param {{compact?: boolean}} [options]
+ */
+export function recipientHandoff(publicRef, options = {}) {
+  return el('a', {
+    className: options.compact ? 'button button--secondary' : 'button button--primary',
+    href: `/pickup/${publicRef}`
+  }, '前往收件人取件頁');
+}
