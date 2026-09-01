@@ -10,7 +10,7 @@ import {
   stepper,
   summaryItem
 } from './components.js';
-import { createRouteSelector } from '../map/map-view.js';
+import { clearVehicleMotionState, createRouteSelector } from '../map/map-view.js';
 import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
 import { notificationCopy, stepForStatus } from '../domain/presentation.js';
@@ -436,8 +436,11 @@ export class Application {
         ? shortestRoute(stagingOriginFor(pickup?.routeNodeId ?? ''), pickup?.routeNodeId ?? '')
         : shortestRoute(pickup?.routeNodeId ?? '', dropoff?.routeNodeId ?? '');
     const changingLeg = ['preparing', 'localizing'].includes(telemetry.vehicleState);
-    const route = createRouteSelector({
-      id: `delivery-route-${delivery.id}`,
+    const routeId = `delivery-route-${delivery.id}`;
+    const routeFirst = ['dispatching', 'loaded', 'in_transit', 'arrived_dropoff', 'awaiting_recipient', 'compartment_open_for_recipient', 'picked_up'].includes(delivery.status);
+    const showRoute = !['completed', 'cancelled', 'delivery_failed'].includes(delivery.status);
+    const route = showRoute ? createRouteSelector({
+      id: routeId,
       label: currentStep <= 6 ? '車輛前往放件地點' : '投遞路線與站點',
       pickupCode: delivery.pickupCode,
       dropoffCode: delivery.dropoffCode,
@@ -447,9 +450,8 @@ export class Application {
       showLocationList: false,
       vehiclePosition: ['off_route', 'invalid'].includes(telemetry.positionQuality) ? null : telemetry.position,
       animateVehicle: telemetry.positionQuality === 'valid' && telemetry.connectivity === 'online' && telemetry.vehicleState === 'moving'
-    });
-    const routeFirst = ['dispatching', 'loaded', 'in_transit', 'arrived_dropoff', 'awaiting_recipient', 'compartment_open_for_recipient', 'picked_up'].includes(delivery.status);
-    const showRoute = !['completed', 'cancelled', 'delivery_failed'].includes(delivery.status);
+    }) : null;
+    if (!showRoute) clearVehicleMotionState(routeId);
     const transitionNotice = changingLeg ? el('div', { className: 'route-transition-notice', role: 'status' },
       el('strong', {}, '車輛正在準備下一段路線'),
       el('span', {}, '重新定位完成前，地圖保留最後一筆可信位置。')) : null;
@@ -457,9 +459,9 @@ export class Application {
       statusHero({ status: delivery.status, telemetry })
     );
     if (transitionNotice) primary.append(transitionNotice);
-    if (routeFirst && showRoute) primary.append(route);
+    if (routeFirst && route) primary.append(route);
     primary.append(this.#statusActions(delivery));
-    if (!routeFirst && showRoute) primary.append(route);
+    if (!routeFirst && route) primary.append(route);
 
     const body = el('div', { className: 'status-layout' },
       primary,

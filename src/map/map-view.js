@@ -5,6 +5,13 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
 const vehicleMotionStates = new Map();
 
+/** @param {string} id */
+export function clearVehicleMotionState(id) {
+  const state = vehicleMotionStates.get(id);
+  if (state?.frameId) globalThis.cancelAnimationFrame?.(state.frameId);
+  vehicleMotionStates.delete(id);
+}
+
 const STOP_LABELS = Object.freeze({
   LIBRARY: { x: 128, y: 354, anchor: 'middle' },
   HSS2: { x: 382, y: 472, anchor: 'middle' },
@@ -174,9 +181,7 @@ function vehicleTransform(heading) {
 /** @param {SVGSVGElement} svg @param {string} id @param {{segmentId:string,progress:number}|null|undefined} position @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {boolean} animateVehicle */
 function appendVehicle(svg, id, position, parts, animateVehicle = true) {
   if (!position) {
-    const staleState = vehicleMotionStates.get(id);
-    if (staleState?.frameId) globalThis.cancelAnimationFrame?.(staleState.frameId);
-    vehicleMotionStates.delete(id);
+    clearVehicleMotionState(id);
     return;
   }
   const path = /** @type {SVGPathElement|null} */ (svg.querySelector('.journey-motion-path'));
