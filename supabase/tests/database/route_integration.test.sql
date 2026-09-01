@@ -1,5 +1,5 @@
 begin;
-select plan(63);
+select plan(69);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -837,6 +837,95 @@ select is(
   (select operational_status::text from public.vehicles where id = (select vehicle_id from route_test_context)),
   'available',
   'completing the delivery frees the vehicle it was holding'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 取件碼直接寄給收件人：寄件人只有在寄不出去時才准經手。
+-- delivery_four 在 GBM-02（有艙門），且收件人沒有留信箱。
+-- ---------------------------------------------------------------------------
+update public.deliveries set status = 'arrived_dropoff', version = version + 1, updated_at = now()
+where id = (select delivery_four from route_test_context);
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+end $$;
+
+select throws_ok(
+  $$ select public.begin_recipient_handover(
+    (select delivery_four from route_test_context), '\x11'::bytea, 1::smallint, now() + interval '30 minutes'
+  ) $$,
+  '42501',
+  'RLS_DENIED',
+  'a signed-in sender cannot start the handover; only the arrival path may'
+);
+
+alter table route_test_context add column handover jsonb;
+do $$
+declare payload jsonb;
+begin
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  select public.begin_recipient_handover(
+    (select delivery_four from route_test_context), '\x11'::bytea, 1::smallint, now() + interval '30 minutes'
+  ) into payload;
+  update route_test_context set handover = payload;
+end $$;
+
+select is(
+  (select status::text from public.deliveries where id = (select delivery_four from route_test_context)),
+  'awaiting_recipient',
+  'the arrival handover opens the delivery for the recipient'
+);
+select is(
+  (select handover ->> 'recipientEmail' from route_test_context),
+  null,
+  'a recipient who gave no email address hands out no address to mail'
+);
+select is(
+  (select actor_type::text from public.delivery_status_history
+   where delivery_id = (select delivery_four from route_test_context) and to_status = 'awaiting_recipient'),
+  'system',
+  'the handover is recorded as the system acting on arrival, not as the sender'
+);
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  perform public.record_delivery_notification(
+    (select delivery_four from route_test_context), 'email', 'accepted',
+    'h***@example.com', 'pickup-code-v1', 'provider-1', 'arrival-test-1'
+  );
+end $$;
+
+select is(
+  (select private.safe_delivery_projection((select delivery_four from route_test_context))
+     #>> '{notification,maskedDestination}'),
+  'h***@example.com',
+  'the sender can see where the code went, in masked form'
+);
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+end $$;
+select throws_ok(
+  $$ select public.issue_recipient_pickup_code(
+    (select delivery_four from route_test_context), '\x12'::bytea, 1::smallint, now() + interval '30 minutes'
+  ) $$,
+  'P0001',
+  'NOTIFICATION_ALREADY_DELIVERED',
+  'once the code has been mailed the sender cannot have a copy of it'
+);
+
+-- 有艙門的車不得由網頁宣告取件完成 —— 那是感測器的工作。
+update public.deliveries set status = 'compartment_open_for_recipient', version = version + 1, updated_at = now()
+where id = (select delivery_four from route_test_context);
+select throws_ok(
+  $$ select public.confirm_recipient_pickup(
+    (select public_ref from public.deliveries where id = (select delivery_four from route_test_context)),
+    gen_random_uuid()
+  ) $$,
+  'P0001',
+  'DELIVERY_INVALID_TRANSITION',
+  'a vehicle that has a compartment still needs its own evidence, not a web click'
 );
 
 select * from finish();
