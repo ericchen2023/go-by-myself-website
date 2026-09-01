@@ -166,9 +166,10 @@ const NOTIFICATION_SENT = ['queued', 'sending', 'retrying', 'accepted', 'deliver
  * 取件碼寄出去了沒。寄件人只該看到這個 —— 碼本身是收件人的鑰匙，經過寄件人
  * 就代表「誰取走的」不再可證明，所以只有在真的寄不出去時才退回人工轉交。
  * @param {{state?: string, channel?: string, maskedDestination?: string}|null} [notification]
+ * @param {string} [status] 投遞目前的狀態
  * @returns {{sent: boolean, canReveal: boolean, message: string}}
  */
-export function recipientNotice(notification) {
+export function recipientNotice(notification, status) {
   const state = notification?.state ?? '';
   if (NOTIFICATION_SENT.includes(state)) {
     const where = notification?.maskedDestination ? `（${notification.maskedDestination}）` : '';
@@ -187,6 +188,16 @@ export function recipientNotice(notification) {
       message: noAddress
         ? '收件人沒有可用的信箱（未填或未同意通知）。請產生取件碼並自行交給收件人，這個動作會留下紀錄。'
         : '目前沒有設定寄信服務。請產生取件碼並自行交給收件人，這個動作會留下紀錄。'
+    };
+  }
+  // 沒有通知紀錄有兩種意思。還在 arrived_dropoff 表示寄信正在進行；已經進到
+  // awaiting_recipient 卻沒有紀錄，就表示沒有東西在路上了 —— 那時再顯示「正在
+  // 寄送」，就是又造出一個出不去的狀態。
+  if (status === 'awaiting_recipient') {
+    return {
+      sent: false,
+      canReveal: true,
+      message: '沒有取件碼的通知紀錄。請產生取件碼並自行交給收件人，這個動作會留下紀錄。'
     };
   }
   return { sent: false, canReveal: false, message: '車輛已到站，正在把取件碼寄給收件人。' };
