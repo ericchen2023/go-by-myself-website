@@ -74,8 +74,11 @@ test('vehicle marker advances along the active canonical route', async ({ page }
   expect(distanceFromJourney).toBeLessThanOrEqual(1.5);
   const activeEdges = page.locator('.route-edge.is-active');
   expect(await activeEdges.count()).toBe(2);
+  // The whole corridor stays drawn, with only the journey's edges highlighted.
+  // Hiding the rest left stops attached to nothing and read as a broken map.
   await expect(page.locator('.route-edge')).toHaveCount(3);
   await expect(page.locator('.map-stop')).toHaveCount(4);
+  await expect(page.locator('.stop-approach')).toHaveCount(0);
   expect(await activeEdges.first().evaluate((path) => getComputedStyle(path).stroke)).not.toBe('none');
   await expect(page.locator('.journey-segment--remaining')).not.toHaveCount(0);
   await expect(page.locator('.journey-segment--traveled')).not.toHaveCount(0);

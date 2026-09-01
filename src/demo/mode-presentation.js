@@ -73,8 +73,12 @@ export function notificationDisclaimer() {
   return el('small', {}, '這是展示用通知紀錄，不會真的寄出簡訊或 Email。');
 }
 
-/** @param {()=>void} onConfirm */
-export function pickupOpenAction(onConfirm) {
+/**
+ * @param {() => void} onConfirm
+ * @param {{hasCompartment?: boolean}} [_vehicle] 展示車一律有艙門，簽名與正式版一致即可
+ */
+export function pickupOpenAction(onConfirm, _vehicle = {}) {
+  void _vehicle;
   return el('section', { className: 'pickup-phase pickup-phase--open' },
     el('h2', {}, '艙門已確認開啟'),
     el('ol', { className: 'instruction-list' }, el('li', {}, '取出你的物品。'), el('li', {}, '確認艙內沒有遺留物。'), el('li', {}, '完整關閉艙門。')),
@@ -92,4 +96,22 @@ export function manualLoadNotice(scenario) {
 /** @param {string|null} scenario */
 export function loadButtonLabel(scenario) {
   return scenario === 'compartment-sensor-missing' ? '人工確認已放入並關門' : '確認已放入並關門';
+}
+
+/**
+ * 展示模式是一個人走完寄件與收件兩個角色，所以這裡留一條路過去 —— 否則展示
+ * 會斷在「等待收件人」而沒有收件人可以等。
+ * @param {string} publicRef
+ * @param {{compact?: boolean}} [options]
+ */
+export function recipientHandoff(publicRef, options = {}) {
+  return el('a', {
+    className: options.compact ? 'button button--secondary' : 'button button--primary',
+    href: `/pickup/${publicRef}`
+  }, '前往收件人取件頁');
+}
+
+/** 展示模式是一個人走完兩個角色，取完件接回寄件進度看結果。 */
+export function pickupCompletionExit() {
+  return el('a', { className: 'button button--secondary', href: '/delivery/current' }, '返回寄件進度');
 }

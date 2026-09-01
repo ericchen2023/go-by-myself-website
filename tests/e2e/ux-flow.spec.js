@@ -39,7 +39,9 @@ test('auth, crest, station rules, and validation recovery are complete', async (
   await page.locator('input[name="dropoff-location"][value="ADMIN"]').check();
   await page.getByRole('button', { name: '檢查並前往確認' }).click();
 
-  await expect(page.getByRole('alert')).toContainText('DELIVERY_VALIDATION_FAILED');
+  // 表單少填不是當機。橫幅只說要修哪裡，代碼留給真的需要回報的錯誤。
+  await expect(page.getByRole('alert')).toContainText('請修正標示的欄位');
+  await expect(page.getByRole('alert')).not.toContainText('DELIVERY_VALIDATION_FAILED');
   await expect(page.getByLabel('收件人姓名')).toHaveAttribute('aria-invalid', 'true');
   await expect(page.getByLabel('台灣手機號碼')).toHaveAttribute('aria-invalid', 'true');
   await expect(page.locator('body')).not.toContainText('null');

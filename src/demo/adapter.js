@@ -9,6 +9,10 @@ const STORAGE_KEY = 'go-by-myself:demo:v1';
 export const DEMO_PICKUP_CODE = 'NDHU 4826';
 
 /** @returns {any} */
+/** demo 的開艙指令狀態，欄位形狀與正式環境 projection 的 command 相同。
+ * @param {string} state */
+const demoCommand = (state) => ({ type: 'OPEN_COMPARTMENT', state, errorCode: null });
+
 function initialState(scenario = 'happy-path') {
   return {
     mode: 'demo',
@@ -42,6 +46,10 @@ function initialState(scenario = 'happy-path') {
       error: ''
     },
     actionError: null,
+    command: null,
+    vehicle: null,
+    pickupCode: null,
+    notification: null,
     manualLoadEvidence: false
   };
 }
@@ -146,6 +154,11 @@ export class DemoAdapter {
   async signInWithMagicLink(_email) {
     void _email;
     throw new DomainError('AUTH_DEMO_NO_PASSWORD', '展示模式不使用密碼或 magic link。');
+  }
+
+  /** demo 沒有真的代號簿，直接交回這一輪那筆的 publicRef。 */
+  async resolvePickupRef() {
+    return this.state.delivery?.publicRef ?? 'DEMO-PICKUP-0001';
   }
 
   /** @param {string} _publicRef */
@@ -276,11 +289,12 @@ export class DemoAdapter {
   requestSenderOpen(idempotencyKey = 'demo-open-sender-1') {
     if (!this.state.delivery || this.processedKeys.has(idempotencyKey)) return;
     this.processedKeys.set(idempotencyKey, this.state.delivery.version);
-    this.#patch({ commandState: 'accepted', actionError: null });
+    this.#patch({ commandState: 'accepted', command: demoCommand('accepted'), actionError: null });
     const delay = this.state.scenario === 'command-timeout-late-ack' ? 2600 : 550;
     if (this.state.scenario === 'command-timeout-late-ack') {
       this.#later(() => this.#patch({
         commandState: 'unknown',
+        command: demoCommand('unknown'),
         actionError: {
           code: 'COMPARTMENT_ACK_TIMEOUT',
           message: '尚未確認艙門已開啟，請勿強行操作；相同命令正在安全恢復。',
@@ -290,7 +304,7 @@ export class DemoAdapter {
     }
     this.#later(() => {
       if (this.state.delivery?.status !== 'arrived_pickup') return;
-      this.#patch({ commandState: 'completed', actionError: null });
+      this.#patch({ commandState: 'completed', command: demoCommand('completed'), actionError: null });
       this.#transition('SENDER_OPEN_COMPLETED', 'gateway');
     }, delay);
   }
@@ -316,8 +330,15 @@ export class DemoAdapter {
   #arriveDropoff() {
     if (this.state.delivery?.status !== 'in_transit') return;
     this.#transition('VEHICLE_ARRIVED_DROPOFF', 'gateway');
+    const unconfigured = this.state.scenario === 'notification-provider-unconfigured';
     this.#patch({
-      notificationState: this.state.scenario === 'notification-provider-unconfigured' ? 'unconfigured' : 'queued'
+      notificationState: unconfigured ? 'unconfigured' : 'queued',
+      // 形狀與正式環境 projection 的 notification 相同，寄件人畫面才會照同一套規則走。
+      notification: {
+        state: unconfigured ? 'unconfigured' : 'queued',
+        channel: 'email',
+        maskedDestination: unconfigured ? '' : 'n***@example.com'
+      }
     });
     this.#later(() => {
       if (this.state.delivery?.status !== 'arrived_dropoff') return;

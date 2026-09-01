@@ -11,7 +11,7 @@ npm run check
 
 Python agent目前共10個unittest，其中五個專門驗證read-only connection preflight不輸出token、Authorization header或raw pose、能把hosted 401轉成穩定的`ROBOT_IDENTITY_INVALID`、對缺少vehicle ID的malformed state fail closed、損壞回應不顯示traceback，且`agent.py`啟動時不能繞過preflight。
 
-2026-09-02 UI 改版後的 bundle：demo 24.2 KiB JS / 7.8 KiB CSS gzip，production 79.7 KiB JS / 7.8 KiB CSS gzip，全部低於 150 KiB JS／30 KiB CSS budget。本機 Edge 首次冷啟動曾量到一次 LCP 3.7 秒，隨後三次為 1.296／1.416／0.932 秒；這組資料只作本機 regression evidence，部署後仍要以真實裝置與網路的 p75 Web Vitals 判定。
+2026-09-02 合併最新 `main` 後的 bundle：demo 26.8 KiB JS / 7.9 KiB CSS gzip，production 82.6 KiB JS / 7.9 KiB CSS gzip，全部低於 150 KiB JS／30 KiB CSS budget。本機 Edge 首次冷啟動曾量到一次 LCP 3.7 秒，隨後三次為 1.296／1.416／0.932 秒；這組資料只作本機 regression evidence，部署後仍要以真實裝置與網路的 p75 Web Vitals 判定。
 
 Robot v2需要針對單一層除錯時，可個別執行：
 
@@ -43,7 +43,7 @@ npm run local:down
 
 必須用兩個 synthetic sender JWT、anonymous、operator、revoked operator與 robot scoped endpoint做正向/負向 matrix。`service_role`/secret測試不能被當作 RLS證據，因其本來就 bypass RLS。
 
-Repository與GitHub database job基線為67個pgTAP（RLS 27、route integration 40）。Hosted先前已執行65個既有斷言；2026-09-01套用public Google OAuth migration後，另以定向SQL確認anonymous不可執行、authenticated可執行，且auth assurance函式同時要求Google identity與provider-verified email，沒有重跑已通過的65項。其餘基線涵蓋schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal與未accepted expiry reservation release。Deno runtime另有5組Edge contract tests。
+Repository、GitHub database job 與 hosted staging 的最新基線為 84 個 pgTAP。2026-09-02 的 staging release 已套用至第 25 筆 migration，涵蓋 schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal projection、無艙門 recovery、recipient handover 與 reservation release。Public Google OAuth 仍由定向 SQL 確認 anonymous 不可執行、authenticated 可執行，且 assurance 同時要求 Google identity 與 provider-verified email。Deno runtime 另有 5 組 Edge contract tests。
 
 ## Hosted staging smoke（2026-08-31；OAuth設定更新於2026-09-01）
 

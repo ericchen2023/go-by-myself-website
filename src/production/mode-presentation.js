@@ -42,10 +42,46 @@ export function notificationDisclaimer() { return null; }
 export function manualLoadNotice() { return null; }
 export function loadButtonLabel() { return '確認已放入並關門'; }
 
-export function pickupOpenAction() {
+/**
+ * 有艙門的車，取件完成要等車輛自己回報取物與關門 —— 網頁不能替感測器發言。
+ * 沒有艙門的車沒有那個回報可等，收件人自己確認就是唯一存在的訊號；少了這個
+ * 按鈕，取件頁就是一條走不完的路。
+ * @param {() => void} onConfirm
+ * @param {{hasCompartment?: boolean}} [vehicle]
+ */
+export function pickupOpenAction(onConfirm, vehicle = {}) {
+  const doorless = vehicle.hasCompartment === false;
   return el('section', { className: 'pickup-phase pickup-phase--open', role: 'status' },
-    el('h2', {}, '艙門已確認開啟'),
-    el('ol', { className: 'instruction-list' }, el('li', {}, '取出你的物品。'), el('li', {}, '確認艙內沒有遺留物。'), el('li', {}, '完整關閉艙門。')),
-    el('p', {}, '系統會等待車輛回報取物與關門結果；網頁不能自行把投遞標示為完成。')
+    el('h2', {}, doorless ? '可以取件了' : '艙門已確認開啟'),
+    doorless
+      ? el('ol', { className: 'instruction-list' },
+        el('li', {}, '從車上的置物區取出你的物品。'),
+        el('li', {}, '確認沒有遺留物。'),
+        el('li', {}, '離開車輛周邊後再按下確認。'))
+      : el('ol', { className: 'instruction-list' },
+        el('li', {}, '取出你的物品。'),
+        el('li', {}, '確認艙內沒有遺留物。'),
+        el('li', {}, '完整關閉艙門。')),
+    doorless
+      ? el('button', { className: 'button button--primary button--full', type: 'button', onclick: onConfirm }, '已關閉艙門')
+      : el('p', {}, '系統會等待車輛回報取物與關門結果；網頁不能自行把投遞標示為完成。')
   );
+}
+
+/** 收件人不是寄件人，取完件該回首頁，不是回別人的投遞進度。 */
+export function pickupCompletionExit() {
+  return el('a', { className: 'button button--secondary', href: '/' }, '回首頁');
+}
+
+/**
+ * 取件是收件人的事：寄件人手上不該有一條直接進取件頁的路。那正是「取件碼不
+ * 經過寄件人」要擋掉的同一件事 —— 有捷徑就等於沒擋。
+ * @param {string} _publicRef
+ * @param {{compact?: boolean}} [options]
+ */
+export function recipientHandoff(_publicRef, options = {}) {
+  void _publicRef;
+  return options.compact
+    ? null
+    : el('p', { className: 'field-help' }, '收件人會用信裡的取件代號和取件碼進入取件頁。');
 }

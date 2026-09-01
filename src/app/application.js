@@ -11,9 +11,10 @@ import {
   summaryItem
 } from './components.js';
 import { clearVehicleMotionState, createRouteSelector } from '../map/map-view.js';
+import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
 import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
-import { notificationCopy, stepForStatus } from '../domain/presentation.js';
+import { compartmentRequest, notificationCopy, pickupPhase, recipientNotice, stepForStatus } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
 import {
   authAlternative,
@@ -28,6 +29,8 @@ import {
   modePrivacyLead,
   modeSupportSection,
   modeToolbar,
+  pickupCompletionExit,
+  recipientHandoff,
   homeModeCopy,
   notificationDisclaimer,
   pickupOpenAction,
@@ -49,6 +52,8 @@ export class Application {
     this.uiError = null;
     /** @type {Record<string, string>} */
     this.fieldErrors = {};
+    this.arrivalSamples = [];
+    this.arrivalSegmentId = null;
     this.busy = false;
     this.operatorSelection = { vehicleId: '', legId: '' };
     this.route = window.location.pathname;
@@ -110,14 +115,18 @@ export class Application {
       await action();
       return true;
     } catch (error) {
+      const fieldErrors = error && typeof error === 'object' && 'fieldErrors' in error && error.fieldErrors
+        ? /** @type {Record<string,string>} */ (error.fieldErrors)
+        : null;
       this.uiError = {
         code: error && typeof error === 'object' && 'code' in error ? String(error.code) : 'UNEXPECTED_ERROR',
         message: error instanceof Error ? error.message : '操作未完成，請安全重試。',
-        retryable: Boolean(error && typeof error === 'object' && 'retryable' in error && error.retryable)
+        retryable: Boolean(error && typeof error === 'object' && 'retryable' in error && error.retryable),
+        // Carried so the banner can tell a form the reader can fix from a fault
+        // they would have to report.
+        fieldErrors
       };
-      if (error && typeof error === 'object' && 'fieldErrors' in error && error.fieldErrors) {
-        this.fieldErrors = /** @type {Record<string,string>} */ (error.fieldErrors);
-      }
+      if (fieldErrors) this.fieldErrors = fieldErrors;
       return false;
     } finally {
       if (markBusy) this.busy = false;
@@ -155,6 +164,7 @@ export class Application {
     else if (this.route === '/support') content = this.#supportPage();
     else if (this.route === '/operator/route-validation') content = this.#routeValidationPage();
     else if (!this.state.session || this.route === '/') content = this.#homePage();
+    else if (this.route === '/pickup') content = this.#pickupEntryPage();
     else if (this.route.startsWith('/delivery')) content = this.#deliveryPage();
     else content = this.#notFound();
 
@@ -178,6 +188,7 @@ export class Application {
       googleDisabled,
       googleHelp,
       recoveryText,
+      goToPickup: () => this.navigate('/pickup'),
       setAuthTab: (tab) => {
         this.authTab = tab;
         this.authNotice = '';
@@ -278,6 +289,20 @@ export class Application {
       ),
       el('button', { className: 'text-button', type: 'button', onclick: () => this.#setWizardStep(2) }, '修改放件地點')
     ));
+    // Choosing a stop saves the draft, which re-renders this whole form from the
+    // draft. Anything typed but not yet saved would be rebuilt as empty — so the
+    // reader fills the form in, picks a stop, and silently loses the lot, then
+    // gets told the fields are missing. Carry what is on screen along with it.
+    const typedFields = () => {
+      const data = new FormData(form);
+      return {
+        recipientName: String(data.get('recipientName') ?? ''),
+        recipientPhone: String(data.get('recipientPhone') ?? ''),
+        recipientEmail: String(data.get('recipientEmail') ?? ''),
+        itemType: String(data.get('itemType') ?? ''),
+        note: String(data.get('note') ?? '')
+      };
+    };
     form.append(createRouteSelector({
       id: 'dropoff-location',
       label: '選取收件地點',
@@ -287,7 +312,7 @@ export class Application {
       disabledCodes: [draft.pickupCode],
       interactive: true,
       compact: true,
-      onSelect: (code) => this.adapter.saveDraft({ dropoffCode: code })
+      onSelect: (code) => this.adapter.saveDraft({ ...typedFields(), dropoffCode: code })
     }));
 
     const fields = el('div', { className: 'form-grid' });
@@ -319,7 +344,8 @@ export class Application {
       this.fieldErrors = validation.errors;
       if (!Object.keys(validation.errors).length) this.#setWizardStep(4);
       else {
-        this.uiError = { code: 'DELIVERY_VALIDATION_FAILED', message: '請修正標示的欄位。', retryable: false };
+        // 帶上欄位錯誤，橫幅才知道這是可以自己修好的表單，而不是要回報的當機。
+        this.uiError = { code: 'DELIVERY_VALIDATION_FAILED', message: '請修正標示的欄位。', retryable: false, fieldErrors: validation.errors };
         this.render();
         requestAnimationFrame(() => /** @type {HTMLElement|null} */ (document.querySelector('.field--error input, .field--error textarea, .field--error select'))?.focus());
       }
@@ -428,6 +454,11 @@ export class Application {
     const pickup = locationByCode(delivery.pickupCode);
     const dropoff = locationByCode(delivery.dropoffCode);
     const telemetry = this.state.telemetry;
+    // Sampled here rather than in the adapter: the estimate belongs to what is
+    // on screen, and both adapters feed this same state.
+    this.arrivalSamples = trackProgress(this.arrivalSamples, telemetry.position, this.arrivalSegmentId, Date.now());
+    this.arrivalSegmentId = telemetry.position?.segmentId ?? null;
+    const etaSeconds = estimateRemainingSeconds(this.arrivalSamples);
     const projectedFrom = locationByCode(telemetry.routeFromStopCode);
     const projectedTo = locationByCode(telemetry.routeToStopCode);
     const activeRouteParts = projectedFrom && projectedTo
@@ -456,7 +487,7 @@ export class Application {
       el('strong', {}, '車輛正在準備下一段路線'),
       el('span', {}, '重新定位完成前，地圖保留最後一筆可信位置。')) : null;
     const primary = el('div', { className: `status-primary${routeFirst ? ' status-primary--route-first' : ''}` },
-      statusHero({ status: delivery.status, telemetry })
+      statusHero({ status: delivery.status, telemetry: { ...telemetry, etaSeconds } })
     );
     if (transitionNotice) primary.append(transitionNotice);
     if (routeFirst && route) primary.append(route);
@@ -506,32 +537,81 @@ export class Application {
     } else if (status === 'dispatching') {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '派車命令已接受，等待車輛完成抵達。'));
     } else if (status === 'arrived_pickup') {
-      action.append(
-        el('p', {}, '請先核對車輛 GBM-01 與站點，再要求開啟置物艙。'),
-        el('button', { className: 'button button--primary', type: 'button', disabled: this.busy || this.state.commandState === 'accepted', onclick: () => void this.#run(() => this.adapter.requestSenderOpen()) }, this.state.commandState === 'accepted' ? '正在要求開艙…' : '開啟置物艙')
-      );
+      const compartment = compartmentRequest(this.state.command);
+      const doorless = this.state.vehicle?.hasCompartment === false;
+      action.append(el('p', {}, doorless
+        ? '請先核對車輛 GBM-01 與站點。這台車沒有艙門，按下後會直接開放放件。'
+        : '請先核對車輛 GBM-01 與站點，再要求開啟置物艙。'));
+      if (compartment.phase === 'refused') {
+        // 車輛已經拒絕過。把理由說出來，並且不再把按鈕重新打開。
+        action.append(el('p', { className: 'notice notice--warning', role: 'alert' }, compartment.message));
+      } else {
+        action.append(el('button', {
+          className: 'button button--primary',
+          type: 'button',
+          disabled: this.busy || compartment.phase === 'waiting',
+          onclick: () => void this.#run(() => this.adapter.requestSenderOpen())
+        }, compartment.phase === 'waiting' ? '正在要求開艙…' : (doorless ? '開啟置物櫃' : '開啟置物艙')));
+      }
     } else if (status === 'compartment_open_for_sender') {
+      // 這台車是開放式載台，沒有艙門可關。照著關門的指示走只會讓人找不到艙門。
+      const doorless = this.state.vehicle?.hasCompartment === false;
       action.append(
-        el('ol', { className: 'instruction-list' },
-          el('li', {}, '將小型物品平穩放入置物艙。'),
-          el('li', {}, '確認物品不會阻擋艙門。'),
-          el('li', {}, '關閉艙門後再按下確認。')
-        ),
+        doorless
+          ? el('ol', { className: 'instruction-list' },
+            el('li', {}, '將小型物品平穩放入車上的置物區。'),
+            el('li', {}, '確認物品放穩，行進中不會滑落。'),
+            el('li', {}, '放好後按下「關閉置物櫃」，車輛就會出發。')
+          )
+          : el('ol', { className: 'instruction-list' },
+            el('li', {}, '將小型物品平穩放入置物艙。'),
+            el('li', {}, '確認物品不會阻擋艙門。'),
+            el('li', {}, '關閉艙門後再按下確認。')
+          ),
         manualLoadNotice(this.state.scenario),
-        el('button', { className: 'button button--primary', type: 'button', onclick: () => void this.#run(() => this.adapter.confirmLoaded()) }, loadButtonLabel(this.state.scenario))
+        el('button', {
+          className: 'button button--primary',
+          type: 'button',
+          disabled: this.busy,
+          onclick: () => void this.#run(() => this.adapter.confirmLoaded())
+        }, doorless ? '關閉置物櫃' : loadButtonLabel(this.state.scenario))
       );
     } else if (status === 'loaded') {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '已取得放件證據，正在確認艙門與移動條件。'));
-    } else if (['in_transit', 'arrived_dropoff'].includes(status)) {
-      action.append(el('p', {}, status === 'arrived_dropoff' ? '車輛已到站，但收件人尚未完成驗證與取物。' : '車輛正在前往收件站。收到可靠位置後，地圖會自動更新。'));
-    } else if (status === 'awaiting_recipient') {
-      action.append(
-        el('p', {}, '收件人不必登入。請將取件連結和展示取件碼交給收件人。'),
-        credentialCallout('sender'),
-        el('a', { className: 'button button--primary', href: `/pickup/${delivery.publicRef}` }, '前往收件人取件頁')
-      );
+    } else if (status === 'in_transit') {
+      action.append(el('p', {}, '車輛正在前往收件站。收到可靠位置後，地圖會自動更新。'));
+    } else if (['arrived_dropoff', 'awaiting_recipient'].includes(status)) {
+      // 取件碼是收件人的鑰匙，寄件人只看得到它寄出去了沒。
+      const notice = recipientNotice(this.state.notification, status);
+      action.append(el('p', { role: 'status' }, notice.message));
+      if (notice.canReveal) {
+        // 明碼只在剛產生的那一次回來過；重整之後就不在了，伺服器只留 digest。
+        action.append(
+          this.state.pickupCode
+            ? el('div', { className: 'pickup-code-reveal', role: 'status' },
+              el('span', {}, '取件碼'),
+              el('strong', { className: 'pickup-code-value' }, this.state.pickupCode),
+              el('small', {}, '只顯示這一次，離開畫面就看不到了。重新產生會讓舊碼立刻失效。'))
+            : credentialCallout('sender'),
+          el('button', {
+            className: 'button button--secondary',
+            type: 'button',
+            disabled: this.busy,
+            onclick: () => void this.#run(() => this.adapter.issuePickupCode())
+          }, this.state.pickupCode ? '重新產生取件碼' : '改用人工轉交')
+        );
+      }
+      if (status === 'awaiting_recipient') {
+        // 取件是收件人的事，寄件人手上不該有一條直接進取件頁的路 —— 那正是
+        // 「取件碼不經過寄件人」要擋掉的同一件事。展示模式例外：那裡本來就是
+        // 一個人走完兩個角色，收起連結只會讓展示斷在半路。
+        action.append(recipientHandoff(delivery.publicRef));
+      }
     } else if (status === 'compartment_open_for_recipient') {
-      action.append(el('p', {}, '收件艙已開啟，正在等待收件人取出物品並關好艙門。這時投遞尚未完成。'));
+      action.append(
+        el('p', {}, '收件艙已開啟，正在等待收件人取出物品並關好艙門。這時投遞尚未完成。'),
+        recipientHandoff(delivery.publicRef, { compact: true })
+      );
     } else if (status === 'picked_up') {
       action.append(el('div', { className: 'pending-row', role: 'status' }, el('span', { className: 'spinner', 'aria-hidden': 'true' }), '已收到取物與關門資訊，正在完成最後確認。'));
     } else if (status === 'completed') {
@@ -541,7 +621,11 @@ export class Application {
     } else if (status === 'cancelled') {
       action.append(el('p', {}, cancelledCopy), this.#newDeliveryButton());
     } else if (status === 'delivery_failed') {
-      action.append(el('div', { className: 'alert alert--danger' }, '投遞無法繼續。請保持物品與艙門原狀，等待現場人員協助。'));
+      action.append(
+        el('div', { className: 'alert alert--danger' }, '投遞無法繼續。請保持物品與艙門原狀，等待現場人員協助。'),
+        // 這是終態：沒有按鈕的話，寄件人就停在一則公告前面，什麼都做不了。
+        this.#newDeliveryButton()
+      );
     }
 
     const cancelStatuses = ['confirmed', 'dispatching', 'arrived_pickup', 'compartment_open_for_sender', 'loaded', 'in_transit'];
@@ -626,7 +710,7 @@ export class Application {
       void this.#run(() => this.adapter.redeemCredential(code));
     });
 
-    const phase = status === 'completed' ? 'confirmed' : attempt.phase;
+    const phase = pickupPhase(status, attempt.phase);
     return el('div', { className: 'recipient-shell' },
       header,
       el('main', { id: 'main-content', className: 'recipient-main' },
@@ -643,14 +727,14 @@ export class Application {
         phase === 'idle' || phase === 'locked' ? form : null,
         phase === 'opening' ? el('section', { className: 'pickup-phase', 'aria-busy': 'true' }, el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }), el('h2', {}, '正在確認艙門開啟'), el('p', {}, '已收到開艙要求。艙門確認打開後，畫面才會進到下一步。')) : null,
         phase === 'open' && status === 'compartment_open_for_recipient'
-          ? pickupOpenAction(() => void this.#run(() => this.adapter.confirmPickup()))
+          ? pickupOpenAction(() => void this.#run(() => this.adapter.confirmPickup()), this.state.vehicle ?? {})
           : null,
         phase === 'confirming' || status === 'picked_up' ? el('section', { className: 'pickup-phase', 'aria-busy': 'true' }, el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }), el('h2', {}, '正在確認取件完成'), el('p', {}, '已收到取物與關門資訊，正在完成最後確認。')) : null,
         phase === 'confirmed' || status === 'completed' ? el('section', { className: 'pickup-phase pickup-phase--complete' },
           el('div', { className: 'completion-check', 'aria-hidden': 'true' }, '✓'),
           el('h2', {}, '取件完成'),
           el('p', {}, '取件碼已失效，本次取件已完成。'),
-          el('a', { className: 'button button--secondary', href: '/delivery/current' }, '返回寄件進度')
+          pickupCompletionExit()
         ) : null,
         el('section', { className: 'recipient-safety' },
           el('h2', {}, '取件安全提醒'),
@@ -658,6 +742,42 @@ export class Application {
         )
       ),
       modeToolbar(this.state, this.adapter, (path) => this.navigate(path)),
+      siteFooter(),
+      liveRegion(this.#liveMessage())
+    );
+  }
+
+  /** 沒有連結的收件人從這裡進來：輸入信上的取件代號。 */
+  #pickupEntryPage() {
+    const form = el('form', { className: 'pickup-ref-form', novalidate: true },
+      el('h1', {}, '輸入取件代號'),
+      el('p', {}, '取件代號寫在通知信裡，六個英數字。不必登入。'),
+      errorBanner(this.uiError, () => { this.uiError = null; this.render(); }),
+      el('div', { className: 'field pickup-ref-field' },
+        el('label', { for: 'pickup-ref' }, '取件代號'),
+        el('input', {
+          id: 'pickup-ref',
+          name: 'pickupRef',
+          type: 'text',
+          autocomplete: 'off',
+          spellcheck: 'false',
+          maxlength: '12',
+          'aria-describedby': 'pickup-ref-help'
+        }),
+        el('p', { id: 'pickup-ref-help', className: 'field-help' }, '可直接貼上；系統會忽略空白與連字號。')
+      ),
+      el('button', { className: 'button button--primary button--full', type: 'submit', disabled: this.busy }, '前往取件')
+    );
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const value = String(new FormData(form).get('pickupRef') ?? '');
+      void this.#run(async () => {
+        const publicRef = await this.adapter.resolvePickupRef(value);
+        if (publicRef) this.navigate(`/pickup/${encodeURIComponent(publicRef)}`);
+      });
+    });
+    return el('div', { className: 'recipient-shell' },
+      el('main', { id: 'main-content', className: 'recipient-main' }, form),
       siteFooter(),
       liveRegion(this.#liveMessage())
     );

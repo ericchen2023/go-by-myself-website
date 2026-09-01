@@ -69,6 +69,14 @@ function initialState() {
       legCount: null
     },
     commandState: null,
+    /** @type {{type: string, state: string, errorCode: string|null}|null} 車輛對最近一筆指令的回應 */
+    command: null,
+    /** @type {{hasCompartment: boolean}|null} 車輛能力；沒有艙門時流程改由當事人確認 */
+    vehicle: null,
+    /** @type {string|null} 剛產生的取件碼。只活在這一輪畫面裡，伺服器只存 digest */
+    pickupCode: null,
+    /** @type {{state: string, channel: string, maskedDestination: string}|null} 取件碼通知的結果 */
+    notification: null,
     notificationState: null,
     recipientAttempt: { attempts: 0, verified: false, phase: 'idle', error: '' },
     routeValidation: {
@@ -97,6 +105,7 @@ export class ProductionAdapter {
     this.channel = null;
     this.routeValidationChannel = null;
     this.connectivityTimer = null;
+    this.deliveryRefreshTimer = null;
   }
 
   snapshot() {
@@ -244,7 +253,8 @@ export class ProductionAdapter {
         code: rawCode,
         idempotencyKey: crypto.randomUUID()
       });
-      this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, verified: true, phase: 'opening', error: '' }, ...projection });
+      const opened = projection?.delivery?.status === 'compartment_open_for_recipient';
+      this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, verified: true, phase: opened ? 'open' : 'opening', error: '' }, ...projection });
       return true;
     } catch {
       this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, error: '取件資訊無效或已失效。' } });
@@ -253,13 +263,45 @@ export class ProductionAdapter {
   }
 
   async confirmPickup() {
-    throw new DomainError('DELIVERY_INVALID_TRANSITION', 'Production pickup completion 只能由 robot evidence 或受稽核 operator intent 建立。');
+    if (!this.state.delivery) return;
+    // 有艙門的車仍然只能由車輛回報取物與關門 —— 伺服器會拒絕這個呼叫，
+    // 這裡不自己判斷，讓那道檢查留在唯一有權威的地方。
+    const projection = await this.#publicInvoke('CONFIRM_PICKUP', {
+      publicRef: this.state.delivery.publicRef,
+      idempotencyKey: crypto.randomUUID()
+    });
+    this.#patch({ recipientAttempt: { ...this.state.recipientAttempt, phase: 'confirmed' }, ...projection });
+  }
+
+  /** 產生一組交給收件人的取件碼。明碼只回來這一次，伺服器只留 HMAC digest。 */
+  async issuePickupCode() {
+    if (!this.state.delivery) return;
+    const response = await this.#invoke('ISSUE_PICKUP_CODE', { deliveryId: this.state.delivery.id }, 0);
+    const { pickupCode, ...projection } = response ?? {};
+    this.#patch({ ...this.#withLocalTelemetryReceipt(projection), pickupCode: pickupCode ?? null, actionError: null });
+  }
+
+  /**
+   * 用信裡的取件代號換到取件頁。代號不是秘密，但伺服器對「查無此代號」和
+   * 「還不能取件」回同一種答案，所以這裡也只會得到一句話。
+   * @param {string} rawRef
+   */
+  async resolvePickupRef(rawRef) {
+    const pickupRef = String(rawRef).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const resolved = await this.#publicInvoke('RESOLVE_PICKUP_REF', { pickupRef });
+    return resolved?.publicRef ?? null;
   }
 
   /** @param {string} publicRef */
   async loadPickupContext(publicRef) {
     const projection = await this.#publicInvoke('GET_PICKUP_CONTEXT', { publicRef });
-    this.#patch({ ...this.#withLocalTelemetryReceipt(projection), actionError: null });
+    // 取件頁要知道這台車有沒有艙門才知道該顯示什麼；context 把它放在 pickupContext 裡。
+    const hasCompartment = projection?.pickupContext?.hasCompartment;
+    this.#patch({
+      ...this.#withLocalTelemetryReceipt(projection),
+      vehicle: hasCompartment === undefined ? this.state.vehicle : { hasCompartment },
+      actionError: null
+    });
   }
 
   clearError() {
@@ -276,6 +318,7 @@ export class ProductionAdapter {
       this.routeValidationChannel = null;
     }
     this.#stopConnectivityClock();
+    this.#stopDeliveryRefreshClock();
     const session = this.state.session;
     this.#patch({ ...initialState(), session, wizardStep: session ? 2 : 1 });
   }
@@ -367,10 +410,11 @@ export class ProductionAdapter {
     });
     await this.channel.subscribe((status) => {
       if (status !== 'SUBSCRIBED') return;
-      if (subscribedOnce) void this.#refreshActiveDeliverySnapshot();
+      if (subscribedOnce) void this.refreshActiveDeliverySnapshot();
       subscribedOnce = true;
     });
     this.#startConnectivityClock();
+    this.#startDeliveryRefreshClock();
   }
 
   async #subscribeToRouteValidation(routeJobId) {
@@ -391,12 +435,22 @@ export class ProductionAdapter {
     });
   }
 
-  async #refreshActiveDeliverySnapshot() {
+  /** Re-reads the sender's delivery from the server. Public so the recovery path can be tested. */
+  async refreshActiveDeliverySnapshot() {
     try {
       const projection = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
+      if (!projection?.delivery) {
+        // The server has no delivery in flight for this sender, so the one on
+        // screen has reached a terminal state. Comparing versions here left the
+        // page showing it for ever — nothing is newer than a delivery that no
+        // longer exists — and with no way back to the form the reader could not
+        // start another one.
+        if (this.state.delivery && await this.#confirmNoDelivery()) await this.#settleFinishedDelivery();
+        return;
+      }
       const currentVersion = this.state.delivery?.version ?? -1;
       const currentProjection = this.state.telemetry?.projectionVersion ?? -1;
-      if ((projection?.delivery?.version ?? -1) > currentVersion || (projection?.telemetry?.projectionVersion ?? -1) > currentProjection) {
+      if ((projection.delivery.version ?? -1) > currentVersion || (projection?.telemetry?.projectionVersion ?? -1) > currentProjection) {
         this.#patch(this.#withLocalTelemetryReceipt(projection));
       }
     } catch {
@@ -413,6 +467,50 @@ export class ProductionAdapter {
     } catch {
       this.#patch({ actionError: { code: 'REALTIME_RESYNC_FAILED', message: '重新連線後無法取得最新路線驗證狀態。', retryable: true } });
     }
+  }
+
+  /**
+   * One empty read can be a blip; the screen is only cleared when a second read
+   * agrees, so a delivery still in flight is never taken away from its sender.
+   * A throw here leaves the delivery on screen, which is the safe direction.
+   */
+  async #confirmNoDelivery() {
+    const confirmation = await this.#invoke('GET_ACTIVE_DELIVERY', {}, 0);
+    return !confirmation?.delivery;
+  }
+
+  /**
+   * 投遞結束了。不要把畫面清掉：寄件人還沒看到結果，而收件人的取件頁也是靠這
+   * 筆資料才認得自己在看哪一筆 —— 清掉的話那頁會變成「找不到取件資訊」。
+   * 改成把最後的狀態抓回來、停掉時鐘，下一步交給人自己按。
+   */
+  async #settleFinishedDelivery() {
+    const deliveryId = this.state.delivery?.id;
+    this.#stopConnectivityClock();
+    this.#stopDeliveryRefreshClock();
+    if (!deliveryId) return;
+    try {
+      const final = await this.#invoke('GET_DELIVERY', { deliveryId }, 0);
+      if (final?.delivery) this.#patch(this.#withLocalTelemetryReceipt(final));
+    } catch {
+      // 抓不到結局就維持畫面上最後看到的狀態 —— 那仍然比把它清掉好。
+    }
+  }
+
+  /**
+   * Realtime is the fast path, not the only one. When a broadcast is missed the
+   * page has no other way to learn its delivery ended, and it strands there.
+   */
+  #startDeliveryRefreshClock() {
+    this.#stopDeliveryRefreshClock();
+    this.deliveryRefreshTimer = window.setInterval(() => {
+      void this.refreshActiveDeliverySnapshot();
+    }, 15_000);
+  }
+
+  #stopDeliveryRefreshClock() {
+    if (this.deliveryRefreshTimer) window.clearInterval(this.deliveryRefreshTimer);
+    this.deliveryRefreshTimer = null;
   }
 
   #startConnectivityClock() {

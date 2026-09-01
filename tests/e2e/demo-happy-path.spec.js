@@ -1,3 +1,6 @@
+// 這裡的等待都是在等 demo 的計時器鏈（路線動畫每段 160ms，狀態轉換 550-650ms）。
+// timeout 放寬到 15 秒不是在遷就慢：畫面一出現就會往下走，寬鬆只會擋掉機器忙碌
+// 時的假失敗。
 import { expect, test } from '@playwright/test';
 
 test('complete deterministic sender and recipient demo', async ({ page }) => {
@@ -20,22 +23,24 @@ test('complete deterministic sender and recipient demo', async ({ page }) => {
   await page.getByRole('button', { name: '確認投遞' }).click();
   await expect(page.getByRole('heading', { name: '準備呼叫車輛' })).toBeVisible();
   await page.getByRole('button', { name: '呼叫車輛' }).click();
-  await expect(page.getByRole('heading', { name: '確認車輛後再開艙' })).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByRole('heading', { name: '確認車輛後再開艙' })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('body')).not.toContainText('狀態版本');
 
   await page.getByRole('button', { name: '開啟置物艙' }).click();
-  await expect(page.getByRole('heading', { name: '請放入物品' })).toBeVisible({ timeout: 3_000 });
+  await expect(page.getByRole('heading', { name: '請放入物品' })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: '確認已放入並關門' }).click();
-  await expect(page.getByRole('heading', { name: '取件憑證已啟用' })).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByText('NDHU 4826', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '取件憑證已啟用' })).toBeVisible({ timeout: 15_000 });
+  // 取件碼是收件人的鑰匙：信寄得出去時，寄件人畫面上不該出現它。
+  await expect(page.getByText('NDHU 4826', { exact: true })).toHaveCount(0);
 
   await page.getByRole('link', { name: '前往收件人取件頁' }).click();
   await expect(page.getByRole('heading', { name: '確認站點與車輛後取件' })).toBeVisible();
+  await expect(page.getByText('NDHU 4826', { exact: true })).toBeVisible();
   await page.getByLabel('一次性人類取件碼').fill('NDHU 4826');
   await page.getByRole('button', { name: '驗證並開啟收件艙' }).click();
-  await expect(page.getByRole('heading', { name: '艙門已確認開啟' })).toBeVisible({ timeout: 3_000 });
+  await expect(page.getByRole('heading', { name: '艙門已確認開啟' })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: '模擬物品已取出並關門' }).click();
-  await expect(page.getByRole('heading', { name: '取件完成' })).toBeVisible({ timeout: 3_000 });
+  await expect(page.getByRole('heading', { name: '取件完成' })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('link', { name: '返回寄件進度' }).click();
   await expect(page.locator('.stepper')).toContainText('步驟 8 / 8');
   await expect(page.getByRole('heading', { name: '物品已由收件人取走' })).toBeVisible();
@@ -52,10 +57,9 @@ test('arrival at dropoff never renders completed', async ({ page }) => {
   await page.getByRole('button', { name: '檢查並前往確認' }).click();
   await page.getByRole('button', { name: '確認投遞' }).click();
   await page.getByRole('button', { name: '呼叫車輛' }).click();
-  await page.getByRole('button', { name: '開啟置物艙' }).click({ timeout: 8_000 });
-  await page.getByRole('button', { name: '確認已放入並關門' }).click({ timeout: 3_000 });
-  await expect(page.getByRole('heading', { name: '取件憑證已啟用' })).toBeVisible({ timeout: 8_000 });
-  await expect(page.locator('.stepper')).toContainText('步驟 7 / 8');
+  await page.getByRole('button', { name: '開啟置物艙' }).click({ timeout: 15_000 });
+  await page.getByRole('button', { name: '確認已放入並關門' }).click({ timeout: 15_000 });
+  await expect(page.locator('.stepper')).toContainText('步驟 7 / 8', { timeout: 15_000 });
   await expect(page.locator('.stepper')).not.toContainText('步驟 8 / 8');
-  await expect(page.getByText('收件人完成開艙、取物與關門確認後才會結案。')).toBeVisible();
+  await expect(page.getByText(/尚未完成投遞|抵達不等於完成/).first()).toBeVisible();
 });
