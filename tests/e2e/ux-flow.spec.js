@@ -32,6 +32,8 @@ test('auth, crest, station rules, and validation recovery are complete', async (
   await expect(page.locator('.skip-link')).not.toBeFocused();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await expect(page.locator('input[name="dropoff-location"][value="LIBRARY"]')).toBeDisabled();
+  await expect(page.locator('input[name="dropoff-location"][value="HSS1"]')).toBeDisabled();
+  await expect(page.getByText('灰色站點的路線尚未完成示教，暫不提供選取。')).toBeVisible();
   await expect(page.locator('.route-overview')).not.toHaveAttribute('open', '');
   await expect(page.locator('.route-overview .route-map')).toBeHidden();
   const firstFieldBox = await page.getByLabel('收件人姓名').boundingBox();

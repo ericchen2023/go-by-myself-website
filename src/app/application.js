@@ -330,15 +330,10 @@ export class Application {
     };
     const unreachable = unreachableFrom(
       draft.pickupCode, this.state.servicePairs, DELIVERY_LOCATIONS.map((location) => location.code));
-    if (unreachable.length) {
-      form.append(el('p', { className: 'field-help', role: 'note' },
-        `目前無法從${locationByCode(draft.pickupCode)?.name ?? '此站'}直達：${
-          unreachable.map((code) => locationByCode(code)?.name ?? code).join('、')
-        }。這兩段路線尚未示教，車輛沒有可用的地圖。`));
-    }
     form.append(createRouteSelector({
       id: 'dropoff-location',
       label: '選取收件地點',
+      hint: unreachable.length ? '灰色站點的路線尚未完成示教，暫不提供選取。' : undefined,
       selectedCode: draft.dropoffCode,
       pickupCode: draft.pickupCode,
       dropoffCode: draft.dropoffCode,

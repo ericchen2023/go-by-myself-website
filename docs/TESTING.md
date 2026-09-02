@@ -30,7 +30,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-目前 Playwright 涵蓋 deterministic 完整旅程、arrival semantic、keyboard map、靜態與動態 sender/recipient axe、320–768 overflow、640px／320px 等效 reflow、reduced-motion 與真實 SVG geometry。地圖幾何測試固定要求四個站點、三條 canonical edge 與兩條人社站短支線，並確認 marker 仍落在本次可見路徑上。`chromium-motion` 專案刻意關閉 reduced motion，驗證首頁示意只跑一次、車輛會沿本次 SVG 路線前進、方向流光只跑有限次、互動不使用 `transition: all`。2026-09-02 全套結果為 25 passed、3 skipped、0 failed；本輪另定向通過 10 個地圖／動態／axe 測試與 1 個預期 skip，並以實際 Chromium 檢查 desktop、390px 與 320px 的首頁、Step 2、Step 5，console/page error 均為 0。人工仍需涵蓋：NVDA/VoiceOver、實際瀏覽器 200%/400% zoom、large text、真實觸控、virtual keyboard、landscape 與低高度。
+目前 Playwright 涵蓋 deterministic 完整旅程、arrival semantic、keyboard map、靜態與動態 sender/recipient axe、320–768 overflow、640px／320px 等效 reflow、reduced-motion 與真實 SVG geometry。地圖幾何測試固定要求四個站點、三條 canonical edge 與兩條人社站短支線，並確認 marker 仍落在本次可見路徑上。`chromium-motion` 專案刻意關閉 reduced motion，驗證首頁示意只跑一次、車輛會沿本次 SVG 路線前進、方向流光只跑有限次、互動不使用 `transition: all`。2026-09-02 完整集合為 26 passed、3 skipped、0 failed；本輪另定向通過10個地圖／動態／axe測試與1個預期skip，以及desktop／mobile各1個首屏投遞UX測試，並以實際Chromium檢查desktop、390px與320px的首頁、Step 2、Step 5，console/page error均為0。人工仍需涵蓋：NVDA/VoiceOver、實際瀏覽器 200%/400% zoom、large text、真實觸控、virtual keyboard、landscape 與低高度。
 
 ## Database
 

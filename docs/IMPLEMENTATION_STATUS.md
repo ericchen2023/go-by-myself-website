@@ -23,7 +23,7 @@
 | Edge Functions | HOSTED HTTP VERIFIED | `delivery-intent`（platform JWT）、`pickup`（public credential flow）、`robot-api`（per-client constant-time token）均 ACTIVE；GBM-01交接token已於2026-08-31輪替，read-only state preflight 200且scope一致；錯 token 401、跨車 403、pickup generic 404、CORS exact-origin 204 |
 | Repository governance | ENABLED | `main` 與 `staging` 都要求 PR、strict `quality/browser/database/edge-contract` checks、linear history 與 conversation resolution；enforce admins，禁止 force-push 與 deletion |
 | Vercel deployment protection | ENABLED + AUTOMATION BYPASS VERIFIED | Standard Protection維持開啟；CI／E2E專用bypass只存GitHub Actions secret，header對staging health實測通過，不提供給browser bundle或車端 |
-| Tests | IMPLEMENTED BASELINE | 111 Vitest、25 Playwright/axe（另3個依環境或project刻意skip）、10 Python unittest、5 Deno runtime tests、repository／GitHub database baseline 96個pgTAP、hosted staging baseline 93個pgTAP；normal-motion專案另外驗證首頁動態只跑一次、兩條人社支線存在、車輛沿SVG路線移動、方向流光有限次且不使用`transition: all`；另有contract/build/boundary/bundle、protected staging health與production shell E2E |
+| Tests | IMPLEMENTED BASELINE | 111 Vitest、26 Playwright/axe（另3個依環境或project刻意skip）、10 Python unittest、5 Deno runtime tests、repository／GitHub database baseline 96個pgTAP、hosted staging baseline 93個pgTAP；normal-motion專案另外驗證首頁動態只跑一次、兩條人社支線存在、車輛沿SVG路線移動、方向流光有限次且不使用`transition: all`；另有contract/build/boundary/bundle、protected staging health與production shell E2E |
 
 ## 尚未取得的驗證證據
 

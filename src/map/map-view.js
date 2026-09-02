@@ -411,16 +411,16 @@ export function createRoutePreview() {
   return wrapper;
 }
 
-/** @param {{id:string,label:string,selectedCode?:string,pickupCode?:string,dropoffCode?:string,disabledCodes?:string[],interactive?:boolean,compact?:boolean,showLocationList?:boolean,footer?:Node|null,activeEdgeIds?:string[],activeRouteParts?:Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>,vehiclePosition?:{segmentId:string,progress:number}|null,animateVehicle?:boolean,onSelect?:(code:string)=>void}} options */
+/** @param {{id:string,label:string,hint?:string,selectedCode?:string,pickupCode?:string,dropoffCode?:string,disabledCodes?:string[],interactive?:boolean,compact?:boolean,showLocationList?:boolean,footer?:Node|null,activeEdgeIds?:string[],activeRouteParts?:Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>,vehiclePosition?:{segmentId:string,progress:number}|null,animateVehicle?:boolean,onSelect?:(code:string)=>void}} options */
 export function createRouteSelector(options) {
   const disabled = new Set(options.disabledCodes ?? []);
   const activeEdges = new Set(options.activeEdgeIds ?? []);
   const interactive = options.interactive ?? true;
   const headingId = `${options.id}-heading`;
   const heading = el('h2', { id: headingId, className: 'section-title' }, options.label);
-  const mapHint = el('p', { className: 'map-hint', id: `${options.id}-hint` }, interactive
+  const mapHint = el('p', { className: 'map-hint', id: `${options.id}-hint` }, options.hint ?? (interactive
     ? '可以在地圖或站點列表中選擇，兩邊會同步更新。'
-    : '車輛位置只會顯示在固定路線上，不公開精確座標。');
+    : '車輛位置只會顯示在固定路線上，不公開精確座標。'));
   const keyboardHint = interactive ? el('p', { className: 'sr-only' }, '地圖可用方向鍵切換站點，按 Enter 或空白鍵選取。') : null;
   const svg = /** @type {SVGSVGElement} */ (svgElement('svg', {
     id: `${options.id}-svg`, viewBox: '0 0 1000 650', class: 'route-map', role: interactive ? 'group' : 'img', 'aria-labelledby': headingId, 'aria-describedby': `${options.id}-hint`
@@ -448,11 +448,12 @@ export function createRouteSelector(options) {
     const isPickup = location.code === options.pickupCode;
     const isDropoff = location.code === options.dropoffCode;
     const isSelected = location.code === options.selectedCode;
+    const disabledReason = isPickup ? '與放件地點相同，不可選' : '路線尚未完成示教，不可選';
     const group = /** @type {SVGGElement} */ (svgElement('g', {
       class: ['map-stop', isPickup ? 'is-pickup' : '', isDropoff ? 'is-dropoff' : '', isSelected ? 'is-selected' : '', isDisabled ? 'is-disabled' : ''].filter(Boolean).join(' '),
       transform: `translate(${point.x} ${point.y})`, role: interactive ? 'button' : 'img',
       tabindex: interactive && !isDisabled && enabledLocations[rovingIndex]?.code === location.code ? '0' : '-1',
-      'aria-label': `${location.name}，${location.detail}${isDisabled ? '，不可選，與放件地點相同' : ''}`,
+      'aria-label': `${location.name}，${location.detail}${isDisabled ? `，${disabledReason}` : ''}`,
       'aria-disabled': isDisabled ? 'true' : 'false', 'data-location-code': location.code
     }));
     const hit = svgElement('circle', { class: 'stop-hit', r: 30, 'aria-hidden': 'true' });
@@ -487,6 +488,7 @@ export function createRouteSelector(options) {
     el('legend', { className: 'sr-only' }, options.label),
     ...DELIVERY_LOCATIONS.map((location, index) => {
       const inputId = `${options.id}-${location.code}`;
+      const disabledReason = location.code === options.pickupCode ? '與放件地點相同，不可選' : '路線尚未完成示教，不可選';
       const input = el('input', { type: 'radio', id: inputId, name: options.id, value: location.code, checked: options.selectedCode === location.code, disabled: !interactive || disabled.has(location.code), onchange: () => options.onSelect?.(location.code) });
       return el('label', { className: `location-option${options.selectedCode === location.code ? ' is-selected' : ''}${disabled.has(location.code) ? ' is-disabled' : ''}`, htmlFor: inputId },
         input,
@@ -494,7 +496,7 @@ export function createRouteSelector(options) {
         el('span', { className: 'location-copy' },
           el('strong', {}, location.name),
           el('span', {}, location.detail),
-          disabled.has(location.code) ? el('small', {}, '與放件地點相同，不可選') : null
+          disabled.has(location.code) ? el('small', {}, disabledReason) : null
         )
       );
     })
