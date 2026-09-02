@@ -380,8 +380,11 @@ export function createRoutePreview() {
     'aria-label': '東華校園固定路線示意，連接圖資中心、人社二館、人社一館與行政大樓'
   }));
   appendMapFoundation(svg, 'home-preview');
-  appendRouteNetwork(svg, new Set(), 'home-preview');
+  // The approach halo must sit below the corridor. If it is painted later,
+  // its opaque stroke masks the junction and makes one connected route look
+  // like several broken lines.
   appendStopApproaches(svg);
+  appendRouteNetwork(svg, new Set(), 'home-preview');
   const route = shortestRoute('HSS1', 'LIBRARY');
   appendJourneyRoute(svg, 'home-preview', route, null);
   appendStationLabels(svg);
@@ -431,8 +434,8 @@ export function createRouteSelector(options) {
   // Every public view keeps the one complete four-stop corridor visible.
   // The current journey is a colored overlay; hiding unused corridor segments
   // would leave public stops visually detached from the route.
-  appendRouteNetwork(svg, journeyEdges, options.id, true);
   appendStopApproaches(svg);
+  appendRouteNetwork(svg, journeyEdges, options.id, true);
   appendJourneyRoute(svg, options.id, journeyParts, options.vehiclePosition);
   appendStationLabels(svg);
 
@@ -448,7 +451,7 @@ export function createRouteSelector(options) {
     const isPickup = location.code === options.pickupCode;
     const isDropoff = location.code === options.dropoffCode;
     const isSelected = location.code === options.selectedCode;
-    const disabledReason = isPickup ? '與放件地點相同，不可選' : '路線尚未完成示教，不可選';
+    const disabledReason = isPickup ? '與放件地點相同，不可選' : '車端尚未支援這組直達路線，不可選';
     const group = /** @type {SVGGElement} */ (svgElement('g', {
       class: ['map-stop', isPickup ? 'is-pickup' : '', isDropoff ? 'is-dropoff' : '', isSelected ? 'is-selected' : '', isDisabled ? 'is-disabled' : ''].filter(Boolean).join(' '),
       transform: `translate(${point.x} ${point.y})`, role: interactive ? 'button' : 'img',
@@ -488,7 +491,7 @@ export function createRouteSelector(options) {
     el('legend', { className: 'sr-only' }, options.label),
     ...DELIVERY_LOCATIONS.map((location, index) => {
       const inputId = `${options.id}-${location.code}`;
-      const disabledReason = location.code === options.pickupCode ? '與放件地點相同，不可選' : '路線尚未完成示教，不可選';
+      const disabledReason = location.code === options.pickupCode ? '與放件地點相同，不可選' : '車端尚未支援這組直達路線，不可選';
       const input = el('input', { type: 'radio', id: inputId, name: options.id, value: location.code, checked: options.selectedCode === location.code, disabled: !interactive || disabled.has(location.code), onchange: () => options.onSelect?.(location.code) });
       return el('label', { className: `location-option${options.selectedCode === location.code ? ' is-selected' : ''}${disabled.has(location.code) ? ' is-disabled' : ''}`, htmlFor: inputId },
         input,
