@@ -6,7 +6,7 @@
 
 | Scope | Maturity | Evidence |
 |---|---|---|
-| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、demo/production-shaped 兩種 build、NDHU emblem asset、responsive/a11y baseline；Step 2／3 首屏層級、四站單一路廊、行駛中路線優先、有限首頁動態與 reduced-motion 已完成桌機／390px rendered review，console/page error 為 0；production shell regression test 保證不輸出 `null`，staging 不再宣稱 simulator |
+| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、demo/production-shaped 兩種 build、NDHU emblem asset、responsive/a11y baseline；Step 2／3 首屏層級、四站路網、人社一館／二館短支線、行駛中路線優先、有限首頁動態與 reduced-motion 已完成桌機／390px／320px rendered review，console/page error 為 0；production shell regression test 保證不輸出 `null`，staging 不再宣稱 simulator |
 | Canonical route | IMPLEMENTED | `contracts/route-graph.v5.json` 是單一資料來源；四站、version/checksum、edge 與 SVG geometry 由 CI 核對。v5 改用實測道路中心線（`routes_site/pass_spine.csv`）：四站沿單一走廊 LIBRARY–HSS2–HSS1–ADMIN，三條帶折線幾何的邊，每條示教路線對應一條邊。v4 的主幹＋分支拓撲會讓 LIBRARY→ADMIN 略過兩個人社站，車子被畫在沒走過的路段上 |
 | Exhibition demo | IMPLEMENTED + HOSTED | Zero-secret、fake clock、八步 sender/recipient、robot 離線仍可展示；Vercel `main` 保持 demo artifact |
 | Hosted staging control plane | HOSTED + MIGRATIONS CURRENT | Supabase `go-by-myself-staging`（project ref `aiuajbflpwdzkaeeocab`，Tokyo）已套用全部25個immutable migrations；v5 route active、4個visible stops、0個approved physical legs；最新 delivery projection／無艙門 recovery／recipient handover migrations 已由 staging release 記錄確認 |
@@ -22,7 +22,7 @@
 | Edge Functions | HOSTED HTTP VERIFIED | `delivery-intent`（platform JWT）、`pickup`（public credential flow）、`robot-api`（per-client constant-time token）均 ACTIVE；GBM-01交接token已於2026-08-31輪替，read-only state preflight 200且scope一致；錯 token 401、跨車 403、pickup generic 404、CORS exact-origin 204 |
 | Repository governance | ENABLED | `main` 與 `staging` 都要求 PR、strict `quality/browser/database/edge-contract` checks、linear history 與 conversation resolution；enforce admins，禁止 force-push 與 deletion |
 | Vercel deployment protection | ENABLED + AUTOMATION BYPASS VERIFIED | Standard Protection維持開啟；CI／E2E專用bypass只存GitHub Actions secret，header對staging health實測通過，不提供給browser bundle或車端 |
-| Tests | IMPLEMENTED BASELINE | 103 Vitest、26 Playwright/axe（另3個依環境或project刻意skip）、10 Python unittest、5 Deno runtime tests、hosted／GitHub database baseline 84個pgTAP；normal-motion專案另外驗證首頁動態只跑一次、車輛沿SVG路線移動且不使用`transition: all`；另有contract/build/boundary/bundle、protected staging health與production shell E2E |
+| Tests | IMPLEMENTED BASELINE | 103 Vitest、26 Playwright/axe（另3個依環境或project刻意skip）、10 Python unittest、5 Deno runtime tests、hosted／GitHub database baseline 84個pgTAP；normal-motion專案另外驗證首頁動態只跑一次、兩條人社支線存在、車輛沿SVG路線移動、方向流光有限次且不使用`transition: all`；另有contract/build/boundary/bundle、protected staging health與production shell E2E |
 
 ## 尚未取得的驗證證據
 

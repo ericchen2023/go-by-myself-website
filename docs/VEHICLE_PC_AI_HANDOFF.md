@@ -52,7 +52,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 這次只改公開網站的資訊層級、SVG 呈現與動畫生命週期，沒有修改 Supabase migration、Edge endpoint、robot schema、vehicle UUID、route version 或 checksum。車端仍以本文第 9 節的 contract v2 為準：
 
 - `routeGraphVersion` 仍是 `ndhu-four-stop-route-v5`，checksum 仍是 `sha256:903ad46062842c61458665472452f6f56bdeddd32c1f8bc6948214a5081ffd9e`。
-- 公開地圖只畫四個站點與一條完整走廊；本次 leg 另外疊色。車端不需要傳 CSS 座標、站名或動畫資料。
+- 公開地圖只畫四個站點、完整走廊與兩條人社站 presentation-only 短支線；本次 leg 另外疊色。短支線不屬於 robot contract，也不改動 route version/checksum；車端不需要傳 CSS 座標、站名、支線座標或動畫資料。
 - 車輛仍只回傳可信的 `segmentId + progress`；網站用 SVG path geometry 算位置與轉向。`invalid`／`off_route` 不更新 marker，`stale` 保留最後可信位置。
 - `vehicleState=preparing|localizing` 會顯示換段準備，`moving` 才啟用一般動態；`at_stop`、terminal delivery 都不會靠動畫自行推進狀態。
 - terminal 畫面會釋放前端動畫狀態。這只是瀏覽器資源整理，不是 command ACK、route completion 或 custody evidence。

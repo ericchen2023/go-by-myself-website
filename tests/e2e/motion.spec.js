@@ -29,8 +29,17 @@ test('normal motion is deliberate, finite, and follows the live route', async ({
 
   const marker = page.locator('.vehicle-marker');
   await expect(marker).toBeVisible();
+  await expect(marker).toHaveClass(/is-moving/);
   const firstTransform = await marker.getAttribute('transform');
   await expect.poll(() => marker.getAttribute('transform'), { timeout: 2_000 }).not.toBe(firstTransform);
+
+  const routeFlow = page.locator('.journey-segment--flow').first();
+  await expect(routeFlow).toBeVisible();
+  const routeFlowMotion = await routeFlow.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { name: style.animationName, iterations: style.animationIterationCount };
+  });
+  expect(routeFlowMotion).toEqual({ name: 'route-flow', iterations: '4' });
 
   const unsafeTransitions = await page.locator('body *').evaluateAll((elements) => elements.filter((element) => {
     const style = getComputedStyle(element);
