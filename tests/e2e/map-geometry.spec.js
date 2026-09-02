@@ -14,6 +14,25 @@ test('canonical SVG geometry supports path length and point projection', async (
   expect(geometry.flat().every((point) => point.finite)).toBe(true);
   await expect(page.locator('.map-stop')).toHaveCount(4);
   await expect(page.locator('.origin-capsule')).toHaveCount(0);
+  await expect(page.locator('.stop-approach')).toHaveCount(2);
+  const stopDistances = await page.locator('.route-map').evaluate((svg) => {
+    const paths = [...svg.querySelectorAll('.route-edge, .stop-approach')];
+    return [...svg.querySelectorAll('.map-stop')].map((stop) => {
+      const matrix = /** @type {SVGGElement} */ (stop).transform.baseVal.consolidate()?.matrix;
+      const location = { x: matrix?.e ?? Number.NaN, y: matrix?.f ?? Number.NaN };
+      let closest = Number.POSITIVE_INFINITY;
+      for (const path of paths) {
+        const route = /** @type {SVGPathElement} */ (path);
+        const length = route.getTotalLength();
+        for (let index = 0; index <= 1000; index += 1) {
+          const point = route.getPointAtLength(length * index / 1000);
+          closest = Math.min(closest, Math.hypot(location.x - point.x, location.y - point.y));
+        }
+      }
+      return closest;
+    });
+  });
+  expect(stopDistances.every((distance) => distance <= 1.5)).toBe(true);
   const visibleMapText = await page.locator('.route-map text').allTextContents();
   expect(visibleMapText).not.toContain('P');
   expect(visibleMapText).not.toContain('HSS');
@@ -61,8 +80,6 @@ test('vehicle marker advances along the active canonical route', async ({ page }
   // Hiding the rest left stops attached to nothing and read as a broken map.
   await expect(page.locator('.route-edge')).toHaveCount(3);
   await expect(page.locator('.map-stop')).toHaveCount(4);
-  // Stops that stand back from the road are joined to it, and the journey runs
-  // up that approach so the vehicle finishes on the stop rather than the kerb.
   await expect(page.locator('.stop-approach')).toHaveCount(2);
   expect(await activeEdges.first().evaluate((path) => getComputedStyle(path).stroke)).not.toBe('none');
   await expect(page.locator('.journey-segment--remaining')).not.toHaveCount(0);

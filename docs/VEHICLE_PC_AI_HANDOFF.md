@@ -1,6 +1,6 @@
 # 車端電腦 AI 技術交接
 
-更新日期：2026-08-31
+更新日期：2026-09-02
 
 適用對象：可直接接觸自走車、Jetson／工控機、Aurora S 或 ROS1 環境的下一位工程師或 AI agent。
 
@@ -16,9 +16,9 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 
 | 項目 | 現況 | 下一個 owner |
 |---|---|---|
-| Web、四站動態 SVG、公開 safe projection | 已實作並測試 | 網站 repo |
+| Web、四站動態 SVG、公開 safe projection | 已實作並完成 desktop／390px rendered review；公開圖只保留四站單一路廊，行駛中依 `segmentId + progress` 動態追蹤 | 網站 repo |
 | Robot contract v2、fixtures、版本與 checksum gate | 已實作並測試 | 網站 repo 是 source of truth |
-| Route job／leg、reservation、ACK 與 telemetry ingest | 16個hosted migrations、v5 route、65個既有hosted pgTAP、auth定向檢查與v2 telemetry smoke已通過；GitHub database job為67-test基線 | 網站／Supabase staging owner |
+| Route job／leg、reservation、ACK 與 telemetry ingest | 27個hosted migrations／93個hosted pgTAP；repository為28個migrations／96個pgTAP；v5 route、auth定向檢查與v2 telemetry smoke已通過 | 網站／Supabase staging owner |
 | Edge robot API | Hosted ACTIVE；wrong token 401、correct scope 200、wrong vehicle 403、bad schema 422 已實測 | 網站／Supabase staging owner |
 | Node gateway simulator | 可送 v2 telemetry、可並行 CANCEL | 網站 repo |
 | Jetson Python agent | 已有read-only connection check、outbound command poller、durable ledger、dry-run adapter | 車端repo／車端電腦 |
@@ -28,7 +28,7 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 | 真車移動、e-stop、disconnect、incident procedure | **未驗證** | 現場 safety owner |
 | 置物艙、門鎖、item sensor、custody | **不存在或未接入** | 後續 physical-delivery phase |
 
-本次網站端發布基線已通過54 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests與GitHub database job的67個pgTAP。Hosted先前65個pgTAP不重跑；第16筆auth migration另以定向SQL驗證Google identity、verified email與grant邊界。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。網站登入已改為任何verified Google帳號，Google client、External發布、Supabase provider、migration與staging flag已由網站端完成；live登入E2E仍由網站端處理，與車端連線無關。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
+本次網站端repository基線已通過111 Vitest、26 Playwright/axe（另3個依環境或project刻意skip）、10 Python unittest、5 Deno runtime tests與96個GitHub pgTAP；hosted staging目前為27個migrations／93個pgTAP。Public Google OAuth另以定向SQL驗證Google identity、verified email與grant邊界。Hosted HTTP另驗證robot identity/scope、telemetry、schema、pickup CORS與sender JWT gate。網站登入已改為任何verified Google帳號，Google client、External發布、Supabase provider、migration與staging flag已由網站端完成；live登入E2E仍由網站端處理，與車端連線無關。這些證據證明hosted control plane與dry-run contract，不證明Realtime完整流程或真車安全。
 
 真車第一階段只做 **supervised route validation**：單車、單段、空載、受控區域、現場人員持有實體 e-stop。這個流程不建立收件人、不發通知，也不會產生 `completed` delivery。
 
@@ -37,7 +37,8 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 交給車端前，網站端已完成下列工作；車端不需要重建或重做：
 
 - GitHub `main`與`staging`均為protected branch，要求PR與strict `quality`、`browser`、`database`、`edge-contract` checks，禁止force-push與刪除。
-- Supabase staging `go-by-myself-staging`已套用全部16個immutable migrations；hosted使用v5四站graph，physical legs仍為0個approved。
+- Supabase staging `go-by-myself-staging`已套用27個immutable migrations並通過93個hosted pgTAP；repository目前有28個migrations／96個pgTAP。Hosted使用v5四站graph，physical legs仍為0個approved。
+- 網站已限制只能選擇車端已示教的站點配對，且能在尚未綁定delivery時保存車輛目前位置。Repository第28筆migration會讓command使用車端實際示教的leg ID；在它完成staging release前，車端不得假設這項修正已在線上，也不得啟用真車能力。
 - `delivery-intent`、`pickup`、`robot-api`三個Edge Functions均為version 2 ACTIVE，robot API已完成錯token、正確scope、跨車scope、v2 telemetry與錯schema的hosted正反測試。
 - `GBM-01` synthetic vehicle與UUID已建立，但`route_validation_enabled=false`；這是刻意的安全鎖，不是漏設定。
 - Vercel demo與production-shaped staging已分離；公開sender map只收`segmentId + progress`，不收raw SLAM座標。
@@ -46,6 +47,18 @@ Robot contract v2 整合歷程：<https://github.com/ericchen2023/go-by-myself-w
 - 網站登入已改為public Google OAuth；Google client、External發布、Supabase provider、auth migration與staging branch flag均已由網站端owner完成，live登入E2E仍由網站端負責。車端不需要也不得取得Google client secret；既有Auth SMTP與投遞通知provider也都不屬於robot設定。
 
 車端接手後應只補足車輛所在電腦才能取得的facts與adapter，不應重新設計contract、另建一套route graph或繞過physical capability gate。
+
+### 1.2 2026-09-02 UI 更新對車端交接的影響
+
+這次只改公開網站的資訊層級、SVG 呈現與動畫生命週期，沒有修改 Supabase migration、Edge endpoint、robot schema、vehicle UUID、route version 或 checksum。車端仍以本文第 9 節的 contract v2 為準：
+
+- `routeGraphVersion` 仍是 `ndhu-four-stop-route-v5`，checksum 仍是 `sha256:903ad46062842c61458665472452f6f56bdeddd32c1f8bc6948214a5081ffd9e`。
+- 公開地圖只畫四個站點、完整走廊與兩條人社站 presentation-only 短支線；本次 leg 另外疊色。短支線不屬於 robot contract，也不改動 route version/checksum；車端不需要傳 CSS 座標、站名、支線座標或動畫資料。
+- 車輛仍只回傳可信的 `segmentId + progress`；網站用 SVG path geometry 算位置與轉向。`invalid`／`off_route` 不更新 marker，`stale` 保留最後可信位置。
+- `vehicleState=preparing|localizing` 會顯示換段準備，`moving` 才啟用一般動態；`at_stop`、terminal delivery 都不會靠動畫自行推進狀態。
+- terminal 畫面會釋放前端動畫狀態。這只是瀏覽器資源整理，不是 command ACK、route completion 或 custody evidence。
+
+車端仍只能從 protected `main` 接手，並記錄實際 clone 後的完整 commit SHA。不要改成 pin UI feature branch，也不要因畫面移動順暢就省略 telemetry、ACK 或 physical safety 驗證。
 
 ## 2. 不可跨越的安全邊界
 
@@ -106,7 +119,7 @@ npm run docs:check
 
 - `doctor` 的 Node、npm、Python、git、lockfile 與 command schema 都是 `✓`。
 - fixtures 顯示 command、telemetry、fault envelopes 已載入，並驗證 `ndhu-four-stop-route-v5`。
-- Python 顯示 5 tests、結果 `OK`。
+- Python 顯示 10 tests、結果 `OK`。
 - 文件檢查確認所有本機連結可解析，且交接文件的 route version、checksum 與四個公開站點仍和 canonical graph 一致。
 
 如果上述任一指令失敗，先修環境或 repository checkout；不要進入車控整合。

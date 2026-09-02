@@ -24,6 +24,7 @@ function adapterSpy() {
 }
 
 beforeEach(() => {
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   window.history.replaceState({}, '', '/');
   document.body.replaceChildren();
 });

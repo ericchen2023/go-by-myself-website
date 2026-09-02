@@ -16,14 +16,14 @@ Browser會呼叫`delivery-intent`與`pickup`，因此Edge secrets必須設定`AP
 
 Gateway 必須設定 `GATEWAY_DEPLOY_ENV` 與 `GATEWAY_HARDWARE_ADAPTER`。目前 repository 只提供 staging/local simulator；`production` 會 fail closed，直到核准的 hardware/ROS bridge 實作並通過 physical gates。
 
-## 目前部署狀態（2026-09-01）
+## 目前部署狀態（2026-09-02）
 
-GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；hosted staging已套用全部16個immutable migrations，route graph v5與public Google OAuth assurance均已生效，所有physical capability仍為disabled。
+GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；hosted staging已套用27個immutable migrations並通過93個pgTAP，route graph v5、public Google OAuth assurance、terminal projection、無艙門 recovery、recipient handover、只提供已示教站點配對與車輛獨立位置均已生效，所有physical capability仍為disabled。Repository目前有28個migration／96個pgTAP；最新的實際leg ID修正尚待staging release。
 
 | Resource | Hosted staging value | Verified state |
 |---|---|---|
 | Vercel frontend | <https://go-by-myself-website-git-staging-hsuanisgay.vercel.app> | `staging` branch Preview；production-shaped build、獨立 branch env |
-| Supabase project | `go-by-myself-staging` / `aiuajbflpwdzkaeeocab` / Tokyo | ACTIVE_HEALTHY；16 migrations、v5 route active、4 stops、0 approved physical legs |
+| Supabase project | `go-by-myself-staging` / `aiuajbflpwdzkaeeocab` / Tokyo | ACTIVE_HEALTHY；27 hosted migrations／93 hosted pgTAP；repository 28 migrations／96 pgTAP；v5 route active、4 stops、0 approved physical legs |
 | Control-plane URL | `https://aiuajbflpwdzkaeeocab.supabase.co` | Browser publishable config只存在 staging Preview scope |
 | Edge Functions | `delivery-intent`、`pickup`、`robot-api` | version 2 ACTIVE；JWT/custom-auth 邊界已以 hosted HTTP 正反測試 |
 | Auth | staging frontend origin / Supabase Google provider | Google Web client已建立；External app已發布；provider、Site URL、redirect allow-list、auth migration與staging-only CTA flag均已設定 |
@@ -31,7 +31,7 @@ GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `qual
 
 Staging Preview 保留 Vercel Standard Protection，不公開關閉登入保護。已建立用途限定為 CI／E2E 的 Protection Bypass for Automation，值只保存於 GitHub Actions repository secret `VERCEL_AUTOMATION_BYPASS_SECRET`；固定網址保存在 Actions variable `STAGING_BASE_URL`。測試只透過 `x-vercel-protection-bypass` request header 使用，不放在 URL、文件、browser bundle、log 或車端環境。車端直接連 Supabase robot control plane，不需要也不得取得這組 Vercel secret。
 
-已驗證：65 個既有hosted pgTAP、GitHub database job的67-test migration基線，以及hosted auth migration後的Google identity、provider-verified email、匿名拒絕與authenticated grant定向檢查；另有錯／對robot token、wrong-vehicle scope、v2 idle telemetry、schema rejection、pickup generic failure、exact-origin CORS與sender JWT gate。尚未驗證：public Google OAuth完整live flow、authenticated Realtime WebSocket與sender/recipient多context E2E。因此目前是 **hosted control-plane ready**，仍不是完整 integration-ready GO。既有custom Gmail SMTP保留在Supabase，但目前Google-only公開流程不使用登入信；它也不能當作投遞通知provider已完成的證據。
+已驗證：GitHub database job的96-test repository基線、hosted staging的93-test基線，以及Google identity、provider-verified email、匿名拒絕與authenticated grant定向檢查；另有錯／對robot token、wrong-vehicle scope、v2 idle telemetry、schema rejection、pickup generic failure、exact-origin CORS與sender JWT gate。尚未驗證：第28筆實際leg ID migration的hosted release、public Google OAuth完整live flow、authenticated Realtime WebSocket與sender/recipient多context E2E。因此目前是 **hosted control-plane ready**，仍不是完整 integration-ready GO。既有custom Gmail SMTP保留在Supabase，但目前Google-only公開流程不使用登入信；它也不能當作投遞通知provider已完成的證據。
 
 Google CTA 由 browser-safe `VITE_GOOGLE_AUTH_ENABLED` 控制；未設定時預設為 `false`。Staging已在Vercel Preview中以`staging` Git branch範圍設為`true`，其他Preview、demo與production不會繼承。OAuth client secret只放Supabase provider設定，不可放Vercel、browser環境、GitHub或repository。
 
@@ -44,7 +44,7 @@ Google CTA 由 browser-safe `VITE_GOOGLE_AUTH_ENABLED` 控制；未設定時預�
 3. Authorized redirect URIs加入`https://aiuajbflpwdzkaeeocab.supabase.co/auth/v1/callback`。這是Google回到Supabase的callback，不是Vercel網址。
 4. 在Supabase Dashboard的Authentication → Providers → Google填入client ID與client secret並啟用provider。此項已完成；secret只存在provider設定，不可貼到Vercel變數。
 5. 在Supabase Authentication → URL Configuration確認Site URL為staging frontend，Redirect URLs包含`https://go-by-myself-website-git-staging-hsuanisgay.vercel.app/`。
-6. 套用`20260831233000_allow_verified_google_accounts.sql`並驗證migration history與auth grant／函式條件。Migration會讓非Google舊登入信帳號回到`pending`；Google provider且`email_verified=true`才可啟用投遞。此項已完成，hosted共16筆migration。
+6. 套用`20260831233000_allow_verified_google_accounts.sql`並驗證migration history與auth grant／函式條件。Migration會讓非Google舊登入信帳號回到`pending`；Google provider且`email_verified=true`才可啟用投遞。此項已完成；hosted目前共27筆migration，repository第28筆實際leg ID migration待下一次staging release。
 7. 只在Vercel `staging` branch的Preview環境設定`VITE_GOOGLE_AUTH_ENABLED=true`，重新部署；`main` demo不需要此值。此項已完成設定，branch同步會觸發新的Preview deployment。
 8. 分別用一個非東華Google帳號與一個既有Google帳號測試：首次登入會建立帳號、重新登入會回到同一user、未驗證或非Google身分無法取得投遞權限。
 
