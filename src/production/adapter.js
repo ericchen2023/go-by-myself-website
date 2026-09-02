@@ -55,6 +55,8 @@ function initialState() {
     delivery: null,
     telemetry: {
       position: null,
+      /** @type {{segmentId: string, progress: number}|null} 車輛自己在哪，與投遞進度無關 */
+      vehiclePosition: null,
       observedAt: null,
       receivedAt: null,
       connectivity: 'offline',
@@ -69,6 +71,8 @@ function initialState() {
       legCount: null
     },
     commandState: null,
+    /** @type {{fromStopCode: string, toStopCode: string}[]} 實際示教過、走得了的站點組合 */
+    servicePairs: [],
     /** @type {{type: string, state: string, errorCode: string|null}|null} 車輛對最近一筆指令的回應 */
     command: null,
     /** @type {{hasCompartment: boolean}|null} 車輛能力；沒有艙門時流程改由當事人確認 */
@@ -142,6 +146,18 @@ export class ProductionAdapter {
     return this.supabase;
   }
 
+  /**
+   * 哪些站點組合真的有路可走。車上只有八段示教路線，剩下兩組沒有地圖也沒有
+   * 路徑 —— 讓人選一個走不了的組合，等於讓他填到派車那一步才發現。
+   * 拿不到就不擋：伺服器端的 trigger 才是權威，畫面只是提早說。
+   */
+  async #loadServicePairs() {
+    const client = this.supabase;
+    if (!client) return;
+    const { data, error } = await client.rpc('get_serviceable_stop_pairs');
+    if (!error && Array.isArray(data)) this.#patch({ servicePairs: data });
+  }
+
   async initialize() {
     if (!this.supabase) {
       this.#patch({
@@ -153,6 +169,7 @@ export class ProductionAdapter {
       });
       return;
     }
+    await this.#loadServicePairs();
     const { data, error } = await this.supabase.auth.getSession();
     if (error) throw new DomainError('AUTH_SESSION_EXPIRED', '無法取得登入狀態。', { retryable: true });
     if (data.session) await this.#applySession(data.session);

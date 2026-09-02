@@ -12,9 +12,9 @@ import {
 } from './components.js';
 import { clearVehicleMotionState, createRouteSelector } from '../map/map-view.js';
 import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
-import { locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
+import { DELIVERY_LOCATIONS, locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
-import { compartmentRequest, notificationCopy, pickupPhase, recipientNotice, stepForStatus } from '../domain/presentation.js';
+import { compartmentRequest, notificationCopy, pickupPhase, recipientNotice, stepForStatus, unreachableFrom } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
 import {
   authAlternative,
@@ -57,6 +57,10 @@ export class Application {
     this.busy = false;
     this.operatorSelection = { vehicleId: '', legId: '' };
     this.route = window.location.pathname;
+    /** 已經取過內容的那一筆，避免同一頁重複去拿。 */
+    this.loadedPickupRef = '';
+    /** 還沒查完之前不要說「找不到」—— 那是還沒有答案，不是答案是沒有。 */
+    this.pickupContextLoading = this.route.startsWith('/pickup/');
     this.unsubscribe = adapter.subscribe((state) => {
       this.state = state;
       this.render();
@@ -64,6 +68,7 @@ export class Application {
     window.addEventListener('popstate', () => {
       this.route = window.location.pathname;
       this.render();
+      void this.#enterRoute();
     });
   }
 
@@ -75,9 +80,26 @@ export class Application {
     if (this.route === '/' && this.state.session) {
       this.navigate(this.state.delivery ? '/delivery/current' : '/delivery/new');
     }
+    await this.#enterRoute();
+  }
+
+  /**
+   * 有些路由要先去拿資料才畫得出來。三個進入點 —— 開站、站內導覽、上一頁 ——
+   * 都必須經過這裡：先前只有開站會載入，所以從「我要取件」輸入代號跳過去的
+   * 收件人，會永遠停在「找不到可用的取件資訊」，除非他自己重新整理。
+   */
+  async #enterRoute() {
     if (this.route.startsWith('/pickup/') && typeof this.adapter.loadPickupContext === 'function') {
       const publicRef = decodeURIComponent(this.route.split('/').pop() ?? '');
-      await this.#run(() => this.adapter.loadPickupContext(publicRef), false);
+      if (publicRef && publicRef !== this.loadedPickupRef) {
+        this.loadedPickupRef = publicRef;
+        this.pickupContextLoading = true;
+        this.render();
+        await this.#run(() => this.adapter.loadPickupContext(publicRef), false);
+        this.pickupContextLoading = false;
+        this.render();
+      }
+      return;
     }
     if (this.route === '/operator/route-validation' && typeof this.adapter.loadRouteValidationWorkspace === 'function') {
       await this.#run(() => this.adapter.loadRouteValidationWorkspace(), false);
@@ -90,6 +112,7 @@ export class Application {
     this.route = path;
     window.scrollTo({ top: 0, behavior: 'instant' });
     this.render();
+    void this.#enterRoute();
   }
 
   /** @param {number} step */
@@ -305,13 +328,22 @@ export class Application {
         note: String(data.get('note') ?? '')
       };
     };
+    const unreachable = unreachableFrom(
+      draft.pickupCode, this.state.servicePairs, DELIVERY_LOCATIONS.map((location) => location.code));
+    if (unreachable.length) {
+      form.append(el('p', { className: 'field-help', role: 'note' },
+        `目前無法從${locationByCode(draft.pickupCode)?.name ?? '此站'}直達：${
+          unreachable.map((code) => locationByCode(code)?.name ?? code).join('、')
+        }。這兩段路線尚未示教，車輛沒有可用的地圖。`));
+    }
     form.append(createRouteSelector({
       id: 'dropoff-location',
       label: '選取收件地點',
       selectedCode: draft.dropoffCode,
       pickupCode: draft.pickupCode,
       dropoffCode: draft.dropoffCode,
-      disabledCodes: [draft.pickupCode],
+      // 沒有示教過的組合不給選：那不是偏好，是車上沒有那張圖也沒有那條路徑。
+      disabledCodes: [draft.pickupCode, ...unreachable],
       interactive: true,
       compact: true,
       onSelect: (code) => this.adapter.saveDraft({ ...typedFields(), dropoffCode: code })
@@ -482,7 +514,11 @@ export class Application {
       activeEdgeIds: telemetry.activeEdgeIds,
       activeRouteParts,
       showLocationList: false,
-      vehiclePosition: ['off_route', 'invalid'].includes(telemetry.positionQuality) ? null : telemetry.position,
+      // 這筆投遞的進度優先；沒有進度時（還沒出發、已經送達、或根本沒在送件）
+      // 就畫車輛自己在哪 —— 車停著不代表它不在地圖上。
+      vehiclePosition: ['off_route', 'invalid'].includes(telemetry.positionQuality)
+        ? null
+        : (telemetry.position ?? telemetry.vehiclePosition ?? null),
       animateVehicle: telemetry.positionQuality === 'valid' && telemetry.connectivity === 'online' && telemetry.vehicleState === 'moving'
     }) : null;
     if (!showRoute) clearVehicleMotionState(routeId);
@@ -682,7 +718,14 @@ export class Application {
       recipientBadge()
     );
     if (!safeMatch) {
-      return el('div', { className: 'recipient-shell' }, header, el('main', { id: 'main-content', className: 'recipient-main' }, emptyState('找不到可用的取件資訊', '連結可能無效、已過期或尚未準備。為保護隱私，系統不提供更多識別資訊。')), siteFooter());
+      // 還在查的時候說「找不到」，等於把「還沒有答案」講成「答案是沒有」——
+      // 每一次開取件連結都會先閃一次那句話。
+      const body = this.pickupContextLoading
+        ? el('section', { className: 'pickup-phase', 'aria-busy': 'true', role: 'status' },
+          el('span', { className: 'spinner spinner--large', 'aria-hidden': 'true' }),
+          el('h2', {}, '正在讀取取件資訊'))
+        : emptyState('找不到可用的取件資訊', '連結可能無效、已過期或尚未準備。為保護隱私，系統不提供更多識別資訊。');
+      return el('div', { className: 'recipient-shell' }, header, el('main', { id: 'main-content', className: 'recipient-main' }, body), siteFooter());
     }
 
     const status = delivery.status;

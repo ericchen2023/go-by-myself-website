@@ -11,7 +11,7 @@ npm run check
 
 Python agent目前共10個unittest，其中五個專門驗證read-only connection preflight不輸出token、Authorization header或raw pose、能把hosted 401轉成穩定的`ROBOT_IDENTITY_INVALID`、對缺少vehicle ID的malformed state fail closed、損壞回應不顯示traceback，且`agent.py`啟動時不能繞過preflight。
 
-2026-09-02 地圖與動畫更新後的 bundle：demo 27.2 KiB JS / 8.2 KiB CSS gzip，production 83.2 KiB JS / 8.2 KiB CSS gzip，全部低於 150 KiB JS／30 KiB CSS budget。本機 Edge 首次冷啟動曾量到一次 LCP 3.7 秒，隨後三次為 1.296／1.416／0.932 秒；這組資料只作本機 regression evidence，部署後仍要以真實裝置與網路的 p75 Web Vitals 判定。
+2026-09-02 地圖、動畫與最新 `main` 安全修正合併後的 bundle：demo 27.5 KiB JS / 8.2 KiB CSS gzip，production 83.6 KiB JS / 8.2 KiB CSS gzip，全部低於 150 KiB JS／30 KiB CSS budget。本機 Edge 首次冷啟動曾量到一次 LCP 3.7 秒，隨後三次為 1.296／1.416／0.932 秒；這組資料只作本機 regression evidence，部署後仍要以真實裝置與網路的 p75 Web Vitals 判定。
 
 Robot v2需要針對單一層除錯時，可個別執行：
 
@@ -30,7 +30,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-目前 Playwright 涵蓋 deterministic 完整旅程、arrival semantic、keyboard map、靜態與動態 sender/recipient axe、320–768 overflow、640px／320px 等效 reflow、reduced-motion 與真實 SVG geometry。地圖幾何測試固定要求四個站點、三條 canonical edge 與兩條人社站短支線，並確認 marker 仍落在本次可見路徑上。`chromium-motion` 專案刻意關閉 reduced motion，驗證首頁示意只跑一次、車輛會沿本次 SVG 路線前進、方向流光只跑有限次、互動不使用 `transition: all`。2026-09-02 全套結果為 26 passed、3 skipped、0 failed；本輪另定向通過 10 個地圖／動態／axe 測試與 1 個預期 skip，並以實際 Chromium 檢查 desktop、390px 與 320px 的首頁、Step 2、Step 5，console/page error 均為 0。人工仍需涵蓋：NVDA/VoiceOver、實際瀏覽器 200%/400% zoom、large text、真實觸控、virtual keyboard、landscape 與低高度。
+目前 Playwright 涵蓋 deterministic 完整旅程、arrival semantic、keyboard map、靜態與動態 sender/recipient axe、320–768 overflow、640px／320px 等效 reflow、reduced-motion 與真實 SVG geometry。地圖幾何測試固定要求四個站點、三條 canonical edge 與兩條人社站短支線，並確認 marker 仍落在本次可見路徑上。`chromium-motion` 專案刻意關閉 reduced motion，驗證首頁示意只跑一次、車輛會沿本次 SVG 路線前進、方向流光只跑有限次、互動不使用 `transition: all`。2026-09-02 全套結果為 25 passed、3 skipped、0 failed；本輪另定向通過 10 個地圖／動態／axe 測試與 1 個預期 skip，並以實際 Chromium 檢查 desktop、390px 與 320px 的首頁、Step 2、Step 5，console/page error 均為 0。人工仍需涵蓋：NVDA/VoiceOver、實際瀏覽器 200%/400% zoom、large text、真實觸控、virtual keyboard、landscape 與低高度。
 
 ## Database
 
@@ -43,7 +43,7 @@ npm run local:down
 
 必須用兩個 synthetic sender JWT、anonymous、operator、revoked operator與 robot scoped endpoint做正向/負向 matrix。`service_role`/secret測試不能被當作 RLS證據，因其本來就 bypass RLS。
 
-Repository、GitHub database job 與 hosted staging 的最新基線為 84 個 pgTAP。2026-09-02 的 staging release 已套用至第 25 筆 migration，涵蓋 schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal projection、無艙門 recovery、recipient handover 與 reservation release。Public Google OAuth 仍由定向 SQL 確認 anonymous 不可執行、authenticated 可執行，且 assurance 同時要求 Google identity 與 provider-verified email。Deno runtime 另有 5 組 Edge contract tests。
+Repository／GitHub database job 的最新基線為28筆migration、96個pgTAP；hosted staging已套用27筆migration並通過93個pgTAP。Hosted內容已涵蓋schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal projection、無艙門recovery、recipient handover、reservation release、只提供已示教站點配對與車輛獨立位置。第28筆「command使用實際示教leg ID」migration仍待下一次staging release。Public Google OAuth 仍由定向 SQL 確認 anonymous 不可執行、authenticated 可執行，且 assurance 同時要求 Google identity 與 provider-verified email。Deno runtime 另有 5 組 Edge contract tests。
 
 ## Hosted staging smoke（2026-08-31；OAuth設定更新於2026-09-01）
 

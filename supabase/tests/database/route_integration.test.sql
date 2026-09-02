@@ -1,5 +1,5 @@
 begin;
-select plan(84);
+select plan(96);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -49,8 +49,11 @@ select is(
 update public.vehicles
 set active = true,
     operational_status = 'available',
-    current_stop_code = 'HSS1',
-    home_stop_code = 'HSS1',
+    -- 車子得能開到放件站，而 HSS1→LIBRARY 從來沒有示教過。改從行政大樓出發：
+    -- ADMIN→LIBRARY 是示教過的 D_A，而且它的允許邊集合仍然含 edge-hss2-hss1，
+    -- 下面那些遙測不用改路段。
+    current_stop_code = 'ADMIN',
+    home_stop_code = 'ADMIN',
     route_validation_enabled = false
 where code = 'GBM-01';
 
@@ -188,14 +191,14 @@ begin
     'battery', jsonb_build_object('voltageV',23.7,'percent',null),
     'quality', 'valid',
     'route', jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss2-hss1','progress',0.2,'lateralM',0.1,
+      'legId','D_A','segmentId','edge-hss2-hss1','progress',0.2,'lateralM',0.1,
       'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
 end $$;
 select is(
   (select current_leg_id || ':' || quality from public.vehicle_state_current where vehicle_id = (select vehicle_id from route_test_context)),
-  'SIM_HSS1_LIBRARY:valid',
+  'D_A:valid',
   'valid telemetry updates authoritative vehicle state'
 );
 select is(
@@ -223,7 +226,7 @@ begin
     'battery', jsonb_build_object('voltageV',23.6,'percent',null),
     'quality', 'valid',
     'route', jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-not-approved','progress',0.8,'lateralM',4.2,
+      'legId','D_A','segmentId','edge-not-approved','progress',0.8,'lateralM',4.2,
       'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
@@ -267,7 +270,7 @@ begin
     'vehicleState','moving','pose',jsonb_build_object('frameId','site-v1','x',2.0,'y',2.0,'heading',0.0),
     'speedMps',0.5,'battery',jsonb_build_object('voltageV',23.5,'percent',null),'quality','valid',
     'route',jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss2-hss1','progress',0.1,'lateralM',0.1,
+      'legId','D_A','segmentId','edge-hss2-hss1','progress',0.1,'lateralM',0.1,
       'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
@@ -292,7 +295,7 @@ begin
     'vehicleState','moving','pose',jsonb_build_object('frameId','site-v1','x',3.0,'y',2.0,'heading',0.0),
     'speedMps',0.5,'battery',jsonb_build_object('voltageV',23.4,'percent',null),'quality','degraded',
     'route',jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss2-hss1','progress',0.3,'lateralM',0.3,
+      'legId','D_A','segmentId','edge-hss2-hss1','progress',0.3,'lateralM',0.3,
       'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
@@ -317,7 +320,7 @@ begin
     'vehicleState','moving','pose',jsonb_build_object('frameId','site-v1','x',9.0,'y',9.0,'heading',0.0),
     'speedMps',0.5,'battery',jsonb_build_object('voltageV',23.3,'percent',null),'quality','valid',
     'route',jsonb_build_object(
-      'legId','SIM_HSS1_LIBRARY','segmentId','edge-hss2-hss1','progress',0.9,'lateralM',0.1,
+      'legId','D_A','segmentId','edge-hss2-hss1','progress',0.9,'lateralM',0.1,
       'routeGraphVersion','ndhu-four-stop-route-v5','routeGraphChecksum',graph_checksum
     )
   ));
@@ -481,7 +484,9 @@ do $$ begin
 end $$;
 with created as (
   select public.create_and_confirm_delivery(
-    'ADMIN', 'HSS2', '第二收件人', '+886923456789', '', false,
+    -- ADMIN↔HSS2 沒有示教過，現在會被擋下來。這條測的是指令逾時，
+    -- 站點組合只是隨手挑的，換成有路可走的那組。
+    'ADMIN', 'LIBRARY', '第二收件人', '+886923456789', '', false,
     'book', 'expiry test', 'route-test-create-two'
   ) as payload
 )
@@ -1053,6 +1058,213 @@ select throws_ok(
   '42501',
   'RLS_DENIED',
   'one sender cannot read another sender delivery by id'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 只開放示教過的站點組合。車上只有八段路線，剩兩組沒有地圖也沒有路徑。
+-- ---------------------------------------------------------------------------
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+
+select throws_ok(
+  $$ select public.create_and_confirm_delivery(
+    'LIBRARY', 'HSS1', '沒有路的收件人', '+886912345678', 'x@example.com', true,
+    'document', 'untaught pair', 'untaught-pair-1'
+  ) $$,
+  'P0001',
+  'STOP_PAIR_NOT_SERVICEABLE',
+  'a pair nobody ever drove cannot be booked'
+);
+select throws_ok(
+  $$ select public.create_and_confirm_delivery(
+    'HSS2', 'ADMIN', '沒有路的收件人', '+886912345678', 'x@example.com', true,
+    'document', 'untaught pair', 'untaught-pair-2'
+  ) $$,
+  'P0001',
+  'STOP_PAIR_NOT_SERVICEABLE',
+  'the other untaught pair is refused the same way'
+);
+select is(
+  (select count(*) from public.serviceable_stop_pairs),
+  8::bigint,
+  'the eight taught legs are the whole of what is on offer'
+);
+select is(
+  (select count(*) from public.serviceable_stop_pairs
+   where (from_stop_code, to_stop_code) in (('LIBRARY','HSS1'),('HSS1','LIBRARY'),('HSS2','ADMIN'),('ADMIN','HSS2'))),
+  0::bigint,
+  'neither untaught pair leaked into the offer'
+);
+select is(
+  jsonb_array_length(public.get_serviceable_stop_pairs()),
+  8,
+  'the screen is told the same eight the database enforces'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 車輛自己也有位置：沒有進行中的工作時，遙測不該被整包拒絕。
+-- ---------------------------------------------------------------------------
+-- 先把那台車的工作收乾淨，製造「停著、沒有任務」的情況。
+update public.route_jobs set state = 'completed', completed_at = now()
+where vehicle_id = (select vehicle_id from route_test_context) and state in ('queued','running','safe_stop_requested');
+update public.vehicle_state_current set current_route_job_id = null
+where vehicle_id = (select vehicle_id from route_test_context);
+
+alter table route_test_context add column idle_result jsonb;
+do $$
+declare result jsonb;
+begin
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  -- 時間要明確晚於前面每一筆，否則會被 boot 變更那道 out-of-order 守衛靜靜擋掉
+  -- —— 而那正是這一版第一次寫時發生的事：位置沒進去，斷言卻讀到前面留下的值。
+  select public.ingest_robot_telemetry_v2(
+    (select vehicle_id from route_test_context),
+    jsonb_build_object(
+      'schemaVersion', 2,
+      'vehicleId', (select vehicle_id from route_test_context),
+      'bootId', '20000000-0000-4000-8000-000000000009',
+      'sequence', 900001,
+      'messageId', gen_random_uuid(),
+      'observedAt', to_char(now() + interval '10 minutes', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+      'vehicleState', 'at_stop',
+      'pose', jsonb_build_object('frameId', 'aurora_map', 'x', 1.0, 'y', 2.0, 'heading', 0.0),
+      'speedMps', 0.0,
+      'battery', jsonb_build_object('percent', 88, 'voltageV', 24.6),
+      'quality', 'valid',
+      'route', jsonb_build_object(
+        'legId', 'A_B',
+        'segmentId', (select graph.graph #>> '{edgeIds,0}' from public.route_graph_versions graph where graph.status = 'active'),
+        'progress', 0.42,
+        'lateralM', 0.4,
+        'routeGraphVersion', (select version from public.route_graph_versions where status = 'active'),
+        'routeGraphChecksum', (select checksum from public.route_graph_versions where status = 'active')
+      )
+    )
+  ) into result;
+  update route_test_context set idle_result = result;
+end $$;
+
+-- 先確認它真的被收下了。少了這一條，下面兩條會在「其實被拒絕、讀到的是前一筆」
+-- 的情況下照樣通過 —— 這一版第一次寫就是這樣過的。
+select is(
+  (select idle_result ->> 'accepted' from route_test_context),
+  'true',
+  'telemetry from a vehicle with no job is accepted, not refused whole'
+);
+select is(
+  (select segment_progress from public.vehicle_state_current
+   where vehicle_id = (select vehicle_id from route_test_context)),
+  0.42,
+  'the position a vehicle with no job reported is the one that was stored'
+);
+select is(
+  (select segment_id is not null from public.vehicle_state_current
+   where vehicle_id = (select vehicle_id from route_test_context)),
+  true,
+  'a vehicle with no job still has a place on the map'
+);
+select throws_ok(
+  $$ select public.ingest_robot_telemetry_v2(
+    (select vehicle_id from route_test_context),
+    jsonb_build_object(
+      'schemaVersion', 2, 'vehicleId', (select vehicle_id from route_test_context),
+      'bootId', '20000000-0000-4000-8000-000000000009', 'sequence', 900002,
+      'messageId', gen_random_uuid(),
+      'observedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+      'vehicleState', 'at_stop',
+      'pose', jsonb_build_object('frameId','aurora_map','x',1.0,'y',2.0,'heading',0.0),
+      'speedMps', 0.0, 'battery', jsonb_build_object('percent',88,'voltageV',24.6),
+      'quality', 'valid',
+      'route', jsonb_build_object(
+        'legId','A_B','segmentId','edge-does-not-exist','progress',0.25,'lateralM',0.4,
+        'routeGraphVersion', (select version from public.route_graph_versions where status='active'),
+        'routeGraphChecksum', (select checksum from public.route_graph_versions where status='active'))
+    )) $$,
+  'P0001',
+  'ROUTE_SEGMENT_NOT_ALLOWED',
+  'an edge that is not in the graph is still refused, job or no job'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 派車指令要用車上認得的 legId，而且去接件那一段也得示教過。
+-- ---------------------------------------------------------------------------
+-- 車停在行政大樓：到放件站（圖資中心）的那一段是示教過的 D_A，所以會產生
+-- 一筆接件工作 —— 車子如果已經停在放件站，根本不會有工作可以檢查。
+update public.vehicles
+set operational_status = 'available', current_stop_code = 'ADMIN', updated_at = now()
+where id = (select vehicle_id from route_test_context);
+update public.vehicle_reservations set state = 'released', ended_at = now()
+where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
+
+alter table route_test_context add column delivery_six uuid;
+alter table route_test_context add column delivery_seven uuid;
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+
+with created as (
+  select public.create_and_confirm_delivery(
+    'LIBRARY', 'HSS2', '實體路段收件人', '+886912345678', 'legid@example.com', true,
+    'document', 'physical leg id', 'physical-leg-create'
+  ) as payload
+)
+update route_test_context set delivery_six = (created.payload #>> '{delivery,id}')::uuid from created;
+
+do $$
+declare target uuid;
+begin
+  select delivery_six into target from route_test_context;
+  perform public.execute_delivery_intent(target, 'REQUEST_DISPATCH', 2, 'physical-leg-dispatch');
+end $$;
+
+select is(
+  (select leg.leg_id from public.route_job_legs leg
+   join public.route_jobs job on job.id = leg.route_job_id
+   where job.delivery_id = (select delivery_six from route_test_context)
+   order by leg.leg_index limit 1),
+  'D_A',
+  'the dispatch carries the leg id the vehicle actually knows'
+);
+select isnt(
+  (select leg.leg_id from public.route_job_legs leg
+   join public.route_jobs job on job.id = leg.route_job_id
+   where job.delivery_id = (select delivery_six from route_test_context)
+   order by leg.leg_index limit 1),
+  'SIM_ADMIN_LIBRARY',
+  'and not a synthetic id the real bridge refuses outright'
+);
+
+-- 收掉這一筆才能再開下一筆：同一位寄件人不能同時有兩筆進行中的投遞。
+update public.deliveries set status = 'cancelled', version = version + 1,
+  terminal_reason = 'cancelled_before_reservation', completed_at = now(), updated_at = now()
+where id = (select delivery_six from route_test_context);
+update public.vehicle_reservations set state = 'released', ended_at = now()
+where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
+
+-- 車子停在一個到不了放件站的地方：派車必須當場拒絕，而不是派出去讓車端擋。
+update public.vehicles
+set operational_status = 'available', current_stop_code = 'HSS1', updated_at = now()
+where id = (select vehicle_id from route_test_context);
+
+with created as (
+  select public.create_and_confirm_delivery(
+    'LIBRARY', 'HSS2', '接不到的收件人', '+886912345678', 'noroute@example.com', true,
+    'document', 'no taught route to pickup', 'no-route-create'
+  ) as payload
+)
+update route_test_context set delivery_seven = (created.payload #>> '{delivery,id}')::uuid from created;
+
+select throws_ok(
+  $$ select public.execute_delivery_intent(
+    (select delivery_seven from route_test_context), 'REQUEST_DISPATCH', 2, 'no-route-dispatch'
+  ) $$,
+  'P0001',
+  'NO_TAUGHT_ROUTE_TO_PICKUP',
+  'a vehicle that cannot reach the pickup on a taught leg is not sent'
 );
 
 select * from finish();

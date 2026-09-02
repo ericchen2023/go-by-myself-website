@@ -31,6 +31,7 @@ function initialState(scenario = 'happy-path') {
     delivery: null,
     telemetry: {
       position: null,
+      vehiclePosition: null,
       observedAt: null,
       connectivity: 'online',
       positionQuality: 'pending',
@@ -38,6 +39,13 @@ function initialState(scenario = 'happy-path') {
       activeEdgeIds: []
     },
     commandState: null,
+    // 展示模式照著實際開的線走 —— 教一個現實中走不了的流程沒有意義。
+    servicePairs: [
+      { fromStopCode: 'LIBRARY', toStopCode: 'HSS2' }, { fromStopCode: 'HSS2', toStopCode: 'LIBRARY' },
+      { fromStopCode: 'HSS2', toStopCode: 'HSS1' }, { fromStopCode: 'HSS1', toStopCode: 'HSS2' },
+      { fromStopCode: 'HSS1', toStopCode: 'ADMIN' }, { fromStopCode: 'ADMIN', toStopCode: 'HSS1' },
+      { fromStopCode: 'LIBRARY', toStopCode: 'ADMIN' }, { fromStopCode: 'ADMIN', toStopCode: 'LIBRARY' }
+    ],
     notificationState: null,
     recipientAttempt: {
       attempts: 0,

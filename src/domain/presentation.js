@@ -220,3 +220,20 @@ const PHASE_BY_STATUS = {
 export function pickupPhase(status, attemptPhase) {
   return PHASE_BY_STATUS[status] ?? attemptPhase ?? 'idle';
 }
+
+/**
+ * 從這個放件站走不到的收件站。車上只有八段示教路線，剩下兩組沒有地圖也沒有
+ * 路徑 —— 讓人選一個走不了的組合，等於讓他一路填到派車那一步才發現。
+ *
+ * 拿不到清單時回空陣列（不擋）：伺服器端的 trigger 才是權威，畫面只是提早說。
+ * @param {string} pickupCode
+ * @param {{fromStopCode: string, toStopCode: string}[]} servicePairs
+ * @param {string[]} allStopCodes
+ */
+export function unreachableFrom(pickupCode, servicePairs, allStopCodes) {
+  if (!pickupCode || !servicePairs?.length) return [];
+  const reachable = new Set(
+    servicePairs.filter((pair) => pair.fromStopCode === pickupCode).map((pair) => pair.toStopCode)
+  );
+  return allStopCodes.filter((code) => code !== pickupCode && !reachable.has(code));
+}
