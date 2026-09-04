@@ -105,6 +105,38 @@ export function routePathD(parts) {
  * junction node; v5 has only the four stops, so this has to be one of them, and
  * both the demo adapter and the status map must agree on which.
  */
+/**
+ * Which journey the status map should draw, and whether it is a live one.
+ *
+ * Two different questions get answered by one picture, so the picture has to be
+ * clear about which it is answering:
+ *
+ *   * A dispatch exists → draw the leg the vehicle is actually driving.
+ *   * No dispatch yet → draw the delivery's own route. That is a plan, not a
+ *     claim about the vehicle.
+ *
+ * What it must never do is invent an approach. Drawing the vehicle arriving
+ * from a fixed node produced a line from 人社一館 on every delivery, while the
+ * vehicle starts each day at 圖資中心 — a confident answer to a question nobody
+ * could answer yet.
+ *
+ * @param {{liveFromCode?: string|null, liveToCode?: string|null, pickupCode?: string|null, dropoffCode?: string|null}} codes
+ * @returns {{parts: ReturnType<typeof shortestRoute>, live: boolean}}
+ */
+export function journeyToDraw(codes) {
+  const liveFrom = locationByCode(codes.liveFromCode ?? '');
+  const liveTo = locationByCode(codes.liveToCode ?? '');
+  if (liveFrom && liveTo) {
+    return { parts: shortestRoute(liveFrom.routeNodeId, liveTo.routeNodeId), live: true };
+  }
+  const pickup = locationByCode(codes.pickupCode ?? '');
+  const dropoff = locationByCode(codes.dropoffCode ?? '');
+  if (pickup && dropoff) {
+    return { parts: shortestRoute(pickup.routeNodeId, dropoff.routeNodeId), live: false };
+  }
+  return { parts: [], live: false };
+}
+
 export const VEHICLE_STAGING_NODE_ID = 'HSS1';
 export const VEHICLE_STAGING_ALTERNATE_NODE_ID = 'LIBRARY';
 

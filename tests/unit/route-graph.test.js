@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertRouteGraphIntegrity, DELIVERY_LOCATIONS, positionAlongRoute, ROUTE_EDGES, ROUTE_NODES, shortestRoute } from '../../src/map/route-graph.js';
+import { assertRouteGraphIntegrity, DELIVERY_LOCATIONS, journeyToDraw, positionAlongRoute, ROUTE_EDGES, ROUTE_NODES, shortestRoute } from '../../src/map/route-graph.js';
 import { markerPointForPosition, progressAlongJourney } from '../../src/map/map-view.js';
 
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
@@ -121,5 +121,43 @@ describe('progress along a journey that crosses several edges', () => {
   it('says nothing when the vehicle is not on this journey at all', () => {
     expect(progressAlongJourney(journey, { segmentId: 'edge-not-on-this-trip', progress: 0.5 })).toBeNull();
     expect(progressAlongJourney(journey, null)).toBeNull();
+  });
+});
+
+describe('which journey the status map draws', () => {
+  it('draws the delivery route before a vehicle has been dispatched', () => {
+    // 派車前使用者要看的是「我的東西會走哪條路」。
+    const { parts, live } = journeyToDraw({ pickupCode: 'LIBRARY', dropoffCode: 'ADMIN' });
+
+    expect(live).toBe(false);
+    expect(parts.length).toBeGreaterThan(0);
+    expect(parts[0].fromNodeId).toBe('LIBRARY');
+    expect(parts[parts.length - 1].toNodeId).toBe('ADMIN');
+  });
+
+  it('never invents where the vehicle is coming from', () => {
+    // 回報的症狀：投遞是圖資中心 → 行政大樓，車也停在圖資中心，畫面卻highlight
+    // 了一條從人社一館過來的線。舊版在沒有派車時會退回一個寫死的出發點。
+    const { parts } = journeyToDraw({ pickupCode: 'LIBRARY', dropoffCode: 'ADMIN' });
+    const touched = new Set(parts.flatMap((part) => [part.fromNodeId, part.toNodeId]));
+
+    expect(parts[0].fromNodeId).not.toBe('HSS1');
+    expect([...touched].every((node) => ['LIBRARY', 'HSS2', 'HSS1', 'ADMIN'].includes(node))).toBe(true);
+  });
+
+  it('prefers the leg the vehicle is actually driving once there is one', () => {
+    const { parts, live } = journeyToDraw({
+      liveFromCode: 'ADMIN', liveToCode: 'LIBRARY',
+      pickupCode: 'LIBRARY', dropoffCode: 'ADMIN'
+    });
+
+    expect(live).toBe(true);
+    expect(parts[0].fromNodeId).toBe('ADMIN');
+    expect(parts[parts.length - 1].toNodeId).toBe('LIBRARY');
+  });
+
+  it('draws nothing rather than guessing when neither is known', () => {
+    expect(journeyToDraw({}).parts).toEqual([]);
+    expect(journeyToDraw({ pickupCode: 'LIBRARY' }).parts).toEqual([]);
   });
 });
