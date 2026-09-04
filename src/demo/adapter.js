@@ -35,6 +35,7 @@ function initialState(scenario = 'happy-path') {
       observedAt: null,
       connectivity: 'online',
       positionQuality: 'pending',
+      vehicleState: 'idle',
       activeEdgeIds: []
     },
     commandState: null,
@@ -245,12 +246,19 @@ export class DemoAdapter {
   /** @param {ReturnType<typeof shortestRoute>} route @param {'pickup'|'dropoff'} destination */
   #animateRoute(route, destination) {
     const edgeIds = route.map((part) => part.edgeId);
+    // 說出這一趟的起訖。狀態頁只畫「車輛真的在跑的那一趟」，不再從一個編造的
+    // 起點退而求其次 —— 所以模擬也得像真車一樣把自己的路線報出來。
+    const from = route.length ? route[0].fromNodeId : null;
+    const to = route.length ? route[route.length - 1].toNodeId : null;
     this.#patch({
       telemetry: {
         ...this.state.telemetry,
         connectivity: 'online',
         positionQuality: 'valid',
+        vehicleState: 'moving',
         activeEdgeIds: edgeIds,
+        routeFromStopCode: from,
+        routeToStopCode: to,
         position: positionAlongRoute(route, 0),
         observedAt: this.clock.now()
       }
@@ -258,7 +266,7 @@ export class DemoAdapter {
 
     // A dense deterministic frame sequence makes the schematic vehicle visibly
     // travel the route while preserving the same final state and fake clock.
-    const frames = Array.from({ length: 24 }, (_, index) => (index + 1) / 24);
+    const frames = Array.from({ length: 28 }, (_, index) => (index + 1) / 28);
     frames.forEach((progress, index) => {
       this.#later(() => {
         if (this.state.scenario === 'telemetry-stale' && progress >= 0.48) {
@@ -281,11 +289,14 @@ export class DemoAdapter {
           }
         });
         if (progress === 1) {
-          this.#patch({ commandState: 'completed' });
+          this.#patch({
+            commandState: 'completed',
+            telemetry: { ...this.state.telemetry, vehicleState: 'at_stop' }
+          });
           if (destination === 'pickup') this.#transition('VEHICLE_ARRIVED_PICKUP', 'gateway');
           else this.#arriveDropoff();
         }
-      }, 160 * (index + 1));
+      }, 180 * (index + 1));
     });
   }
 

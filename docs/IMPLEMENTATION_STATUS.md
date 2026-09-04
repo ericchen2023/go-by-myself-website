@@ -1,19 +1,20 @@
 # Implementation status
 
-更新日期：2026-09-01。這份文件區分「程式已落地」、「hosted staging 已驗證」與「真車／正式營運已核准」，避免把網站上線誤稱為校園實機可用。
+更新日期：2026-09-02。這份文件區分「程式已落地」、「hosted staging 已驗證」與「真車／正式營運已核准」，避免把網站上線誤稱為校園實機可用。
 
 ## 已實作與已取得的證據
 
 | Scope | Maturity | Evidence |
 |---|---|---|
-| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、demo/production-shaped 兩種 build、NDHU emblem asset、responsive/a11y baseline；production shell regression test 保證不輸出 `null`，staging 不再宣稱 simulator |
+| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、demo/production-shaped 兩種 build、NDHU emblem asset、responsive/a11y baseline；Step 2／3 首屏層級、四站路網、人社一館／二館短支線、行駛中路線優先、有限首頁動態與 reduced-motion 已完成桌機／390px／320px rendered review，console/page error 為 0；production shell regression test 保證不輸出 `null`，staging 不再宣稱 simulator |
 | Canonical route | IMPLEMENTED | `contracts/route-graph.v5.json` 是單一資料來源；四站、version/checksum、edge 與 SVG geometry 由 CI 核對。v5 改用實測道路中心線（`routes_site/pass_spine.csv`）：四站沿單一走廊 LIBRARY–HSS2–HSS1–ADMIN，三條帶折線幾何的邊，每條示教路線對應一條邊。v4 的主幹＋分支拓撲會讓 LIBRARY→ADMIN 略過兩個人社站，車子被畫在沒走過的路段上 |
 | Exhibition demo | IMPLEMENTED + HOSTED | Zero-secret、fake clock、八步 sender/recipient、robot 離線仍可展示；Vercel `main` 保持 demo artifact |
-| Hosted staging control plane | HOSTED + MIGRATIONS CURRENT | Supabase `go-by-myself-staging`（project ref `aiuajbflpwdzkaeeocab`，Tokyo）已套用全部16個immutable migrations；v5 route active、4個visible stops、0個approved physical legs |
+| Hosted staging control plane | HOSTED / NEXT MIGRATION PENDING | Supabase `go-by-myself-staging`（project ref `aiuajbflpwdzkaeeocab`，Tokyo）已套用27個immutable migrations並通過93個hosted pgTAP；v5 route active、4個visible stops、0個approved physical legs。Repository目前有28個migrations／96個pgTAP，最新「command使用實際示教leg ID」修正須經下一次staging release才會上線 |
 | Hosted staging frontend | HOSTED + CONFIG READY | Vercel `staging` branch固定網址：<https://go-by-myself-website-git-staging-hsuanisgay.vercel.app>；branch-scoped public config指向staging Supabase並已啟用Google CTA，`main`與其他Preview不取得staging設定 |
 | Auth boundary | HOSTED CONFIG READY / LIVE E2E PENDING | 前端已移除`hd`提示與email登入fallback；Google External app已發布，Supabase provider與auth migration已啟用；trusted RPC要求Google identity與`email_verified=true`。首次登入、再次登入與session resume仍需一般Google帳號live E2E |
 | Robot contract v2 | IMPLEMENTED + UNIT VERIFIED | Command/telemetry/event JSON Schema、正反 fixtures、checksum/leg/expiry/state 驗證；v1 只保留 legacy fixture |
 | Route jobs | IMPLEMENTED + DB VERIFIED | Route job/legs、多段狀態、30 分鐘起跑期限、未 accepted 過期回復、terminal reservation release 已由 hosted pgTAP 驗證 |
+| Taught-route safety | IMPLEMENTED / RELEASE PENDING | UI只提供車端已示教且可服務的站點配對；車輛目前位置可獨立於delivery projection保存；route command使用實際示教leg ID。前兩項已在hosted staging，第28筆leg ID migration待下一次staging release |
 | Telemetry ingest | HOSTED HTTP VERIFIED | 單一 transactional RPC、server received time、boot/sequence ordering、last-known-good 與 safe projection；hosted v2 idle telemetry 回 202 並更新 online/current，錯 schema 回 422 |
 | Private Realtime | DB AUTH VERIFIED / WIRE PENDING | `delivery:{id}` 與 `route-validation:{id}` topic policies、10s/60s reconciliation 已由 pgTAP 驗證；真實 authenticated WebSocket reconnect/resync 仍待 synthetic account E2E |
 | Node simulator gateway | IMPLEMENTED + UNIT VERIFIED | DISPATCH 背景執行、CANCEL 可並行、durable dedup、telemetry v2、production simulator fail closed |
@@ -22,7 +23,7 @@
 | Edge Functions | HOSTED HTTP VERIFIED | `delivery-intent`（platform JWT）、`pickup`（public credential flow）、`robot-api`（per-client constant-time token）均 ACTIVE；GBM-01交接token已於2026-08-31輪替，read-only state preflight 200且scope一致；錯 token 401、跨車 403、pickup generic 404、CORS exact-origin 204 |
 | Repository governance | ENABLED | `main` 與 `staging` 都要求 PR、strict `quality/browser/database/edge-contract` checks、linear history 與 conversation resolution；enforce admins，禁止 force-push 與 deletion |
 | Vercel deployment protection | ENABLED + AUTOMATION BYPASS VERIFIED | Standard Protection維持開啟；CI／E2E專用bypass只存GitHub Actions secret，header對staging health實測通過，不提供給browser bundle或車端 |
-| Tests | IMPLEMENTED BASELINE | 54 Vitest、25 Playwright/axe（另2個hosted-only與1個跨project skip）、10 Python unittest、5 Deno runtime tests、GitHub database job 67個pgTAP；hosted既有65個pgTAP加上auth migration後的定向grant／函式條件驗證，另有contract/build/boundary/bundle、protected staging health與production shell E2E |
+| Tests | IMPLEMENTED BASELINE | 111 Vitest、26 Playwright/axe（另3個依環境或project刻意skip）、10 Python unittest、5 Deno runtime tests、repository／GitHub database baseline 96個pgTAP、hosted staging baseline 93個pgTAP；normal-motion專案另外驗證首頁動態只跑一次、兩條人社支線存在、車輛沿SVG路線移動、方向流光有限次且不使用`transition: all`；另有contract/build/boundary/bundle、protected staging health與production shell E2E |
 
 ## 尚未取得的驗證證據
 

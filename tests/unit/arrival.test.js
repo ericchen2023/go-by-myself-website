@@ -37,21 +37,24 @@ describe('estimating arrival from observed movement', () => {
     expect(estimateRemainingSeconds(samples)).toBeNull();
   });
 
-  it('drops samples from the previous segment', () => {
-    const onFirst = trackProgress([], { segmentId: 'edge-a', progress: 0.8 }, null, T0);
-    const onSecond = trackProgress(onFirst, { segmentId: 'edge-b', progress: 0.05 }, 'edge-a', T0 + 5_000);
-    // Carrying 0.8 across would read as the vehicle running backwards.
-    expect(onSecond).toEqual([{ progress: 0.05, at: T0 + 5_000 }]);
+  it('keeps samples across the stops a journey passes through', () => {
+    // 一趟 LIBRARY→ADMIN 橫跨三條邊。以邊為單位重置的話，每經過一站樣本就被
+    // 清空、估算隨即消失 —— 後半段反而最不準。整趟是同一段旅程，樣本要留著。
+    const journey = 'edge-library-hss2>edge-hss2-hss1>edge-hss1-admin';
+    const first = trackProgress([], 0.30, journey, null, T0);
+    const afterAStop = trackProgress(first, 0.42, journey, journey, T0 + 5_000);
+    expect(afterAStop).toHaveLength(2);
   });
 
-  it('keeps samples while the segment holds', () => {
-    const first = trackProgress([], { segmentId: 'edge-a', progress: 0.1 }, null, T0);
-    const second = trackProgress(first, { segmentId: 'edge-a', progress: 0.2 }, 'edge-a', T0 + 5_000);
-    expect(second).toHaveLength(2);
+  it('drops samples when the journey itself changes', () => {
+    const outbound = trackProgress([], 0.8, 'edge-a', null, T0);
+    const returning = trackProgress(outbound, 0.05, 'edge-b', 'edge-a', T0 + 5_000);
+    // 換了一趟，舊讀數描述的是另一段行程；沿用會讀成車在倒退。
+    expect(returning).toEqual([{ progress: 0.05, at: T0 + 5_000 }]);
   });
 
   it('forgets everything when the position disappears', () => {
-    expect(trackProgress([{ progress: 0.4, at: T0 }], null, 'edge-a', T0 + 1_000)).toEqual([]);
+    expect(trackProgress([{ progress: 0.4, at: T0 }], null, 'edge-a', 'edge-a', T0 + 1_000)).toEqual([]);
   });
 });
 
@@ -63,16 +66,43 @@ describe('what the sender is told while a vehicle is on its way', () => {
 
     const driving = deliveryStatusCopy('dispatching', {
       connectivity: 'online', positionQuality: 'valid',
-      position: { segmentId: 'edge-a', progress: 0.42 }
+      position: { segmentId: 'edge-a', progress: 0.9 },
+      journeyProgress: 0.42
     });
     expect(driving.title).toBe('車輛行駛中');
-    expect(driving.detail).toContain('42%');
+    // 進度是整趟的比例，不是當前那一條邊的 —— 車在邊上走了 90%，整趟才 42%。
+    expect(driving.metrics.progressPercent).toBe(42);
+  });
+
+  it('reports progress along the whole journey, not the current edge', () => {
+    // 使用者回報的症狀：車過了人社一館之後，畫面的百分比就以「人社一→行政」
+    // 為準重新開始 —— 於是同一趟旅程的進度會倒退。
+    const nearEndOfFirstEdge = deliveryStatusCopy('in_transit', {
+      connectivity: 'online', positionQuality: 'valid',
+      position: { segmentId: 'edge-library-hss2', progress: 0.99 },
+      journeyProgress: 0.36
+    });
+    const startOfSecondEdge = deliveryStatusCopy('in_transit', {
+      connectivity: 'online', positionQuality: 'valid',
+      position: { segmentId: 'edge-hss2-hss1', progress: 0.01 },
+      journeyProgress: 0.37
+    });
+
+    expect(startOfSecondEdge.metrics.progressPercent)
+      .toBeGreaterThanOrEqual(nearEndOfFirstEdge.metrics.progressPercent);
   });
 
   it('states an arrival estimate only when one was given', () => {
-    const overlay = { connectivity: 'online', positionQuality: 'valid', position: { segmentId: 'edge-a', progress: 0.5 } };
+    const overlay = {
+      connectivity: 'online', positionQuality: 'valid',
+      position: { segmentId: 'edge-a', progress: 0.5 }, journeyProgress: 0.5
+    };
+    // 還估不出來的時候要說「估算中」，不要留白 —— 留白會被當成畫面壞了，
+    // 而編一個數字比留白更糟。
+    expect(deliveryStatusCopy('dispatching', overlay).metrics.eta).toBeNull();
     expect(deliveryStatusCopy('dispatching', overlay).detail).toContain('需要再觀察');
-    expect(deliveryStatusCopy('dispatching', { ...overlay, etaSeconds: 120 }).detail).toContain('2 分鐘');
+    expect(deliveryStatusCopy('dispatching', { ...overlay, etaSeconds: 120 }).metrics.eta)
+      .toContain('2 分鐘');
   });
 
   it('keeps the safety overlays ahead of the progress copy', () => {

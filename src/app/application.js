@@ -10,9 +10,9 @@ import {
   stepper,
   summaryItem
 } from './components.js';
-import { createRouteSelector } from '../map/map-view.js';
+import { clearVehicleMotionState, createRouteSelector, progressAlongJourney } from '../map/map-view.js';
 import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
-import { DELIVERY_LOCATIONS, locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
+import { DELIVERY_LOCATIONS, journeyToDraw, locationByCode } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
 import { compartmentRequest, notificationCopy, pickupPhase, recipientNotice, stepForStatus, unreachableFrom } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
@@ -53,7 +53,7 @@ export class Application {
     /** @type {Record<string, string>} */
     this.fieldErrors = {};
     this.arrivalSamples = [];
-    this.arrivalSegmentId = null;
+    this.arrivalJourneyKey = null;
     this.busy = false;
     this.operatorSelection = { vehicleId: '', legId: '' };
     this.route = window.location.pathname;
@@ -269,12 +269,25 @@ export class Application {
 
   #pickupStep() {
     const selected = this.state.draft.pickupCode;
+    const continueAction = el('div', { className: 'map-list-footer' },
+      el('div', { className: 'selection-status', role: 'status' },
+        selected
+          ? `已選擇：${locationByCode(selected)?.name ?? '核准站點'}`
+          : '請先選擇一個放件站點'),
+      el('button', {
+        className: 'button button--primary',
+        type: 'button',
+        disabled: !selected,
+        onclick: () => this.#setWizardStep(3)
+      }, '繼續填寫投遞資料')
+    );
     const routeSelector = createRouteSelector({
       id: 'pickup-location',
       label: '選取放置物品地點',
       selectedCode: selected,
       pickupCode: selected,
       interactive: true,
+      footer: continueAction,
       onSelect: (code) => this.adapter.saveDraft({ pickupCode: code, dropoffCode: this.state.draft.dropoffCode === code ? '' : this.state.draft.dropoffCode })
     });
     return this.#flowMain(2, el('div', { className: 'flow-card' },
@@ -282,21 +295,25 @@ export class Application {
         el('h1', {}, '你要在哪裡放入物品？'),
         el('p', {}, '以下站點目前僅供專題展示；實際停靠位置仍需校方與車輛團隊確認。')
       ),
-      routeSelector,
-      el('div', { className: 'action-row action-row--end' },
-        el('button', {
-          className: 'button button--primary',
-          type: 'button',
-          disabled: !selected,
-          onclick: () => this.#setWizardStep(3)
-        }, '繼續填寫投遞資料')
-      )
+      routeSelector
     ));
   }
 
   #detailsStep() {
     const draft = this.state.draft;
+    const pickup = locationByCode(draft.pickupCode);
+    const dropoff = locationByCode(draft.dropoffCode);
     const form = el('form', { className: 'delivery-form', novalidate: true });
+    form.append(el('section', { className: 'route-choice-summary', 'aria-label': '目前投遞路線' },
+      el('div', { className: 'route-choice-summary__path' },
+        el('span', {}, '放件'),
+        el('strong', {}, pickup?.name ?? '尚未選擇'),
+        el('span', { className: 'route-choice-summary__arrow', 'aria-hidden': 'true' }, '→'),
+        el('span', {}, '收件'),
+        el('strong', {}, dropoff?.name ?? '請選擇')
+      ),
+      el('button', { className: 'text-button', type: 'button', onclick: () => this.#setWizardStep(2) }, '修改放件地點')
+    ));
     // Choosing a stop saves the draft, which re-renders this whole form from the
     // draft. Anything typed but not yet saved would be rebuilt as empty — so the
     // reader fills the form in, picks a stop, and silently loses the lot, then
@@ -313,21 +330,17 @@ export class Application {
     };
     const unreachable = unreachableFrom(
       draft.pickupCode, this.state.servicePairs, DELIVERY_LOCATIONS.map((location) => location.code));
-    if (unreachable.length) {
-      form.append(el('p', { className: 'field-help', role: 'note' },
-        `目前無法從${locationByCode(draft.pickupCode)?.name ?? '此站'}直達：${
-          unreachable.map((code) => locationByCode(code)?.name ?? code).join('、')
-        }。這兩段路線尚未示教，車輛沒有可用的地圖。`));
-    }
     form.append(createRouteSelector({
       id: 'dropoff-location',
       label: '選取收件地點',
+      hint: unreachable.length ? '灰色站點的路線尚未完成示教，暫不提供選取。' : undefined,
       selectedCode: draft.dropoffCode,
       pickupCode: draft.pickupCode,
       dropoffCode: draft.dropoffCode,
       // 沒有示教過的組合不給選：那不是偏好，是車上沒有那張圖也沒有那條路徑。
       disabledCodes: [draft.pickupCode, ...unreachable],
       interactive: true,
+      compact: true,
       onSelect: (code) => this.adapter.saveDraft({ ...typedFields(), dropoffCode: code })
     }));
 
@@ -368,7 +381,7 @@ export class Application {
       }
     });
     return this.#flowMain(3, el('div', { className: 'flow-card' },
-      el('div', { className: 'flow-heading' },
+      el('div', { className: 'flow-heading flow-heading--compact' },
         el('h1', {}, '填寫投遞資料'),
         el('p', {}, '請填寫收件資訊。送出前仍可返回修改。')
       ),
@@ -471,43 +484,59 @@ export class Application {
     const pickup = locationByCode(delivery.pickupCode);
     const dropoff = locationByCode(delivery.dropoffCode);
     const telemetry = this.state.telemetry;
+    const journey = journeyToDraw({
+      liveFromCode: telemetry.routeFromStopCode,
+      liveToCode: telemetry.routeToStopCode,
+      pickupCode: delivery.pickupCode,
+      dropoffCode: delivery.dropoffCode
+    });
+    const activeRouteParts = journey.parts;
+    // 進度要用**整趟**的比例，不是當前這一條邊的。一趟 LIBRARY→ADMIN 橫跨
+    // 三條邊，直接用邊的比例會在每個站點歸零，而估算也會倒數到下一站而不是
+    // 終點 —— 那正是「本段 100%」卻還要再走兩段的來源。
+    const journeyKey = activeRouteParts.map((part) => part.edgeId).join('>');
+    const journeyProgress = progressAlongJourney(activeRouteParts, telemetry.position);
     // Sampled here rather than in the adapter: the estimate belongs to what is
     // on screen, and both adapters feed this same state.
-    this.arrivalSamples = trackProgress(this.arrivalSamples, telemetry.position, this.arrivalSegmentId, Date.now());
-    this.arrivalSegmentId = telemetry.position?.segmentId ?? null;
+    this.arrivalSamples = trackProgress(this.arrivalSamples, journeyProgress, journeyKey,
+                                        this.arrivalJourneyKey, Date.now());
+    this.arrivalJourneyKey = journeyKey;
     const etaSeconds = estimateRemainingSeconds(this.arrivalSamples);
-    const projectedFrom = locationByCode(telemetry.routeFromStopCode);
-    const projectedTo = locationByCode(telemetry.routeToStopCode);
-    const activeRouteParts = projectedFrom && projectedTo
-      ? shortestRoute(projectedFrom.routeNodeId, projectedTo.routeNodeId)
-      : currentStep <= 6
-        ? shortestRoute(stagingOriginFor(pickup?.routeNodeId ?? ''), pickup?.routeNodeId ?? '')
-        : shortestRoute(pickup?.routeNodeId ?? '', dropoff?.routeNodeId ?? '');
     const changingLeg = ['preparing', 'localizing'].includes(telemetry.vehicleState);
-    const route = createRouteSelector({
-      id: `delivery-route-${delivery.id}`,
-      label: currentStep <= 6 ? '車輛前往放件地點' : '投遞路線與站點',
+    const routeId = `delivery-route-${delivery.id}`;
+    const routeFirst = ['dispatching', 'loaded', 'in_transit', 'arrived_dropoff', 'awaiting_recipient', 'compartment_open_for_recipient', 'picked_up'].includes(delivery.status);
+    const showRoute = !['completed', 'cancelled', 'delivery_failed'].includes(delivery.status);
+    const route = showRoute ? createRouteSelector({
+      id: routeId,
+      // 標題要說出畫的是什麼：實際派車中才是「車輛前往…」，否則是投遞的路線計畫。
+      label: journey.live ? '車輛行駛路線' : '投遞路線與站點',
       pickupCode: delivery.pickupCode,
       dropoffCode: delivery.dropoffCode,
       interactive: false,
       activeEdgeIds: telemetry.activeEdgeIds,
       activeRouteParts,
+      showLocationList: false,
       // 這筆投遞的進度優先；沒有進度時（還沒出發、已經送達、或根本沒在送件）
       // 就畫車輛自己在哪 —— 車停著不代表它不在地圖上。
       vehiclePosition: ['off_route', 'invalid'].includes(telemetry.positionQuality)
         ? null
         : (telemetry.position ?? telemetry.vehiclePosition ?? null),
       animateVehicle: telemetry.positionQuality === 'valid' && telemetry.connectivity === 'online' && telemetry.vehicleState === 'moving'
-    });
+    }) : null;
+    if (!showRoute) clearVehicleMotionState(routeId);
+    const transitionNotice = changingLeg ? el('div', { className: 'route-transition-notice', role: 'status' },
+      el('strong', {}, '車輛正在準備下一段路線'),
+      el('span', {}, '重新定位完成前，地圖保留最後一筆可信位置。')) : null;
+    const primary = el('div', { className: `status-primary${routeFirst ? ' status-primary--route-first' : ''}` },
+      statusHero({ status: delivery.status, telemetry: { ...telemetry, etaSeconds, journeyProgress } })
+    );
+    if (transitionNotice) primary.append(transitionNotice);
+    if (routeFirst && route) primary.append(route);
+    primary.append(this.#statusActions(delivery));
+    if (!routeFirst && route) primary.append(route);
+
     const body = el('div', { className: 'status-layout' },
-      el('div', { className: 'status-primary' },
-        statusHero({ status: delivery.status, telemetry: { ...telemetry, etaSeconds } }),
-        this.#statusActions(delivery),
-        changingLeg ? el('div', { className: 'route-transition-notice', role: 'status' },
-          el('strong', {}, '車輛正在準備下一段路線'),
-          el('span', {}, '重新定位完成前，地圖保留最後一筆可信位置。')) : null,
-        route
-      ),
+      primary,
       el('aside', { className: 'status-aside', 'aria-label': '投遞摘要' },
         el('section', { className: 'aside-section' },
           el('h2', {}, '本次投遞'),

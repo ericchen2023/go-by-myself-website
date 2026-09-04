@@ -25,11 +25,11 @@ test('dynamic sender and recipient states keep the accessibility baseline', asyn
   await page.getByRole('button', { name: '檢查並前往確認' }).click();
   await page.getByRole('button', { name: '確認投遞' }).click();
   await page.getByRole('button', { name: '呼叫車輛' }).click();
-  await page.getByRole('heading', { name: '確認車輛後再開艙' }).waitFor({ timeout: 6_000 });
+  await page.getByRole('heading', { name: '確認車輛後再開艙' }).waitFor({ timeout: 8_000 });
   await page.getByRole('button', { name: '開啟置物艙' }).click();
   await page.getByRole('heading', { name: '請放入物品' }).waitFor();
   await page.getByRole('button', { name: '確認已放入並關門' }).click();
-  await page.getByRole('heading', { name: '取件憑證已啟用' }).waitFor({ timeout: 6_000 });
+  await page.getByRole('heading', { name: '取件憑證已啟用' }).waitFor({ timeout: 8_000 });
   await expectNoAxeViolations(page);
 
   await page.getByRole('link', { name: '前往收件人取件頁' }).click();
