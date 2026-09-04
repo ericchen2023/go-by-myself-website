@@ -246,8 +246,24 @@ function routeSignature(parts) {
   return parts.map((part) => `${part.edgeId}:${part.forward ? 'f' : 'r'}`).join('|');
 }
 
-/** @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts @param {{segmentId:string,progress:number}} position */
-function progressAlongJourney(parts, position) {
+/**
+ * How far along the *whole* journey the vehicle is, given which edge it is on.
+ *
+ * The vehicle only ever reports one edge and a fraction of that edge. A journey
+ * crossing several edges — LIBRARY to ADMIN crosses three — therefore looks like
+ * it restarts at every stop if that fraction is shown directly: the figure snaps
+ * back on arrival at HSS2, and an ETA extrapolated from it counts down to the
+ * next stop rather than to the destination.
+ *
+ * Measured against the drawn polyline, so it matches where the marker actually
+ * is on screen. That makes it a fraction of the schematic, not of metres driven.
+ *
+ * @param {Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>} parts
+ * @param {{segmentId:string,progress:number}|null|undefined} position
+ * @returns {number|null} 0..1, or null when the position is not on this journey
+ */
+export function progressAlongJourney(parts, position) {
+  if (!Array.isArray(parts) || !position) return null;
   const visualLengths = parts.map((_part, index) => polylineLength(orientedPartVertices(parts, index)));
   const total = visualLengths.reduce((sum, length) => sum + length, 0);
   if (!total) return null;
