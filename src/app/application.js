@@ -513,6 +513,9 @@ export class Application {
       pickupCode: delivery.pickupCode,
       dropoffCode: delivery.dropoffCode,
       interactive: false,
+      // 狀態頁只留放件與收件兩站。中途經過的站在這裡沒有作用，畫出來只是把
+      // 注意力從「我的東西在哪」拉走。
+      onlyDeliveryStops: true,
       activeEdgeIds: telemetry.activeEdgeIds,
       activeRouteParts,
       showLocationList: false,
