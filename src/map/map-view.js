@@ -172,9 +172,10 @@ function appendRouteNetwork(svg, activeEdges, id, showWholeNetwork = true) {
 }
 
 /** @param {SVGSVGElement} svg */
-function appendStopApproaches(svg) {
+function appendStopApproaches(svg, shownCodes) {
   const layer = svgElement('g', { class: 'approach-layer', 'aria-hidden': 'true' });
   for (const location of DELIVERY_LOCATIONS) {
+    if (shownCodes && !shownCodes.has(location.code)) continue;
     const vertices = stopApproachVertices(location.code);
     if (vertices.length < 2) continue;
     const d = toPath(vertices);
@@ -224,9 +225,10 @@ function appendJourneyRoute(svg, id, parts, position) {
 }
 
 /** @param {SVGSVGElement} svg */
-function appendStationLabels(svg) {
+function appendStationLabels(svg, shownCodes) {
   const layer = svgElement('g', { class: 'map-station-labels', 'aria-hidden': 'true' });
   for (const location of DELIVERY_LOCATIONS) {
+    if (shownCodes && !shownCodes.has(location.code)) continue;
     const label = STOP_LABELS[location.code];
     if (!label) continue;
     const text = svgElement('text', { x: label.x, y: label.y, 'text-anchor': label.anchor, class: 'map-station-label' });
@@ -430,7 +432,7 @@ export function createRoutePreview() {
   return wrapper;
 }
 
-/** @param {{id:string,label:string,hint?:string,selectedCode?:string,pickupCode?:string,dropoffCode?:string,disabledCodes?:string[],interactive?:boolean,compact?:boolean,showLocationList?:boolean,footer?:Node|null,activeEdgeIds?:string[],activeRouteParts?:Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>,vehiclePosition?:{segmentId:string,progress:number}|null,animateVehicle?:boolean,onSelect?:(code:string)=>void}} options */
+/** @param {{id:string,label:string,hint?:string,selectedCode?:string,pickupCode?:string,dropoffCode?:string,disabledCodes?:string[],interactive?:boolean,compact?:boolean,showLocationList?:boolean,footer?:Node|null,activeEdgeIds?:string[],onlyDeliveryStops?:boolean,activeRouteParts?:Array<{edgeId:string,fromNodeId:string,toNodeId:string,forward:boolean,length:number}>,vehiclePosition?:{segmentId:string,progress:number}|null,animateVehicle?:boolean,onSelect?:(code:string)=>void}} options */
 export function createRouteSelector(options) {
   const disabled = new Set(options.disabledCodes ?? []);
   const activeEdges = new Set(options.activeEdgeIds ?? []);
@@ -445,15 +447,19 @@ export function createRouteSelector(options) {
     id: `${options.id}-svg`, viewBox: '0 0 1000 650', class: 'route-map', role: interactive ? 'group' : 'img', 'aria-labelledby': headingId, 'aria-describedby': `${options.id}-hint`
   }));
   appendMapFoundation(svg, options.id);
+  // 只留這筆投遞用到的站（狀態頁用）。由呼叫端明確指定，不從 interactive 推論
+  // —— 營運端的路線驗證頁同樣是非互動的，但它需要四站都看得到。
+  const shownStops = options.onlyDeliveryStops
+    ? new Set([options.pickupCode, options.dropoffCode].filter(Boolean))
+    : null;
   const journeyParts = options.activeRouteParts ?? [];
   const journeyEdges = new Set([...activeEdges, ...journeyParts.map((part) => part.edgeId)]);
-  // Every public view keeps the one complete four-stop corridor visible.
-  // The current journey is a colored overlay; hiding unused corridor segments
-  // would leave public stops visually detached from the route.
-  appendStopApproaches(svg);
+  // 路網本身永遠完整畫出來 —— 只畫用到的路段會讓其他道路整條消失，地圖看起來
+  // 像壞掉。被隱藏的只有「站點」：狀態頁上，中途經過的站沒有作用。
+  appendStopApproaches(svg, shownStops);
   appendRouteNetwork(svg, journeyEdges, options.id, true);
   appendJourneyRoute(svg, options.id, journeyParts, options.vehiclePosition);
-  appendStationLabels(svg);
+  appendStationLabels(svg, shownStops);
 
   const stopLayer = svgElement('g', { class: 'stop-layer' });
   const enabledLocations = DELIVERY_LOCATIONS.filter((location) => !disabled.has(location.code));
@@ -461,6 +467,7 @@ export function createRouteSelector(options) {
   /** @type {SVGGElement[]} */
   const stopGroups = [];
   DELIVERY_LOCATIONS.forEach((location) => {
+    if (shownStops && !shownStops.has(location.code)) return;
     const point = stopPoint(location.routeNodeId);
     if (!point) return;
     const isDisabled = disabled.has(location.code);

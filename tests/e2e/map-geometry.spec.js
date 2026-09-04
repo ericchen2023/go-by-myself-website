@@ -79,8 +79,10 @@ test('vehicle marker advances along the active canonical route', async ({ page }
   // The whole corridor stays drawn, with only the journey's edges highlighted.
   // Hiding the rest left stops attached to nothing and read as a broken map.
   await expect(page.locator('.route-edge')).toHaveCount(3);
-  await expect(page.locator('.map-stop')).toHaveCount(4);
-  await expect(page.locator('.stop-approach')).toHaveCount(2);
+  // 站點則相反：狀態頁只留這筆投遞的放件與收件地點。中途經過的兩站在這裡沒有
+  // 作用，而它們的引道短線只屬於那兩站，所以也一起消失。
+  await expect(page.locator('.map-stop')).toHaveCount(2);
+  await expect(page.locator('.stop-approach')).toHaveCount(0);
   expect(await activeEdges.first().evaluate((path) => getComputedStyle(path).stroke)).not.toBe('none');
   await expect(page.locator('.journey-segment--remaining')).not.toHaveCount(0);
   await expect(page.locator('.journey-segment--traveled')).not.toHaveCount(0);
