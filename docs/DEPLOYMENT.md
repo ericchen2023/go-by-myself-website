@@ -18,7 +18,7 @@ Gateway 必須設定 `GATEWAY_DEPLOY_ENV` 與 `GATEWAY_HARDWARE_ADAPTER`。目�
 
 ## 目前部署狀態（2026-09-02）
 
-GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；hosted staging已套用27個immutable migrations並通過93個pgTAP，route graph v5、public Google OAuth assurance、terminal projection、無艙門 recovery、recipient handover、只提供已示教站點配對與車輛獨立位置均已生效，所有physical capability仍為disabled。Repository目前有28個migration／96個pgTAP；最新的實際leg ID修正尚待staging release。
+GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；hosted staging已套用27個immutable migrations並通過93個pgTAP，route graph v5、public Google OAuth assurance、terminal projection、無艙門 recovery、recipient handover、只提供已示教站點配對與車輛獨立位置均已生效，所有physical capability仍為disabled。Repository目前有28個migration／96個pgTAP；實際leg ID修正已隨本次release上線。
 
 | Resource | Hosted staging value | Verified state |
 |---|---|---|
