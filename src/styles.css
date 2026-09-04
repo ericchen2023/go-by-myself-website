@@ -487,6 +487,27 @@ input:focus, select:focus, textarea:focus { border-color: var(--route); outline:
 .status-hero--danger { border-bottom-color: var(--danger); }
 .status-hero h1 { margin-bottom: 12px; font-size: clamp(2rem, 4vw, 3.7rem); }
 .status-detail { max-width: 65ch; margin: 0; color: var(--ink-soft); font-size: 1.02rem; }
+
+/* 行程進度與預計抵達：這一頁最常被看的兩個值，給它們自己的尺寸。
+   以前它們被寫在 .status-detail 的句子裡，字級跟其餘敘述一樣，
+   要用讀的才找得到。 */
+.status-metrics {
+  display: flex; flex-wrap: wrap; gap: 12px 40px;
+  margin: 4px 0 18px; padding: 16px 22px;
+  background: var(--surface-green); border: 1px solid var(--route-soft); border-left: 5px solid var(--pine);
+}
+.status-metric { min-width: 180px; flex: 1 1 220px; }
+.status-metric-label { display: block; margin-bottom: 2px; color: var(--ink-soft); font-size: 0.9rem; }
+.status-metric-value {
+  display: block; font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums;
+}
+.status-metric-bar { margin-top: 10px; height: 8px; background: var(--route-soft); overflow: hidden; }
+.status-metric-bar > span { display: block; height: 100%; background: var(--pine); transition: width .4s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .status-metric-bar > span { transition: none; }
+}
 .status-actions {
   display: flex; flex-wrap: wrap; align-items: center; min-height: 80px; padding: 17px 0;
   margin-bottom: 28px; border-top: 1px solid var(--route-soft); border-bottom: 1px solid var(--route-soft); gap: 16px 20px;

@@ -10,9 +10,9 @@ import {
   stepper,
   summaryItem
 } from './components.js';
-import { clearVehicleMotionState, createRouteSelector } from '../map/map-view.js';
+import { clearVehicleMotionState, createRouteSelector, progressAlongJourney } from '../map/map-view.js';
 import { estimateRemainingSeconds, trackProgress } from '../domain/arrival.js';
-import { DELIVERY_LOCATIONS, locationByCode, shortestRoute, stagingOriginFor } from '../map/route-graph.js';
+import { DELIVERY_LOCATIONS, locationByCode, shortestRoute } from '../map/route-graph.js';
 import { ITEM_TYPES, maskEmail, maskPhone, validateDeliveryInput } from '../domain/validation.js';
 import { compartmentRequest, notificationCopy, pickupPhase, recipientNotice, stepForStatus, unreachableFrom } from '../domain/presentation.js';
 import { routeValidationView } from '../operator/route-validation-view.js';
@@ -53,7 +53,7 @@ export class Application {
     /** @type {Record<string, string>} */
     this.fieldErrors = {};
     this.arrivalSamples = [];
-    this.arrivalSegmentId = null;
+    this.arrivalJourneyKey = null;
     this.busy = false;
     this.operatorSelection = { vehicleId: '', legId: '' };
     this.route = window.location.pathname;
@@ -484,18 +484,25 @@ export class Application {
     const pickup = locationByCode(delivery.pickupCode);
     const dropoff = locationByCode(delivery.dropoffCode);
     const telemetry = this.state.telemetry;
-    // Sampled here rather than in the adapter: the estimate belongs to what is
-    // on screen, and both adapters feed this same state.
-    this.arrivalSamples = trackProgress(this.arrivalSamples, telemetry.position, this.arrivalSegmentId, Date.now());
-    this.arrivalSegmentId = telemetry.position?.segmentId ?? null;
-    const etaSeconds = estimateRemainingSeconds(this.arrivalSamples);
     const projectedFrom = locationByCode(telemetry.routeFromStopCode);
     const projectedTo = locationByCode(telemetry.routeToStopCode);
+    // 只畫車輛**真的**在跑的那一趟。以前這裡在沒有路線時會退回一個編造的
+    // 起點（固定的 HSS1），於是車明明停在圖資中心，地圖卻畫著一條「從人社
+    // 一館過來」的路線 —— 那是把「不知道從哪來」講成一個具體的答案。
     const activeRouteParts = projectedFrom && projectedTo
       ? shortestRoute(projectedFrom.routeNodeId, projectedTo.routeNodeId)
-      : currentStep <= 6
-        ? shortestRoute(stagingOriginFor(pickup?.routeNodeId ?? ''), pickup?.routeNodeId ?? '')
-        : shortestRoute(pickup?.routeNodeId ?? '', dropoff?.routeNodeId ?? '');
+      : [];
+    // 進度要用**整趟**的比例，不是當前這一條邊的。一趟 LIBRARY→ADMIN 橫跨
+    // 三條邊，直接用邊的比例會在每個站點歸零，而估算也會倒數到下一站而不是
+    // 終點 —— 那正是「本段 100%」卻還要再走兩段的來源。
+    const journeyKey = activeRouteParts.map((part) => part.edgeId).join('>');
+    const journeyProgress = progressAlongJourney(activeRouteParts, telemetry.position);
+    // Sampled here rather than in the adapter: the estimate belongs to what is
+    // on screen, and both adapters feed this same state.
+    this.arrivalSamples = trackProgress(this.arrivalSamples, journeyProgress, journeyKey,
+                                        this.arrivalJourneyKey, Date.now());
+    this.arrivalJourneyKey = journeyKey;
+    const etaSeconds = estimateRemainingSeconds(this.arrivalSamples);
     const changingLeg = ['preparing', 'localizing'].includes(telemetry.vehicleState);
     const routeId = `delivery-route-${delivery.id}`;
     const routeFirst = ['dispatching', 'loaded', 'in_transit', 'arrived_dropoff', 'awaiting_recipient', 'compartment_open_for_recipient', 'picked_up'].includes(delivery.status);
@@ -521,7 +528,7 @@ export class Application {
       el('strong', {}, '車輛正在準備下一段路線'),
       el('span', {}, '重新定位完成前，地圖保留最後一筆可信位置。')) : null;
     const primary = el('div', { className: `status-primary${routeFirst ? ' status-primary--route-first' : ''}` },
-      statusHero({ status: delivery.status, telemetry: { ...telemetry, etaSeconds } })
+      statusHero({ status: delivery.status, telemetry: { ...telemetry, etaSeconds, journeyProgress } })
     );
     if (transitionNotice) primary.append(transitionNotice);
     if (routeFirst && route) primary.append(route);
