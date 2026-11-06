@@ -43,7 +43,7 @@ npm run local:down
 
 必須用兩個 synthetic sender JWT、anonymous、operator、revoked operator與 robot scoped endpoint做正向/負向 matrix。`service_role`/secret測試不能被當作 RLS證據，因其本來就 bypass RLS。
 
-Repository／GitHub database job 的最新基線為28筆migration、96個pgTAP；hosted staging已套用27筆migration並通過93個pgTAP。Hosted內容已涵蓋schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal projection、無艙門recovery、recipient handover、reservation release、只提供已示教站點配對與車輛獨立位置。第28筆「command使用實際示教leg ID」migration仍待下一次staging release。Public Google OAuth 仍由定向 SQL 確認 anonymous 不可執行、authenticated 可執行，且 assurance 同時要求 Google identity 與 provider-verified email。Deno runtime 另有 5 組 Edge contract tests。
+Repository／GitHub database job 的最新基線為30筆migration、131個pgTAP（RLS 28＋route integration 103）；hosted staging已套用相同的30筆migration，hosted pgTAP最近一次完整執行為93項（在第28–30筆之前）。Hosted內容已涵蓋schema/RLS、anonymous RPC denial、FK indexes、dispatch、route job、ACK、telemetry、off-route、last-known-good、sequence/retired boot replay、arrival語意、private topic ownership、physical gate、terminal projection、無艙門recovery、recipient handover、reservation release、只提供已示教站點配對與車輛獨立位置。第28–30筆（實際示教leg ID、移除學校網域判斷、車端沒回應的取消收尾）已於2026-11-06套用到hosted staging。Public Google OAuth 仍由定向 SQL 確認 anonymous 不可執行、authenticated 可執行，且 assurance 同時要求 Google identity 與 provider-verified email。Deno runtime 另有 5 組 Edge contract tests。
 
 ## Hosted staging smoke（2026-08-31；OAuth設定更新於2026-09-01）
 
