@@ -1,6 +1,6 @@
 # 專案文件索引
 
-這裡是 `go by myself` 的技術文件入口。先依工作目的選文件；不要把 demo／contract-ready／hosted staging／真車驗證混成同一成熟度。
+這裡是 `Go by myself` 的技術文件入口。先依工作目的選文件；不要把 demo／contract-ready／hosted staging／真車驗證混成同一成熟度。
 
 ## 接手與目前狀態
 

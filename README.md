@@ -1,4 +1,4 @@
-# go by myself
+# Go by myself
 
 校園自走車物品投遞 Web 系統的學生專題實作。專案採 shared-core dual-adapter：展示模式與 production-shaped 模式共用狀態機、驗證、路線圖與 UI projection，但在建置時隔離認證、儲存、通知、telemetry 與 robot adapters。
 

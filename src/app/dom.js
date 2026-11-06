@@ -34,7 +34,7 @@ export function el(tag, attributes = {}, ...children) {
 
 /** @param {string} label */
 export function projectMark(label = 'GBM') {
-  return el('span', { className: 'project-mark', 'aria-label': 'go by myself 專案標誌' }, label);
+  return el('span', { className: 'project-mark', 'aria-label': 'Go by myself 專案標誌' }, label);
 }
 
 /** @param {string} message @param {'polite'|'assertive'} [mode] */
