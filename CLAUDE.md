@@ -8,7 +8,7 @@ separators, one dominant job and action per screen, and the canonical route as
 the primary project-owned visual.
 
 Do not show any university name, emblem, or school email domain; identify the
-site only with the go by myself project mark (`projectMark`). Keep
+site only with the Go by myself project mark (`projectMark`). Keep
 `學生專題，非官方服務` on public surfaces. Do not introduce card mosaics, decorative blobs, gradients,
 glass effects, fake phone frames, English decoration, or duplicated route
 coordinates. Internal graph labels such as P, HSS, LIBRARY, and ADMIN must not

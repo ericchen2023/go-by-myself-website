@@ -9,7 +9,7 @@ export function siteHeader(options) {
         projectMark(),
         el('span', { className: 'brand-copy' },
           el('span', { className: 'brand-code' }, '校園固定路線 · 學生專題'),
-          el('strong', {}, 'go by myself'),
+          el('strong', {}, 'Go by myself'),
           el('small', {}, '校園智慧投遞學生專題')
         )
       ),
@@ -27,7 +27,7 @@ export function siteHeader(options) {
 export function siteFooter() {
   return el('footer', { className: 'site-footer' },
     el('div', { className: 'site-footer__inner' },
-      el('p', {}, 'go by myself｜校園智慧投遞學生專題'),
+      el('p', {}, 'Go by myself｜校園智慧投遞學生專題'),
       el('nav', { 'aria-label': '頁尾導覽' },
         el('a', { href: '/privacy' }, '隱私說明'),
         el('a', { href: '/support' }, '協助與專案狀態')

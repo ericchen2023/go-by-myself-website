@@ -159,7 +159,7 @@ export class Application {
 
   render() {
     const isRecipient = this.route.startsWith('/pickup/');
-    document.title = isRecipient ? '安全取件｜go by myself' : 'go by myself｜校園智慧投遞';
+    document.title = isRecipient ? '安全取件｜Go by myself' : 'Go by myself｜校園智慧投遞';
     if (isRecipient) {
       this.root.replaceChildren(this.#recipientPage());
       return;
@@ -719,7 +719,7 @@ export class Application {
     const safeMatch = delivery && delivery.publicRef === publicRef;
     const dropoff = safeMatch ? locationByCode(delivery.dropoffCode) : null;
     const header = el('header', { className: 'recipient-header' },
-      el('a', { className: 'brand-link', href: '/' }, projectMark(), el('span', { className: 'brand-copy' }, el('strong', {}, '安全取件'), el('small', {}, 'go by myself 學生專題'))),
+      el('a', { className: 'brand-link', href: '/' }, projectMark(), el('span', { className: 'brand-copy' }, el('strong', {}, '安全取件'), el('small', {}, 'Go by myself 學生專題'))),
       recipientBadge()
     );
     if (!safeMatch) {
