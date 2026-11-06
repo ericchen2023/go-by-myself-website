@@ -1,5 +1,5 @@
 begin;
-select plan(96);
+select plan(103);
 
 select ok(
   has_schema_privilege('authenticated', 'private', 'USAGE'),
@@ -1265,6 +1265,101 @@ select throws_ok(
   'P0001',
   'NO_TAUGHT_ROUTE_TO_PICKUP',
   'a vehicle that cannot reach the pickup on a taught leg is not sent'
+);
+
+-- ---------------------------------------------------------------------------
+-- 車子沒回應的取消：2026-09-09 staging 一筆投遞派車後立刻取消，車端不在線，
+-- DISPATCH 與 CANCEL 都過期，投遞永遠停在 cancel_requested 並佔住車輛。
+-- ---------------------------------------------------------------------------
+alter table route_test_context add column unanswered_cancel uuid;
+alter table route_test_context add column reached_cancel uuid;
+
+update public.deliveries set status = 'cancelled', version = version + 1, completed_at = now(), updated_at = now()
+where id = (select delivery_seven from route_test_context) and status not in ('completed','cancelled','delivery_failed');
+update public.vehicle_reservations set state = 'released', ended_at = now()
+where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
+update public.vehicles set operational_status = 'available', current_stop_code = 'ADMIN', updated_at = now()
+where id = (select vehicle_id from route_test_context);
+
+do $$ begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+end $$;
+with created as (
+  select public.create_and_confirm_delivery(
+    'LIBRARY', 'HSS2', '沒回應的取消', '+886912345678', '', false,
+    'document', 'unanswered cancel', 'unanswered-cancel-create'
+  ) as payload
+)
+update route_test_context set unanswered_cancel = (created.payload #>> '{delivery,id}')::uuid from created;
+
+-- 派車後還沒被車接受就取消；兩道指令都在車端從未回應的情況下過期。
+do $$
+declare
+  context route_test_context;
+  delivery_row public.deliveries;
+begin
+  select * into context from route_test_context;
+  perform public.execute_delivery_intent(context.unanswered_cancel, 'REQUEST_DISPATCH', 2, 'unanswered-cancel-dispatch');
+  select * into delivery_row from public.deliveries where id = context.unanswered_cancel;
+  perform public.execute_delivery_intent(context.unanswered_cancel, 'REQUEST_CANCEL', delivery_row.version, 'unanswered-cancel-cancel');
+  update public.vehicle_commands
+  set issued_at = now() - interval '31 minutes', expires_at = now() - interval '1 minute'
+  where delivery_id = context.unanswered_cancel and status = 'queued';
+end $$;
+select is(
+  (select status::text from public.deliveries where id = (select unanswered_cancel from route_test_context)),
+  'cancel_requested',
+  'unanswered cancel fixture starts in cancel_requested'
+);
+select lives_ok($$ select public.reconcile_robot_runtime() $$, 'reconciler handles a cancel the vehicle never answered');
+select is(
+  (select status::text from public.deliveries where id = (select unanswered_cancel from route_test_context)),
+  'cancelled',
+  'a cancel the vehicle never received settles as cancelled'
+);
+select is(
+  (select operational_status::text from public.vehicles where id = (select vehicle_id from route_test_context)),
+  'available',
+  'a settled unanswered cancel frees the vehicle'
+);
+
+-- 失敗路徑：車已經接過指令（可能在路上、物品可能在艙內），不能假裝取消成功。
+update public.vehicles set operational_status = 'available', current_stop_code = 'ADMIN', updated_at = now()
+where id = (select vehicle_id from route_test_context);
+with created as (
+  select public.create_and_confirm_delivery(
+    'LIBRARY', 'HSS2', '車已出發的取消', '+886912345678', '', false,
+    'document', 'reached cancel', 'reached-cancel-create'
+  ) as payload
+)
+update route_test_context set reached_cancel = (created.payload #>> '{delivery,id}')::uuid from created;
+do $$
+declare
+  context route_test_context;
+  delivery_row public.deliveries;
+begin
+  select * into context from route_test_context;
+  perform public.execute_delivery_intent(context.reached_cancel, 'REQUEST_DISPATCH', 2, 'reached-cancel-dispatch');
+  -- 車接過 DISPATCH 並回報失敗：它確實收到過指令。
+  update public.vehicle_commands set status = 'failed', completed_at = now()
+  where delivery_id = context.reached_cancel and type = 'DISPATCH';
+  select * into delivery_row from public.deliveries where id = context.reached_cancel;
+  perform public.execute_delivery_intent(context.reached_cancel, 'REQUEST_CANCEL', delivery_row.version, 'reached-cancel-cancel');
+  update public.vehicle_commands
+  set issued_at = now() - interval '31 minutes', expires_at = now() - interval '1 minute'
+  where delivery_id = context.reached_cancel and status = 'queued';
+end $$;
+select lives_ok($$ select public.reconcile_robot_runtime() $$, 'reconciler handles a cancel after the vehicle answered');
+select is(
+  (select status::text from public.deliveries where id = (select reached_cancel from route_test_context)),
+  'delivery_failed',
+  'an unanswered cancel after the vehicle answered becomes delivery_failed, not cancelled'
+);
+select is(
+  (select reason from public.delivery_status_history
+    where delivery_id = (select reached_cancel from route_test_context) and to_status = 'delivery_failed'),
+  'CANCEL_UNANSWERED',
+  'the failure records why the cancel was settled by the system'
 );
 
 select * from finish();
