@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "NDHU campus autonomous-delivery student project",
+  "description": "Campus autonomous-delivery student project",
   "engines": {
     "node": ">=22 <25",
     "npm": ">=10"

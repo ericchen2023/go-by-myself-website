@@ -395,7 +395,7 @@ export function createRoutePreview() {
     id: 'home-route-preview',
     viewBox: '0 0 1000 650',
     role: 'img',
-    'aria-label': '東華校園固定路線示意，連接圖資中心、人社二館、人社一館與行政大樓'
+    'aria-label': '校園固定路線示意，連接圖資中心、人社二館、人社一館與行政大樓'
   }));
   appendMapFoundation(svg, 'home-preview');
   // The approach halo must sit below the corridor. If it is painted later,

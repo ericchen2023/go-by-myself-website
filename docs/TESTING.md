@@ -70,7 +70,7 @@ npm run smoke:staging
 npm run test:e2e:staging
 ```
 
-`test:e2e:staging`只驗證health、production-shaped shell、校徽、auth capability gate與demo isolation；不把demo八步流程誤跑到production-shaped環境。
+`test:e2e:staging`只驗證health、production-shaped shell、專案標誌、auth capability gate與demo isolation；不把demo八步流程誤跑到production-shaped環境。
 
 ## Physical acceptance
 

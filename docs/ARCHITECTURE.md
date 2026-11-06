@@ -34,7 +34,7 @@ Source of truth 是 PostgreSQL snapshot。Private Broadcast topic 只傳 deliver
 
 ## ADR-005 — recipient credential
 
-Production human code 是 8 位 Crockford Base32；QR 是 256 random bits 且 capability 預設關閉。Raw secrets 不入 DB/log；Edge 以 HMAC-SHA-256＋versioned pepper產生 digest。Redeem 與可恢復 attempt/open command 同 transaction。Demo 的 `NDHU 4826` 是清楚標示的合成碼，不是 production fixture。
+Production human code 是 8 位 Crockford Base32；QR 是 256 random bits 且 capability 預設關閉。Raw secrets 不入 DB/log；Edge 以 HMAC-SHA-256＋versioned pepper產生 digest。Redeem 與可恢復 attempt/open command 同 transaction。Demo 的 `DEMO 4826` 是清楚標示的合成碼，不是 production fixture。
 
 ## ADR-006 — route job與robot contract v2
 

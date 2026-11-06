@@ -34,7 +34,7 @@ test('dynamic sender and recipient states keep the accessibility baseline', asyn
 
   await page.getByRole('link', { name: '前往收件人取件頁' }).click();
   await expectNoAxeViolations(page);
-  await page.getByLabel('一次性人類取件碼').fill('NDHU 4826');
+  await page.getByLabel('一次性人類取件碼').fill('DEMO 4826');
   await page.getByRole('button', { name: '驗證並開啟收件艙' }).click();
   await page.getByRole('heading', { name: '艙門已確認開啟' }).waitFor();
   await expectNoAxeViolations(page);

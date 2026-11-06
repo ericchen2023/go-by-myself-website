@@ -1,4 +1,4 @@
-import { el, liveRegion, ndhuEmblem } from './dom.js';
+import { el, liveRegion, projectMark } from './dom.js';
 import { homeScreen } from './home.js';
 import {
   emptyState,
@@ -719,7 +719,7 @@ export class Application {
     const safeMatch = delivery && delivery.publicRef === publicRef;
     const dropoff = safeMatch ? locationByCode(delivery.dropoffCode) : null;
     const header = el('header', { className: 'recipient-header' },
-      el('a', { className: 'brand-link', href: '/' }, ndhuEmblem('header'), el('span', { className: 'brand-copy' }, el('strong', {}, '安全取件'), el('small', {}, 'go by myself 學生專題'))),
+      el('a', { className: 'brand-link', href: '/' }, projectMark(), el('span', { className: 'brand-copy' }, el('strong', {}, '安全取件'), el('small', {}, 'go by myself 學生專題'))),
       recipientBadge()
     );
     if (!safeMatch) {

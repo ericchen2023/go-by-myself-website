@@ -37,23 +37,6 @@ export function projectMark(label = 'GBM') {
   return el('span', { className: 'project-mark', 'aria-label': 'go by myself 專案標誌' }, label);
 }
 
-/**
- * Complete official mark downloaded from the NDHU visual identity page.
- * The asset is never recolored, cropped, or used as a CSS background.
- * @param {'header'|'hero'|'compact'} [size]
- */
-export function ndhuEmblem(size = 'header') {
-  const pixels = size === 'hero' ? 76 : size === 'compact' ? 36 : 48;
-  return el('img', {
-    className: `ndhu-emblem ndhu-emblem--${size}`,
-    src: '/brand/ndhu-emblem.svg',
-    alt: '國立東華大學校徽',
-    width: String(pixels),
-    height: String(pixels),
-    decoding: 'async'
-  });
-}
-
 /** @param {string} message @param {'polite'|'assertive'} [mode] */
 export function liveRegion(message, mode = 'polite') {
   return el('div', { className: 'sr-only', 'aria-live': mode, 'aria-atomic': 'true' }, message);

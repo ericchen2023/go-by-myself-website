@@ -32,7 +32,7 @@ describe('deterministic demo adapter', () => {
     adapter.confirmLoaded();
     await vi.runAllTimersAsync();
     expect(adapter.snapshot().delivery.status).toBe('awaiting_recipient');
-    expect(adapter.redeemCredential('NDHU-4826')).toBe(true);
+    expect(adapter.redeemCredential('DEMO-4826')).toBe(true);
     await vi.runAllTimersAsync();
     expect(adapter.snapshot().delivery.status).toBe('compartment_open_for_recipient');
     adapter.confirmPickup();
@@ -71,7 +71,7 @@ describe('deterministic demo adapter', () => {
       await vi.runAllTimersAsync();
       for (let attempt = 0; attempt < 5; attempt += 1) expect(adapter.redeemCredential('WRONG')).toBe(false);
       expect(adapter.snapshot().recipientAttempt.phase).toBe('locked');
-      expect(adapter.redeemCredential('NDHU 4826')).toBe(false);
+      expect(adapter.redeemCredential('DEMO 4826')).toBe(false);
     });
   });
 });

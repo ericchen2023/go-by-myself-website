@@ -18,9 +18,9 @@ insert into auth.users(
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) values
-  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'sender-one@gms.ndhu.edu.tw', '', now(), '{}'::jsonb, '{"full_name":"Sender One"}'::jsonb, now(), now()),
-  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated', 'sender-two@gms.ndhu.edu.tw', '', now(), '{}'::jsonb, '{"full_name":"Sender Two"}'::jsonb, now(), now()),
-  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'operator@gms.ndhu.edu.tw', '', now(), '{}'::jsonb, '{"full_name":"Operator"}'::jsonb, now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'sender-one@example.com', '', now(), '{}'::jsonb, '{"full_name":"Sender One"}'::jsonb, now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated', 'sender-two@example.com', '', now(), '{}'::jsonb, '{"full_name":"Sender Two"}'::jsonb, now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'operator@example.com', '', now(), '{}'::jsonb, '{"full_name":"Operator"}'::jsonb, now(), now()),
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-000000000004', 'authenticated', 'authenticated', 'pending-operator@example.com', '', now(), '{}'::jsonb, '{"full_name":"Pending Operator"}'::jsonb, now(), now());
 
 update public.profiles
