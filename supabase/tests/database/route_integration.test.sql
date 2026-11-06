@@ -1281,9 +1281,9 @@ where vehicle_id = (select vehicle_id from route_test_context) and state = 'acti
 update public.vehicles set operational_status = 'available', current_stop_code = 'LIBRARY', updated_at = now()
 where id = (select vehicle_id from route_test_context);
 
-do $ begin
+do $$ begin
   perform set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
-end $;
+end $$;
 with created as (
   select public.create_and_confirm_delivery(
     'LIBRARY', 'HSS2', '沒回應的取消', '+886912345678', '', false,
@@ -1293,7 +1293,7 @@ with created as (
 update route_test_context set unanswered_cancel = (created.payload #>> '{delivery,id}')::uuid from created;
 
 -- 派車後還沒被車接受就取消；兩道指令都在車端從未回應的情況下過期。
-do $
+do $$
 declare
   context route_test_context;
   delivery_row public.deliveries;
@@ -1305,13 +1305,13 @@ begin
   update public.vehicle_commands
   set issued_at = now() - interval '31 minutes', expires_at = now() - interval '1 minute'
   where delivery_id = context.unanswered_cancel and status = 'queued';
-end $;
+end $$;
 select is(
   (select status::text from public.deliveries where id = (select unanswered_cancel from route_test_context)),
   'cancel_requested',
   'unanswered cancel fixture starts in cancel_requested'
 );
-select lives_ok($ select public.reconcile_robot_runtime() $, 'reconciler handles a cancel the vehicle never answered');
+select lives_ok($$ select public.reconcile_robot_runtime() $$, 'reconciler handles a cancel the vehicle never answered');
 select is(
   (select status::text from public.deliveries where id = (select unanswered_cancel from route_test_context)),
   'cancelled',
@@ -1333,7 +1333,7 @@ with created as (
   ) as payload
 )
 update route_test_context set reached_cancel = (created.payload #>> '{delivery,id}')::uuid from created;
-do $
+do $$
 declare
   context route_test_context;
   delivery_row public.deliveries;
@@ -1348,8 +1348,8 @@ begin
   update public.vehicle_commands
   set issued_at = now() - interval '31 minutes', expires_at = now() - interval '1 minute'
   where delivery_id = context.reached_cancel and status = 'queued';
-end $;
-select lives_ok($ select public.reconcile_robot_runtime() $, 'reconciler handles a cancel after the vehicle answered');
+end $$;
+select lives_ok($$ select public.reconcile_robot_runtime() $$, 'reconciler handles a cancel after the vehicle answered');
 select is(
   (select status::text from public.deliveries where id = (select reached_cancel from route_test_context)),
   'delivery_failed',
