@@ -1,8 +1,8 @@
 # go by myself
 
-國立東華大學校園自走車物品投遞 Web 系統的學生專題實作。專案採 shared-core dual-adapter：展示模式與 production-shaped 模式共用狀態機、驗證、路線圖與 UI projection，但在建置時隔離認證、儲存、通知、telemetry 與 robot adapters。
+校園自走車物品投遞 Web 系統的學生專題實作。專案採 shared-core dual-adapter：展示模式與 production-shaped 模式共用狀態機、驗證、路線圖與 UI projection，但在建置時隔離認證、儲存、通知、telemetry 與 robot adapters。
 
-> 這是學生專題，不是國立東華大學官方服務。未完成校方、隱私、營運與實體安全核准前，production 能力維持關閉。
+> 這是學生專題，不是校方官方服務。未完成校方、隱私、營運與實體安全核准前，production 能力維持關閉。
 
 ## 快速開始
 

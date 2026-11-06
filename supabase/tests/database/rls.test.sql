@@ -1,5 +1,5 @@
 begin;
-select plan(27);
+select plan(28);
 
 select has_table('public', 'deliveries', 'deliveries table exists');
 select has_table('private', 'delivery_recipients', 'recipient PII is private');
@@ -30,6 +30,12 @@ select ok(
     'email_verified' in pg_get_functiondef('public.finalize_auth_assurance()'::regprocedure)
   ) > 0,
   'auth assurance requires a provider-verified email'
+);
+select ok(
+  position(
+    'ndhu' in lower(pg_get_functiondef('public.finalize_auth_assurance()'::regprocedure))
+  ) = 0,
+  'auth assurance does not hard-code a school domain'
 );
 select ok(
   not has_function_privilege('anon', 'public.get_active_delivery_projection()', 'EXECUTE'),

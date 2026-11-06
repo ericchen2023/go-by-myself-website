@@ -1,4 +1,4 @@
-import { el, ndhuEmblem, projectMark } from './dom.js';
+import { el, projectMark } from './dom.js';
 import { STEP_NAMES, deliveryStatusCopy } from '../domain/presentation.js';
 
 /** @param {{banner: {className:string,copy:string}, session: {displayName: string,roles?:string[]}|null, hasDelivery: boolean, navigate: (path: string) => void, onSignOut: () => void}} options */
@@ -6,7 +6,7 @@ export function siteHeader(options) {
   return el('header', { className: 'site-header' },
     el('div', { className: 'site-header__inner' },
       el('a', { className: 'brand-link', href: '/', onclick: (event) => { event.preventDefault(); options.navigate('/'); } },
-        ndhuEmblem('header'),
+        projectMark(),
         el('span', { className: 'brand-copy' },
           el('span', { className: 'brand-code' }, '校園固定路線 · 學生專題'),
           el('strong', {}, 'go by myself'),
@@ -27,7 +27,7 @@ export function siteHeader(options) {
 export function siteFooter() {
   return el('footer', { className: 'site-footer' },
     el('div', { className: 'site-footer__inner' },
-      el('p', {}, 'go by myself｜國立東華大學校園智慧投遞學生專題'),
+      el('p', {}, 'go by myself｜校園智慧投遞學生專題'),
       el('nav', { 'aria-label': '頁尾導覽' },
         el('a', { href: '/privacy' }, '隱私說明'),
         el('a', { href: '/support' }, '協助與專案狀態')

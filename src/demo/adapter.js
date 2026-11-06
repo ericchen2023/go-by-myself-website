@@ -6,7 +6,7 @@ import { locationByCode, positionAlongRoute, shortestRoute, stagingOriginFor } f
 import { DeterministicClock } from './fake-clock.js';
 
 const STORAGE_KEY = 'go-by-myself:demo:v1';
-export const DEMO_PICKUP_CODE = 'NDHU 4826';
+export const DEMO_PICKUP_CODE = 'DEMO 4826';
 
 /** @returns {any} */
 /** demo 的開艙指令狀態，欄位形狀與正式環境 projection 的 command 相同。
@@ -139,7 +139,7 @@ export class DemoAdapter {
       session: {
         id: 'demo-student-001',
         displayName: '展示學生',
-        email: 'demo.student@gms.ndhu.edu.tw',
+        email: 'demo.student@example.com',
         assurance: 'demo_synthetic'
       },
       wizardStep: 2,
@@ -365,7 +365,7 @@ export class DemoAdapter {
       this.#patch({ recipientAttempt });
       return false;
     }
-    if (normalized !== 'NDHU4826') {
+    if (normalized !== 'DEMO4826') {
       recipientAttempt.attempts += 1;
       recipientAttempt.error = '取件資訊無效或已失效。';
       recipientAttempt.phase = recipientAttempt.attempts >= 5 ? 'locked' : 'idle';

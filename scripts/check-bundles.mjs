@@ -19,8 +19,11 @@ async function assetFiles(root) {
 }
 
 let failed = false;
+// 路線圖版本 ID（ndhu-four-stop-route-v5 等）是車端已釘住的內部協定字串，
+// 不會顯示在畫面上，因此排除；其他任何校名寫法都視為違規。
+const schoolNamePattern = /NDHU(?!-four-stop-route|-supplied-schematic)|東華|Dong\s*Hwa/i;
 const forbiddenProductionMarkers = [
-  'NDHU 4826',
+  'DEMO 4826',
   '情境模擬器',
   '以展示身份開始八步流程',
   'happy-path',
@@ -60,6 +63,16 @@ for (const root of ['dist-demo', 'dist-production']) {
           }
         }
       }
+    }
+  }
+
+  // 網站不得出現任何校名、校徽或學校網域（含 index.html 與靜態資產路徑）。
+  for (const file of [join(root, 'index.html'), ...await assetFiles(root)]) {
+    const source = await readFile(file, 'utf8');
+    const match = source.match(schoolNamePattern);
+    if (match) {
+      process.stderr.write(`${file}: artifact contains school name "${match[0]}"\n`);
+      failed = true;
     }
   }
 
