@@ -1278,7 +1278,7 @@ update public.deliveries set status = 'cancelled', version = version + 1, comple
 where id = (select delivery_seven from route_test_context) and status not in ('completed','cancelled','delivery_failed');
 update public.vehicle_reservations set state = 'released', ended_at = now()
 where vehicle_id = (select vehicle_id from route_test_context) and state = 'active';
-update public.vehicles set operational_status = 'available', current_stop_code = 'LIBRARY', updated_at = now()
+update public.vehicles set operational_status = 'available', current_stop_code = 'ADMIN', updated_at = now()
 where id = (select vehicle_id from route_test_context);
 
 do $$ begin
@@ -1324,7 +1324,7 @@ select is(
 );
 
 -- 失敗路徑：車已經接過指令（可能在路上、物品可能在艙內），不能假裝取消成功。
-update public.vehicles set operational_status = 'available', current_stop_code = 'LIBRARY', updated_at = now()
+update public.vehicles set operational_status = 'available', current_stop_code = 'ADMIN', updated_at = now()
 where id = (select vehicle_id from route_test_context);
 with created as (
   select public.create_and_confirm_delivery(

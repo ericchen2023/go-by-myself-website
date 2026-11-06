@@ -77,7 +77,7 @@ begin
   -- 只有車確認安全停止才會離開這個狀態，而沒有人在聽的時候那永遠不會發生。
   --
   -- 已經沒有指令在等車回應時，由系統收尾：
-  -- * 車從沒收到過任何指令、也沒開始過路線，而且取消發生在放件之前 → 已取消。
+  -- * 車從沒收到過任何指令、也沒開始過路線，而且取消發生在開艙放件之前（confirmed、dispatching、arrived_pickup）→ 已取消。
   --   車沒動過、艙裡沒有物品，沒有什麼需要安全處置。
   -- * 其他情況（車可能在路上，或物品可能已在艙內）→ 投遞失敗，請現場人員處理。
   --   不能假裝取消成功。
@@ -109,7 +109,7 @@ begin
     order by history.version desc limit 1;
 
     next_status := case
-      when not vehicle_reached and cancelled_from in ('confirmed','dispatching') then 'cancelled'
+      when not vehicle_reached and cancelled_from in ('confirmed','dispatching','arrived_pickup') then 'cancelled'
       else 'delivery_failed'
     end::public.delivery_status;
 
