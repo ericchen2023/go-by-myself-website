@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-test('auth, crest, station rules, and validation recovery are complete', async ({ page }, testInfo) => {
+test('auth, project mark, station rules, and validation recovery are complete', async ({ page }, testInfo) => {
   await page.goto('/');
 
-  const crest = page.getByRole('img', { name: '國立東華大學校徽' }).first();
-  await expect(crest).toBeVisible();
-  expect(await crest.evaluate((image) => /** @type {HTMLImageElement} */ (image).naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator('.site-header .project-mark')).toBeVisible();
+  // 網站不得出現任何校名、校徽或學校網域。
+  await expect(page.locator('img[src*="brand/"]')).toHaveCount(0);
+  const pageText = (await page.locator('body').innerText()) + (await page.locator('meta[name="description"]').getAttribute('content'));
+  expect(pageText).not.toMatch(/NDHU|東華|Dong\s*Hwa/i);
 
   await page.getByRole('tab', { name: '註冊' }).click();
   await expect(page.getByRole('heading', { name: '第一次使用' })).toBeVisible();

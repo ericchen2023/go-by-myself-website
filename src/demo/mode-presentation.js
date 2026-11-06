@@ -64,8 +64,8 @@ export function modeToolbar(state, adapter, navigate) {
 export function credentialCallout(audience) {
   return el('div', { className: 'demo-code-callout' },
     el('span', {}, audience === 'recipient' ? '成果展示專用取件碼' : '展示取件碼'),
-    el('strong', {}, 'NDHU 4826'),
-    el('small', {}, 'NDHU 4826 僅供成果展示。正式版本會使用較長的一次性取件碼。')
+    el('strong', {}, 'DEMO 4826'),
+    el('small', {}, 'DEMO 4826 僅供成果展示。正式版本會使用較長的一次性取件碼。')
   );
 }
 

@@ -26,7 +26,6 @@
 ## 介面與品牌
 
 - [Design system](../DESIGN.md)：視覺、地圖、動態、responsive 與無障礙規則。
-- [Brand asset provenance](brand-assets.md)：NDHU emblem 來源與使用限制。
 - [Project guidance](../CLAUDE.md)：修改程式時必須遵守的專案規則。
 
 ## 建議閱讀順序

@@ -1,4 +1,4 @@
-import { el, ndhuEmblem } from './dom.js';
+import { el } from './dom.js';
 import { errorBanner } from './components.js';
 import { createRoutePreview } from '../map/map-view.js';
 
@@ -41,19 +41,12 @@ export function homeScreen(options) {
     options.authNotice ? el('p', { className: 'auth-notice', role: 'status' }, options.authNotice) : null,
     el('button', { className: 'text-button', type: 'button', onclick: options.toggleRecovery }, '登入遇到問題？'),
     options.recoveryOpen ? el('div', { className: 'recovery-note', role: 'status' }, options.recoveryText) : null,
-    el('p', { className: 'project-disclaimer' }, '學生專題，非 NDHU 官方服務')
+    el('p', { className: 'project-disclaimer' }, '學生專題，非官方服務')
   );
 
   return el('main', { id: 'main-content', className: 'home-main' },
     el('section', { className: 'home-hero', 'aria-labelledby': 'home-title' },
       el('div', { className: 'hero-copy' },
-        el('div', { className: 'official-lockup' },
-          ndhuEmblem('hero'),
-          el('span', {},
-            el('strong', {}, '國立東華大學'),
-            el('small', {}, 'NATIONAL DONG HWA UNIVERSITY')
-          )
-        ),
         el('h1', { id: 'home-title' },
           el('span', { className: 'hero-title-en' }, 'go by myself'),
           el('span', { className: 'hero-title-zh' }, '校園自走車投遞網站')
@@ -97,7 +90,7 @@ export function homeScreen(options) {
         ),
         el('div', { className: 'access-safety-note' },
           el('span', { 'aria-hidden': 'true' }, 'i'),
-          el('p', {}, '校徽為識別校園情境之用；本網站仍是學生專題，不代表校方已核准實際營運。')
+          el('p', {}, '本網站是學生專題，不代表校方已核准實際營運。')
         )
       ),
       authPanel

@@ -1,4 +1,4 @@
-import { el, liveRegion, ndhuEmblem } from './dom.js';
+import { el, liveRegion, projectMark } from './dom.js';
 import { homeScreen } from './home.js';
 import {
   emptyState,
@@ -513,6 +513,9 @@ export class Application {
       pickupCode: delivery.pickupCode,
       dropoffCode: delivery.dropoffCode,
       interactive: false,
+      // 狀態頁只留放件與收件兩站。中途經過的站在這裡沒有作用，畫出來只是把
+      // 注意力從「我的東西在哪」拉走。
+      onlyDeliveryStops: true,
       activeEdgeIds: telemetry.activeEdgeIds,
       activeRouteParts,
       showLocationList: false,
@@ -716,7 +719,7 @@ export class Application {
     const safeMatch = delivery && delivery.publicRef === publicRef;
     const dropoff = safeMatch ? locationByCode(delivery.dropoffCode) : null;
     const header = el('header', { className: 'recipient-header' },
-      el('a', { className: 'brand-link', href: '/' }, ndhuEmblem('header'), el('span', { className: 'brand-copy' }, el('strong', {}, '安全取件'), el('small', {}, 'go by myself 學生專題'))),
+      el('a', { className: 'brand-link', href: '/' }, projectMark(), el('span', { className: 'brand-copy' }, el('strong', {}, '安全取件'), el('small', {}, 'go by myself 學生專題'))),
       recipientBadge()
     );
     if (!safeMatch) {

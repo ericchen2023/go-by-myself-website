@@ -18,7 +18,7 @@ export const cancelledCopy = '本次投遞已取消；物品位置與後續處�
 export const modePrivacyLead = '正式試行前，必須完成資料告知、保留政策與權利申請流程，並由校方和隱私管理人員確認。';
 
 export function modeBanner() {
-  return { className: 'project-banner', copy: '學生專題，非 NDHU 官方服務' };
+  return { className: 'project-banner', copy: '學生專題，非官方服務' };
 }
 
 export function recipientBadge() { return null; }

@@ -18,7 +18,7 @@ Gateway 必須設定 `GATEWAY_DEPLOY_ENV` 與 `GATEWAY_HARDWARE_ADAPTER`。目�
 
 ## 目前部署狀態（2026-09-02）
 
-GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；hosted staging已套用27個immutable migrations並通過93個pgTAP，route graph v5、public Google OAuth assurance、terminal projection、無艙門 recovery、recipient handover、只提供已示教站點配對與車輛獨立位置均已生效，所有physical capability仍為disabled。Repository目前有28個migration／96個pgTAP；實際leg ID修正已隨本次release上線。
+GitHub `main` 與 `staging` 都已啟用 protected-branch 規則與 strict `quality`、`browser`、`database`、`edge-contract` checks。Supabase CLI 鎖定為 `2.116.0`；hosted staging已套用27個immutable migrations並通過93個pgTAP，route graph v5、public Google OAuth assurance、terminal projection、無艙門 recovery、recipient handover、只提供已示教站點配對與車輛獨立位置均已生效，所有physical capability仍為disabled。Repository目前有28個migration／96個pgTAP；最新的實際leg ID修正尚待staging release。
 
 | Resource | Hosted staging value | Verified state |
 |---|---|---|
@@ -37,16 +37,16 @@ Google CTA 由 browser-safe `VITE_GOOGLE_AUTH_ENABLED` 控制；未設定時預�
 
 ## Public Google OAuth staging 設定
 
-目前產品決策是「任何Google帳號可註冊／登入」，不限制`gms.ndhu.edu.tw`。網站不另設密碼；Supabase會在首次Google登入時建立user，之後同一Google身分直接登入。第1–7項已於2026-09-01完成，第8項仍是live E2E gate：
+目前產品決策是「任何Google帳號可註冊／登入」，不限制特定學校網域。網站不另設密碼；Supabase會在首次Google登入時建立user，之後同一Google身分直接登入。第1–7項已於2026-09-01完成，第8項仍是live E2E gate：
 
 1. 在Google Auth Platform建立staging用的OAuth client，Application type選`Web application`，Audience選可供外部Google帳號使用的`External`。Scopes只保留`openid`、email與profile。
 2. Authorized JavaScript origins加入`https://go-by-myself-website-git-staging-hsuanisgay.vercel.app`。
 3. Authorized redirect URIs加入`https://aiuajbflpwdzkaeeocab.supabase.co/auth/v1/callback`。這是Google回到Supabase的callback，不是Vercel網址。
 4. 在Supabase Dashboard的Authentication → Providers → Google填入client ID與client secret並啟用provider。此項已完成；secret只存在provider設定，不可貼到Vercel變數。
 5. 在Supabase Authentication → URL Configuration確認Site URL為staging frontend，Redirect URLs包含`https://go-by-myself-website-git-staging-hsuanisgay.vercel.app/`。
-6. 套用`20260831233000_allow_verified_google_accounts.sql`並驗證migration history與auth grant／函式條件。Migration會讓非Google舊登入信帳號回到`pending`；Google provider且`email_verified=true`才可啟用投遞。此項已完成；hosted目前共27筆migration，repository第28筆實際leg ID migration待下一次staging release。
+6. 套用`20260831233000_allow_verified_google_accounts.sql`並驗證migration history與auth grant／函式條件。Migration會讓非Google舊登入信帳號回到`pending`；Google provider且`email_verified=true`才可啟用投遞。此項已完成；hosted目前共27筆migration，repository第28筆實際leg ID migration與第29筆移除學校網域特判的migration待下一次staging release。
 7. 只在Vercel `staging` branch的Preview環境設定`VITE_GOOGLE_AUTH_ENABLED=true`，重新部署；`main` demo不需要此值。此項已完成設定，branch同步會觸發新的Preview deployment。
-8. 分別用一個非東華Google帳號與一個既有Google帳號測試：首次登入會建立帳號、重新登入會回到同一user、未驗證或非Google身分無法取得投遞權限。
+8. 分別用一個非學校網域的Google帳號與一個既有Google帳號測試：首次登入會建立帳號、重新登入會回到同一user、未驗證或非Google身分無法取得投遞權限。
 
 正式domain啟用時應建立獨立production OAuth client，並以正式origin／callback替換staging值；不要共用staging secret。
 
