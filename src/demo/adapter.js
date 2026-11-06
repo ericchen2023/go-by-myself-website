@@ -246,6 +246,10 @@ export class DemoAdapter {
   /** @param {ReturnType<typeof shortestRoute>} route @param {'pickup'|'dropoff'} destination */
   #animateRoute(route, destination) {
     const edgeIds = route.map((part) => part.edgeId);
+    // 說出這一趟的起訖。狀態頁只畫「車輛真的在跑的那一趟」，不再從一個編造的
+    // 起點退而求其次 —— 所以模擬也得像真車一樣把自己的路線報出來。
+    const from = route.length ? route[0].fromNodeId : null;
+    const to = route.length ? route[route.length - 1].toNodeId : null;
     this.#patch({
       telemetry: {
         ...this.state.telemetry,
@@ -253,6 +257,8 @@ export class DemoAdapter {
         positionQuality: 'valid',
         vehicleState: 'moving',
         activeEdgeIds: edgeIds,
+        routeFromStopCode: from,
+        routeToStopCode: to,
         position: positionAlongRoute(route, 0),
         observedAt: this.clock.now()
       }

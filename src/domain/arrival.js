@@ -42,21 +42,29 @@ export function estimateRemainingSeconds(samples) {
 }
 
 /**
- * Keeps the samples one segment's estimate is built from. Progress restarts at
- * zero on each new segment, so a stale sample from the previous one would read
- * as the vehicle jumping backwards.
+ * Keeps the samples one journey's estimate is built from.
+ *
+ * Progress here is the fraction of the whole journey, so samples stay valid
+ * across the stops it passes through. They are dropped only when the journey
+ * itself changes — a different route means the old readings describe a
+ * different trip, and carrying them over would read as a jump.
+ *
  * @param {ReadonlyArray<{progress: number, at: number}>} samples
- * @returns {{progress: number, at: number}[]}
- * @param {{segmentId: string, progress: number}|null|undefined} position
- * @param {string|null|undefined} previousSegmentId
+ * @param {number|null|undefined} progress fraction of the whole journey, 0..1
+ * @param {string|null|undefined} journeyKey identifies which journey this is
+ * @param {string|null|undefined} previousJourneyKey the key from the last call
  * @param {number} at
+ * @returns {{progress: number, at: number}[]}
  */
-export function trackProgress(samples, position, previousSegmentId, at) {
-  if (!position || !Number.isFinite(position.progress)) return [];
-  const carried = position.segmentId === previousSegmentId ? [...samples] : [];
+export function trackProgress(samples, progress, journeyKey, previousJourneyKey, at) {
+  if (!Number.isFinite(progress) || !journeyKey) return [];
+  // 換的是**整趟**才重來，不是換一條邊就重來。一趟 LIBRARY→ADMIN 橫跨三條邊，
+  // 以邊為單位的話每經過一站樣本就被清空，估算隨即消失、再從接近零的進度重新
+  // 累積 —— 於是最需要它的後半段反而最不準。
+  const carried = journeyKey === previousJourneyKey ? [...samples] : [];
   const latest = carried[carried.length - 1];
-  if (latest && latest.progress === position.progress) return carried;
-  return [...carried, { progress: position.progress, at }].slice(-40);
+  if (latest && latest.progress === progress) return carried;
+  return [...carried, { progress, at }].slice(-40);
 }
 
 /** @param {number} seconds */

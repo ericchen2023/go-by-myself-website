@@ -37,7 +37,7 @@ export function stepForStatus(status) {
 
 /**
  * @param {string} status
- * @param {{connectivity?: string, positionQuality?: string, commandState?: string, position?: {segmentId: string, progress: number}|null, etaSeconds?: number|null}} [overlay]
+ * @param {{connectivity?: string, positionQuality?: string, commandState?: string, position?: {segmentId: string, progress: number}|null, etaSeconds?: number|null, journeyProgress?: number|null}} [overlay]
  */
 export function deliveryStatusCopy(status, overlay = {}) {
   if (overlay.positionQuality === 'off_route' || overlay.positionQuality === 'invalid') {
@@ -83,12 +83,23 @@ export function deliveryStatusCopy(status, overlay = {}) {
         tone: 'info'
       };
     }
-    const travelled = Math.round(Math.max(0, Math.min(1, overlay.position.progress)) * 100);
+    // 進度用**整趟**的比例。以前用的是當前那一條示意邊的比例，於是一趟橫跨
+    // 三條邊的行程會在每個站點歸零 —— 畫面說「本段 100%」，車卻還要再走兩段。
+    const journey = typeof overlay.journeyProgress === 'number' ? overlay.journeyProgress : null;
+    const travelled = journey === null ? null : Math.round(Math.max(0, Math.min(1, journey)) * 100);
     const eta = typeof overlay.etaSeconds === 'number' ? describeRemaining(overlay.etaSeconds) : null;
     return {
       eyebrow: heading,
       title: '車輛行駛中',
-      detail: `本段已行進約 ${travelled}%。${eta ? eta + '（依觀察到的行進速度估算）。' : '抵達時間需要再觀察一段行進才能估算。'}抵達前請留在安全區域。`,
+      // 數字自己一個欄位，不要埋在句子裡 —— 那是這一頁最常被看的兩個值。
+      metrics: {
+        progressPercent: travelled,
+        progressLabel: `行程進度（至${destination}）`,
+        eta,
+        etaLabel: '預計抵達'
+      },
+      detail: eta ? '抵達時間依觀察到的行進速度估算，會隨路況調整。抵達前請留在安全區域。'
+                  : '抵達時間需要再觀察一段行進才能估算。抵達前請留在安全區域。',
       tone: 'info'
     };
   }

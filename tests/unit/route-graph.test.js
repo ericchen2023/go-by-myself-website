@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { assertRouteGraphIntegrity, DELIVERY_LOCATIONS, positionAlongRoute, ROUTE_EDGES, ROUTE_NODES, shortestRoute } from '../../src/map/route-graph.js';
-import { markerPointForPosition } from '../../src/map/map-view.js';
+import { assertRouteGraphIntegrity, DELIVERY_LOCATIONS, journeyToDraw, positionAlongRoute, ROUTE_EDGES, ROUTE_NODES, shortestRoute } from '../../src/map/route-graph.js';
+import { markerPointForPosition, progressAlongJourney } from '../../src/map/map-view.js';
 
 const nodeById = new Map(ROUTE_NODES.map((node) => [node.id, node]));
 const edgeById = new Map(ROUTE_EDGES.map((edge) => [edge.id, edge]));
@@ -81,5 +81,83 @@ describe('canonical route graph', () => {
     expect(edgeById.has(position.segmentId)).toBe(true);
     expect(Number.isFinite(point.x)).toBe(true);
     expect(Number.isFinite(point.y)).toBe(true);
+  });
+});
+
+describe('progress along a journey that crosses several edges', () => {
+  // 圖資中心 → 行政大樓 橫跨三條示意邊。使用者回報的兩個症狀都出在這裡：
+  // 車過了人社一館之後百分比重新開始，而預估時間倒數到的是下一站不是終點。
+  const journey = shortestRoute('LIBRARY', 'ADMIN');
+
+  it('never goes backwards when the vehicle crosses into the next edge', () => {
+    const before = progressAlongJourney(journey, { segmentId: journey[0].edgeId, progress: 0.999 });
+    const after = progressAlongJourney(journey, { segmentId: journey[1].edgeId, progress: 0.001 });
+
+    expect(before).not.toBeNull();
+    expect(after).not.toBeNull();
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+
+  it('runs from zero at the origin to one at the destination', () => {
+    const first = journey[0];
+    const last = journey[journey.length - 1];
+
+    expect(progressAlongJourney(journey, { segmentId: first.edgeId, progress: first.forward ? 0 : 1 }))
+      .toBeCloseTo(0, 5);
+    expect(progressAlongJourney(journey, { segmentId: last.edgeId, progress: last.forward ? 1 : 0 }))
+      .toBeCloseTo(1, 5);
+  });
+
+  it('reaches only a fraction of the journey at the end of the first edge', () => {
+    // 這正是「本段 100%」的來源：走完第一條邊，整趟還早得很。
+    const endOfFirst = progressAlongJourney(journey, {
+      segmentId: journey[0].edgeId, progress: journey[0].forward ? 1 : 0
+    });
+
+    expect(endOfFirst).toBeGreaterThan(0);
+    expect(endOfFirst).toBeLessThan(1);
+  });
+
+  it('says nothing when the vehicle is not on this journey at all', () => {
+    expect(progressAlongJourney(journey, { segmentId: 'edge-not-on-this-trip', progress: 0.5 })).toBeNull();
+    expect(progressAlongJourney(journey, null)).toBeNull();
+  });
+});
+
+describe('which journey the status map draws', () => {
+  it('draws the delivery route before a vehicle has been dispatched', () => {
+    // 派車前使用者要看的是「我的東西會走哪條路」。
+    const { parts, live } = journeyToDraw({ pickupCode: 'LIBRARY', dropoffCode: 'ADMIN' });
+
+    expect(live).toBe(false);
+    expect(parts.length).toBeGreaterThan(0);
+    expect(parts[0].fromNodeId).toBe('LIBRARY');
+    expect(parts[parts.length - 1].toNodeId).toBe('ADMIN');
+  });
+
+  it('never invents where the vehicle is coming from', () => {
+    // 回報的症狀：投遞是圖資中心 → 行政大樓，車也停在圖資中心，畫面卻highlight
+    // 了一條從人社一館過來的線。舊版在沒有派車時會退回一個寫死的出發點。
+    const { parts } = journeyToDraw({ pickupCode: 'LIBRARY', dropoffCode: 'ADMIN' });
+    const touched = new Set(parts.flatMap((part) => [part.fromNodeId, part.toNodeId]));
+
+    expect(parts[0].fromNodeId).not.toBe('HSS1');
+    expect([...touched].every((node) => ['LIBRARY', 'HSS2', 'HSS1', 'ADMIN'].includes(node))).toBe(true);
+  });
+
+  it('prefers the leg the vehicle is actually driving once there is one', () => {
+    const { parts, live } = journeyToDraw({
+      liveFromCode: 'ADMIN', liveToCode: 'LIBRARY',
+      pickupCode: 'LIBRARY', dropoffCode: 'ADMIN'
+    });
+
+    expect(live).toBe(true);
+    expect(parts[0].fromNodeId).toBe('ADMIN');
+    expect(parts[parts.length - 1].toNodeId).toBe('LIBRARY');
+  });
+
+  it('draws nothing rather than guessing when neither is known', () => {
+    expect(journeyToDraw({}).parts).toEqual([]);
+    expect(journeyToDraw({ pickupCode: 'LIBRARY' }).parts).toEqual([]);
   });
 });

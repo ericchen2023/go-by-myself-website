@@ -81,8 +81,41 @@ export function statusHero(state) {
   return el('section', { className: `status-hero status-hero--${copy.tone}`, 'aria-labelledby': 'status-title' },
     el('p', { className: 'eyebrow' }, copy.eyebrow),
     el('h1', { id: 'status-title' }, copy.title),
+    copy.metrics ? statusMetrics(copy.metrics) : null,
     el('p', { className: 'status-detail' }, copy.detail)
   );
+}
+
+/**
+ * 行程進度與預計抵達。
+ *
+ * 這兩個是這一頁最常被看的值，所以給它們自己的欄位與尺寸，而不是混在一段
+ * 敘述裡讓人用讀的把數字找出來。還沒有估算時就說「還在估算」—— 留白會讓人
+ * 以為畫面壞了，而編一個數字比留白更糟。
+ *
+ * @param {{progressPercent: number|null, progressLabel: string, eta: string|null, etaLabel: string}} metrics
+ */
+function statusMetrics(metrics) {
+  const wrapper = el('div', { className: 'status-metrics' });
+  if (metrics.progressPercent !== null) {
+    wrapper.append(el('div', { className: 'status-metric' },
+      el('span', { className: 'status-metric-label' }, metrics.progressLabel),
+      el('strong', { className: 'status-metric-value' }, `${metrics.progressPercent}%`),
+      el('div', {
+        className: 'status-metric-bar',
+        role: 'progressbar',
+        'aria-label': metrics.progressLabel,
+        'aria-valuenow': String(metrics.progressPercent),
+        'aria-valuemin': '0',
+        'aria-valuemax': '100'
+      }, el('span', { style: `width:${metrics.progressPercent}%` }))
+    ));
+  }
+  wrapper.append(el('div', { className: 'status-metric' },
+    el('span', { className: 'status-metric-label' }, metrics.etaLabel),
+    el('strong', { className: 'status-metric-value' }, metrics.eta ?? '估算中')
+  ));
+  return wrapper;
 }
 
 /** @param {string} label @param {string} value */
