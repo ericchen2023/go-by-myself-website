@@ -8,6 +8,10 @@ test('auth, project mark, station rules, and validation recovery are complete', 
   await expect(page.locator('img[src*="brand/"]')).toHaveCount(0);
   const pageText = (await page.locator('body').innerText()) + (await page.locator('meta[name="description"]').getAttribute('content'));
   expect(pageText).not.toMatch(/NDHU|東華|Dong\s*Hwa/i);
+  // 專案名稱首字大寫：Go by myself。
+  await expect(page.locator('.site-header .brand-copy strong')).toHaveText('Go by myself');
+  expect(pageText).not.toContain('go by myself');
+  await expect(page).toHaveTitle(/^Go by myself｜/);
 
   await page.getByRole('tab', { name: '註冊' }).click();
   await expect(page.getByRole('heading', { name: '第一次使用' })).toBeVisible();

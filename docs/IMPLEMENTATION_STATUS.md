@@ -6,7 +6,7 @@
 
 | Scope | Maturity | Evidence |
 |---|---|---|
-| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、demo/production-shaped 兩種 build、go by myself 專案標誌、responsive/a11y baseline；Step 2／3 首屏層級、四站路網、人社一館／二館短支線、行駛中路線優先、有限首頁動態與 reduced-motion 已完成桌機／390px／320px rendered review，console/page error 為 0；production shell regression test 保證不輸出 `null`，staging 不再宣稱 simulator |
+| Foundation / UI | IMPLEMENTED + LIVE QA VERIFIED | Vite/Vanilla JS、checked JS、demo/production-shaped 兩種 build、Go by myself 專案標誌、responsive/a11y baseline；Step 2／3 首屏層級、四站路網、人社一館／二館短支線、行駛中路線優先、有限首頁動態與 reduced-motion 已完成桌機／390px／320px rendered review，console/page error 為 0；production shell regression test 保證不輸出 `null`，staging 不再宣稱 simulator |
 | Canonical route | IMPLEMENTED | `contracts/route-graph.v5.json` 是單一資料來源；四站、version/checksum、edge 與 SVG geometry 由 CI 核對。v5 改用實測道路中心線（`routes_site/pass_spine.csv`）：四站沿單一走廊 LIBRARY–HSS2–HSS1–ADMIN，三條帶折線幾何的邊，每條示教路線對應一條邊。v4 的主幹＋分支拓撲會讓 LIBRARY→ADMIN 略過兩個人社站，車子被畫在沒走過的路段上 |
 | Exhibition demo | IMPLEMENTED + HOSTED | Zero-secret、fake clock、八步 sender/recipient、robot 離線仍可展示；Vercel `main` 保持 demo artifact |
 | Hosted staging control plane | HOSTED | Supabase `go-by-myself-staging`（project ref `aiuajbflpwdzkaeeocab`，Tokyo）已套用30個immutable migrations（2026-11-06補上第29、30筆），hosted pgTAP最近一次完整執行為93項（在第28–30筆之前）；v5 route active、4個visible stops、0個approved physical legs。repository同為30個migrations／131個pgTAP（RLS 28＋route integration 103） |

@@ -48,7 +48,7 @@ export function homeScreen(options) {
     el('section', { className: 'home-hero', 'aria-labelledby': 'home-title' },
       el('div', { className: 'hero-copy' },
         el('h1', { id: 'home-title' },
-          el('span', { className: 'hero-title-en' }, 'go by myself'),
+          el('span', { className: 'hero-title-en' }, 'Go by myself'),
           el('span', { className: 'hero-title-zh' }, '校園自走車投遞網站')
         ),
         el('p', { className: 'lead' }, '在四個校園站點之間寄送物品。從放件、沿線追蹤到取件，每一步都看得見。'),
